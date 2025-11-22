@@ -1,5 +1,4 @@
-// src/components/SourcesSettings.tsx
-import { ExternalLink, Eye, EyeOff } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +6,11 @@ import { Label } from "@/components/ui/label";
 import { DEFAULT_SOURCES } from "@/constants/sources";
 import { loadSources, saveSources as saveSourcesToBackend } from "@/lib/sources";
 import type { Source } from "@/types/sources";
-
-// Import Wails OpenURL function
 import { OpenURL } from "../../../wailsjs/go/main/App";
 
 interface SourceWithHidden extends Source {
 	hidden?: boolean;
+	isDefault?: boolean; // mark default sources
 }
 
 const SourcesSettings: React.FC = () => {
@@ -21,7 +19,11 @@ const SourcesSettings: React.FC = () => {
 	useEffect(() => {
 		async function init() {
 			const loadedSources = await loadSources();
-			setSources(loadedSources.length > 0 ? loadedSources : DEFAULT_SOURCES);
+			const combined = (loadedSources.length > 0 ? loadedSources : DEFAULT_SOURCES).map((s) => ({
+				...s,
+				isDefault: DEFAULT_SOURCES.some((d) => d.name === s.name && d.url === s.url),
+			}));
+			setSources(combined);
 		}
 		init();
 	}, []);
@@ -29,7 +31,14 @@ const SourcesSettings: React.FC = () => {
 	const saveSources = async (updated: SourceWithHidden[]) => {
 		setSources(updated);
 		try {
-			await saveSourcesToBackend(updated);
+			await saveSourcesToBackend(
+				updated.map((s) => ({
+					name: s.name,
+					url: s.url,
+					instructions: s.instructions,
+					apiLink: s.apiLink,
+				})),
+			);
 		} catch (err) {
 			console.error("Failed to save sources:", err);
 		}
@@ -42,13 +51,26 @@ const SourcesSettings: React.FC = () => {
 	};
 
 	const addSource = () => {
-		const newSource: SourceWithHidden = { name: "New Source", url: "" };
+		const newSource: SourceWithHidden = {
+			name: "New Source",
+			url: "",
+			instructions: "",
+			apiLink: "",
+			isDefault: false,
+		};
 		saveSources([...sources, newSource]);
 	};
 
 	const toggleHidden = (index: number) => {
 		const updated = [...sources];
 		updated[index].hidden = !updated[index].hidden;
+		saveSources(updated);
+	};
+
+	const deleteSource = (index: number) => {
+		const updated = [...sources];
+		if (updated[index].isDefault) return; // safeguard
+		updated.splice(index, 1);
 		saveSources(updated);
 	};
 
@@ -67,47 +89,83 @@ const SourcesSettings: React.FC = () => {
 					}`}
 				>
 					<div className="flex justify-between items-center gap-2">
-						<Label className="font-semibold text-lg">{source.name}</Label>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={() => toggleHidden(idx)}
-							className="p-1 hover:bg-muted rounded"
-							title={source.hidden ? "Unhide Source" : "Hide Source"}
-						>
-							{source.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
-						</Button>
+						<Label className="font-semibold text-lg">{source.name || "Unnamed Source"}</Label>
+						<div className="flex gap-1">
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => toggleHidden(idx)}
+								className="p-1 hover:bg-muted rounded"
+								title={source.hidden ? "Unhide Source" : "Hide Source"}
+							>
+								{source.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+							</Button>
+							{!source.isDefault && (
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => deleteSource(idx)}
+									className="p-1 hover:bg-red-100 text-red-600 rounded"
+									title="Delete Source"
+								>
+									<Trash2 size={16} />
+								</Button>
+							)}
+						</div>
 					</div>
 
+					{/* Name */}
+					<div className="flex flex-col gap-1">
+						<Label className="text-sm">Name</Label>
+						<Input
+							placeholder="Source Name"
+							value={source.name}
+							onChange={(e) => updateSource(idx, "name", e.target.value)}
+							disabled={source.hidden}
+						/>
+					</div>
+
+					{/* URL */}
 					<div className="flex flex-col gap-1">
 						<Label className="text-sm">URL (RSS/API)</Label>
 						<Input
 							placeholder="Source URL"
 							value={source.url}
 							onChange={(e) => updateSource(idx, "url", e.target.value)}
-							className="w-full"
 							disabled={source.hidden}
 						/>
 					</div>
 
-					{source.instructions && (
-						<span className="text-xs text-muted-foreground">{source.instructions}</span>
-					)}
+					{/* Instructions */}
+					<div className="flex flex-col gap-1">
+						<Label className="text-sm">Instructions (optional)</Label>
+						<Input
+							placeholder="Instructions"
+							value={source.instructions || ""}
+							onChange={(e) => updateSource(idx, "instructions", e.target.value)}
+							disabled={source.hidden}
+						/>
+					</div>
 
-					{source.apiLink && (
-						<div className="relative inline-block group">
+					{/* API Docs */}
+					<div className="flex flex-col gap-1 relative inline-block group">
+						<Label className="text-sm">API Documentation Link (optional)</Label>
+						<Input
+							placeholder="API Link"
+							value={source.apiLink || ""}
+							onChange={(e) => updateSource(idx, "apiLink", e.target.value)}
+							disabled={source.hidden}
+						/>
+						{source.apiLink && (
 							<Button
 								variant="link"
-								className="text-xs text-accent underline flex items-center gap-1 z-20 relative p-0"
+								className="text-xs text-accent underline flex items-center gap-1 z-20 relative p-0 mt-1"
 								onClick={() => handleOpenURL(source.apiLink!)}
 							>
-								API Docs <ExternalLink size={12} />
+								Open API Docs <ExternalLink size={12} />
 							</Button>
-							<div className="absolute left-0 top-full mt-1 opacity-0 group-hover:opacity-100 transition-opacity bg-muted rounded shadow-md px-2 py-1 text-xs whitespace-nowrap z-10 pointer-events-none">
-								{source.apiLink}
-							</div>
-						</div>
-					)}
+						)}
+					</div>
 				</div>
 			))}
 

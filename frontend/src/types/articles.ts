@@ -13,12 +13,15 @@ export const ArticleSchema = z.object({
 	antithesis: z.string().optional(),
 	philosophical: z.string().optional(),
 	source: z.string().optional(),
-	category: z.string().optional(), // optional, backwards compatible
+	category: z.string().optional(),
 	author: z.string().optional(),
 	publishedAt: z.string().optional(),
 	tags: z.array(z.string()).optional(),
 	sentiment: z.string().optional(),
-	edition: z.enum(editions).optional(), // new edition field for filtering
+	edition: z.enum(editions).optional(),
+	analyzed: z.boolean().optional(), // flag to indicate analysis completed
+	ipfsHash: z.string().optional(), // IPFS hash of full content
+	analysisTimestamp: z.string().optional(), // when analysis was performed
 });
 
 // TypeScript type inferred from Zod
