@@ -2,10 +2,15 @@ package main
 
 import (
 	"embed"
+	"log"
+	"runtime"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -13,6 +18,46 @@ var assets embed.FS
 
 func main() {
 	app := NewApp()
+
+	AppMenu := menu.NewMenu()
+
+	if runtime.GOOS == "darwin" {
+		// macOS native app menu
+		appMenu := menu.AppMenu() // Includes app name, Quit, Hide, etc.
+
+		// Inject Settings into the AppMenu
+		settingsItem := menu.Text("Settings", keys.CmdOrCtrl("S"), func(_ *menu.CallbackData) {
+			app.OpenSettings()
+		})
+		appMenu.SubMenu = &menu.Menu{Items: []*menu.MenuItem{settingsItem}}
+
+		AppMenu.Append(appMenu)
+
+		// Standard Edit menu for copy/paste/undo
+		AppMenu.Append(menu.EditMenu())
+
+		// Help menu
+		helpMenu := AppMenu.AddSubmenu("Help")
+		helpMenu.AddText("About", nil, func(_ *menu.CallbackData) {
+			app.OpenAbout() // Opens system dialog
+		})
+	} else {
+		// Windows/Linux: custom top-level Nous menu
+		nousMenu := AppMenu.AddSubmenu("Nous")
+		nousMenu.AddText("Settings", keys.CmdOrCtrl("S"), func(_ *menu.CallbackData) {
+			app.OpenSettings()
+		})
+		nousMenu.AddSeparator()
+		nousMenu.AddText("Quit", keys.CmdOrCtrl("Q"), func(_ *menu.CallbackData) {
+			wailsruntime.Quit(app.ctx)
+		})
+
+		// Help menu
+		helpMenu := AppMenu.AddSubmenu("Help")
+		helpMenu.AddText("About", nil, func(_ *menu.CallbackData) {
+			app.OpenAbout() // Opens system dialog
+		})
+	}
 
 	err := wails.Run(&options.App{
 		Title:  "Nous - P2P News Analysis",
@@ -25,8 +70,9 @@ func main() {
 
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 
-		// Wails lifecycle callback (must be exported)
 		OnStartup: app.Startup,
+
+		Menu: AppMenu,
 
 		Bind: []interface{}{
 			app,
@@ -34,6 +80,6 @@ func main() {
 	})
 
 	if err != nil {
-		println("Error:", err.Error())
+		log.Fatal("Error starting app:", err)
 	}
 }

@@ -1,1 +1,103 @@
 @import "tailwindcss";
+
+/* Custom dark variant */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ----------------------- */
+/*      Theme Colors       */
+/* ----------------------- */
+:root {
+  --background: #ffffff; /* light mode bg */
+  --foreground: #2c2f65; /* dark blue text */
+  --card: #ffffff;
+  --card-foreground: #2c2f65;
+  --primary: #009d91;
+  --primary-foreground: #ffffff;
+  --accent: #ff902a;
+  --accent-foreground: #ffffff;
+  --radius: 0.625rem;
+
+  --filter-inactive: #e5e7eb; /* light gray */
+  --filter-inactive-foreground: #2c2f65;
+}
+
+.dark {
+  --background: #2c2f65;
+  --foreground: #ffffff;
+  --card: #2c2f65;
+  --card-foreground: #ffffff;
+  --primary: #009d91;
+  --primary-foreground: #ffffff;
+  --accent: #ff902a;
+  --accent-foreground: #ffffff;
+
+  --filter-inactive: #3a3f7c; /* darker gray/blue */
+  --filter-inactive-foreground: #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-filter-inactive: var(--filter-inactive); /* darker gray/blue */
+  --color-filter-inactive-foreground: var(--filter-inactive-foreground);
+}
+
+/* ----------------------- */
+/* Base styles             */
+/* ----------------------- */
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: "Nunito", sans-serif;
+}
+
+.card {
+  background-color: var(--color-card);
+  color: var(--color-card-foreground);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
+.btn-accent {
+  background-color: var(--color-accent);
+  color: var(--color-accent-foreground);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
+/* Filter button styles */
+.btn-filter {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  border-width: 1px;
+  font-weight: 600;
+}
+
+.btn-filter-active {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-color: var(--color-primary);
+}
+
+.btn-filter-inactive {
+  background-color: var(--color-filter-inactive);
+  color: var(--color-filter-inactive-foreground);
+  border-color: var(--color-filter-inactive);
+}

@@ -14,8 +14,12 @@ export function GetLocation() {
   return window['go']['main']['App']['GetLocation']();
 }
 
-export function Greet(arg1) {
-  return window['go']['main']['App']['Greet'](arg1);
+export function OpenAbout() {
+  return window['go']['main']['App']['OpenAbout']();
+}
+
+export function OpenSettings() {
+  return window['go']['main']['App']['OpenSettings']();
 }
 
 export function SaveArticle(arg1, arg2, arg3) {
