@@ -12,19 +12,22 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
 	app := NewApp()
 
-	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "nous-app",
+		Title:  "Nous - P2P News Analysis",
 		Width:  1024,
 		Height: 768,
+
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
+
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
+
+		// Wails lifecycle callback (must be exported)
+		OnStartup: app.Startup,
+
 		Bind: []interface{}{
 			app,
 		},
