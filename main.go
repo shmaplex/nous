@@ -25,11 +25,17 @@ func main() {
 		// macOS native app menu
 		appMenu := menu.AppMenu() // Includes app name, Quit, Hide, etc.
 
-		// Inject Settings into the AppMenu
-		settingsItem := menu.Text("Settings", keys.CmdOrCtrl("S"), func(_ *menu.CallbackData) {
+		// Inject Settings into the AppMenu with Command+;
+		settingsItem := menu.Text("Settings", keys.CmdOrCtrl(";"), func(_ *menu.CallbackData) {
 			app.OpenSettings()
 		})
 		appMenu.SubMenu = &menu.Menu{Items: []*menu.MenuItem{settingsItem}}
+
+		// Optionally add Quit explicitly (Cmd+Q is usually automatic)
+		quitItem := menu.Text("Quit", keys.CmdOrCtrl("Q"), func(_ *menu.CallbackData) {
+			wailsruntime.Quit(app.ctx)
+		})
+		appMenu.SubMenu.Items = append(appMenu.SubMenu.Items, quitItem)
 
 		AppMenu.Append(appMenu)
 
@@ -45,12 +51,12 @@ func main() {
 		// Help menu
 		helpMenu := AppMenu.AddSubmenu("Help")
 		helpMenu.AddText("About", nil, func(_ *menu.CallbackData) {
-			app.OpenAbout() // Opens system dialog
+			app.OpenAbout()
 		})
 	} else {
 		// Windows/Linux: custom top-level Nous menu
 		nousMenu := AppMenu.AddSubmenu("Nous")
-		nousMenu.AddText("Settings", keys.CmdOrCtrl("S"), func(_ *menu.CallbackData) {
+		nousMenu.AddText("Settings", keys.CmdOrCtrl(";"), func(_ *menu.CallbackData) {
 			app.OpenSettings()
 		})
 		nousMenu.AddSeparator()
@@ -61,7 +67,7 @@ func main() {
 		// Help menu
 		helpMenu := AppMenu.AddSubmenu("Help")
 		helpMenu.AddText("About", nil, func(_ *menu.CallbackData) {
-			app.OpenAbout() // Opens system dialog
+			app.OpenAbout()
 		})
 	}
 

@@ -18,12 +18,12 @@ export const TimeDisplay: React.FC<TimeDisplayProps> = ({ className }) => {
 	return (
 		<div
 			className={cn(
-				"flex items-center space-x-2 px-3 py-2 rounded-lg border border-border bg-card text-card-foreground",
+				"flex items-center space-x-2 px-3 py-2 rounded-lg bg-card text-card-foreground",
 				className,
 			)}
 		>
 			<Clock className="w-4 h-4 text-primary" />
-			<time dateTime={currentTime.toISOString()} className="text-sm font-medium">
+			<time dateTime={currentTime.toISOString()} className="font-medium">
 				{currentTime.toLocaleString(undefined, {
 					weekday: "short",
 					month: "short",

@@ -13,7 +13,9 @@ import AddArticleModal from "./components/add-article-modal";
 import ArticlesGrid from "./components/articles-grid";
 import Filters from "./components/filters";
 import Header from "./components/header";
+import HeaderTop from "./components/header-top";
 import SettingsPanel from "./components/settings-panel";
+import StatusBar from "./components/status-bar";
 import { ThemeProvider } from "./context/ThemeContext";
 import type { Article } from "./types";
 
@@ -75,23 +77,26 @@ const App: React.FC = () => {
 
 	return (
 		<ThemeProvider>
-			<div className="min-h-screen p-6 bg-background text-foreground space-y-8 max-w-[1600px] mx-auto">
-				<SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
-				<AddArticleModal
-					isOpen={addArticleOpen}
-					onClose={() => setAddArticleOpen(false)}
-					onSave={handleSaveArticle}
-				/>
+			<div className="min-h-screen flex flex-col bg-background text-foreground">
+				{/* Top bar with time + location selector */}
+				<HeaderTop selectedLocation={location} onLocationChange={setLocationState} />
+				<div className="flex-1 p-6 space-y-8 max-w-[1600px] mx-auto overflow-auto">
+					<SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+					<AddArticleModal
+						isOpen={addArticleOpen}
+						onClose={() => setAddArticleOpen(false)}
+						onSave={handleSaveArticle}
+					/>
 
-				<Header
-					location={location}
-					onLocationChange={setLocationState}
-					onUpdateLocation={handleUpdateLocation}
-				/>
+					<Header location={location} />
 
-				<Filters filter={filter} onChange={setFilter} />
+					<Filters filter={filter} onChange={setFilter} />
 
-				<ArticlesGrid articles={displayArticles} onArchive={handleDeleteArticle} />
+					<ArticlesGrid articles={displayArticles} onArchive={handleDeleteArticle} />
+				</div>
+
+				{/* Status bar fixed at bottom */}
+				<StatusBar />
 			</div>
 		</ThemeProvider>
 	);

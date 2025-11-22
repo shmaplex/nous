@@ -5,6 +5,14 @@ import { defineConfig } from "vite";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+	server: {
+		host: "localhost",
+		hmr: {
+			host: "localhost",
+			protocol: "ws",
+		},
+		port: 5173,
+	},
 	plugins: [tailwindcss(), react()],
 	resolve: {
 		alias: {

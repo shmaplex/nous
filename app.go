@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -69,13 +70,33 @@ func (a *App) StartP2PNode() string {
 		return "P2P node already running"
 	}
 
-	a.p2pCmd = exec.Command("node", "p2p-node.js")
-	a.p2pCmd.Stdout = nil
-	a.p2pCmd.Stderr = nil
+	a.p2pCmd = exec.Command("node", "frontend/src/p2p/node.ts")
+
+	// Capture stdout to detect READY signal
+	stdout, _ := a.p2pCmd.StdoutPipe()
+	stderr, _ := a.p2pCmd.StderrPipe()
 
 	if err := a.p2pCmd.Start(); err != nil {
 		return fmt.Sprintf("Failed to start P2P node: %v", err)
 	}
+
+	go func() {
+		buf := make([]byte, 1024)
+		for {
+			n, _ := stdout.Read(buf)
+			if n > 0 {
+				out := string(buf[:n])
+				if out == "READY\n" || strings.Contains(out, "READY") {
+					log.Println("P2P node is ready")
+				}
+			}
+		}
+	}()
+
+	go func() {
+		io.Copy(os.Stderr, stderr)
+	}()
+
 	return "P2P node started"
 }
 
@@ -238,4 +259,12 @@ func (a *App) OpenURL(url string) error {
 	}
 
 	return cmd.Start()
+}
+
+func (a *App) AppStatus() string {
+	body, err := get("http://127.0.0.1:9001/status")
+	if err != nil {
+		return fmt.Sprintf("Error fetching status: %v", err)
+	}
+	return body
 }

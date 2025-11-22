@@ -43,8 +43,8 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
 			<DropdownMenuTrigger
 				className={`flex items-center gap-2 px-3 py-1 rounded border border-border hover:bg-primary/10 ${className || ""}`}
 			>
-				<span className="text-lg">{currentEdition?.flag}</span>
-				<span className="text-sm">{currentEdition?.label}</span>
+				<span className="text-xs">{currentEdition?.flag}</span>
+				{/* <span className="text-xs">{currentEdition?.label}</span> */}
 			</DropdownMenuTrigger>
 
 			<DropdownMenuContent
@@ -59,7 +59,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
 							e.value === edition ? "font-semibold text-foreground" : "font-normal text-foreground"
 						}
 					>
-						<span className="text-lg">{e.flag}</span> {e.label}
+						<span className="text-base">{e.flag}</span> {e.label}
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>

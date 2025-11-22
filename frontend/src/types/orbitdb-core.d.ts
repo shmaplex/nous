@@ -299,7 +299,7 @@ declare module "@orbitdb/core" {
     }
   >;
 
-  export function Identities<T extends ServiceMap = ServiceMap>(args: {
+  export function Identities<T extends ServiceMap = ServiceMap>(args?: {
     keystore?: KeyStoreType;
     path?: string;
     storage?: Storage;
