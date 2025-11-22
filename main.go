@@ -33,6 +33,12 @@ func main() {
 
 		AppMenu.Append(appMenu)
 
+		// Add → Article menu item
+		addMenu := AppMenu.AddSubmenu("Add")
+		addMenu.AddText("Article", keys.CmdOrCtrl("N"), func(_ *menu.CallbackData) {
+			wailsruntime.EventsEmit(app.ctx, "open-add-article")
+		})
+
 		// Standard Edit menu for copy/paste/undo
 		AppMenu.Append(menu.EditMenu())
 

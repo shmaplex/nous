@@ -8,7 +8,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
+	"runtime"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -28,6 +30,13 @@ type Article struct {
 	PublishedAt   *string  `json:"publishedAt,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	Sentiment     *string  `json:"sentiment,omitempty"`
+}
+
+type Source struct {
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	Instructions string `json:"instructions,omitempty"`
+	APILink      string `json:"apiLink,omitempty"`
 }
 
 type App struct {
@@ -132,13 +141,17 @@ func (a *App) FetchArticles() string {
 	return body
 }
 
-// SaveArticle saves a new article
-func (a *App) SaveArticle(title, url, content string) string {
+// SaveArticle saves a new article, optionally with an edition
+func (a *App) SaveArticle(title, url, content, edition string) string {
 	data := map[string]string{
 		"title":   title,
 		"url":     url,
 		"content": content,
 	}
+	if edition != "" {
+		data["edition"] = edition
+	}
+
 	body, err := post("http://127.0.0.1:9001/save", data)
 	if err != nil {
 		return fmt.Sprintf("Error saving article: %v", err)
@@ -165,7 +178,7 @@ func (a *App) SetLocation(loc string) string {
 // GetLocation retrieves current location
 func (a *App) GetLocation() string {
 	if a.Location == "" {
-		return "No location set"
+		return ""
 	}
 	return a.Location
 }
@@ -182,4 +195,47 @@ func (a *App) OpenAbout() {
 		Title:   "About Nous",
 		Message: "Nous - P2P News Analysis\nVersion 1.0.0\n\n© 2025 Shmaplex\n\nLicense: CSL\nhttps://github.com/shmaplex/csl",
 	})
+}
+
+// SaveSources persists sources locally (e.g., JSON file)
+func (a *App) SaveSources(sources []Source) error {
+	data, err := json.Marshal(sources)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile("sources.json", data, 0644)
+}
+
+// LoadSources loads sources from local file
+func (a *App) LoadSources() ([]Source, error) {
+	data, err := os.ReadFile("sources.json")
+	if err != nil {
+		// return nil if file doesn't exist
+		return nil, nil
+	}
+	var sources []Source
+	if err := json.Unmarshal(data, &sources); err != nil {
+		return nil, err
+	}
+	return sources, nil
+}
+
+func (a *App) OpenURL(url string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "darwin":
+		// macOS
+		cmd = exec.Command("open", url)
+	case "linux":
+		// Linux
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		// Windows
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		return fmt.Errorf("unsupported platform")
+	}
+
+	return cmd.Start()
 }

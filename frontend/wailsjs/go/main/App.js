@@ -14,12 +14,28 @@ export function GetLocation() {
   return window['go']['main']['App']['GetLocation']();
 }
 
-export function Greet(arg1) {
-  return window['go']['main']['App']['Greet'](arg1);
+export function LoadSources() {
+  return window['go']['main']['App']['LoadSources']();
 }
 
-export function SaveArticle(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveArticle'](arg1, arg2, arg3);
+export function OpenAbout() {
+  return window['go']['main']['App']['OpenAbout']();
+}
+
+export function OpenSettings() {
+  return window['go']['main']['App']['OpenSettings']();
+}
+
+export function OpenURL(arg1) {
+  return window['go']['main']['App']['OpenURL'](arg1);
+}
+
+export function SaveArticle(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveArticle'](arg1, arg2, arg3, arg4);
+}
+
+export function SaveSources(arg1) {
+  return window['go']['main']['App']['SaveSources'](arg1);
 }
 
 export function SetLocation(arg1) {

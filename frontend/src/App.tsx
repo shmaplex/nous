@@ -1,114 +1,100 @@
-import React, { useState, useEffect } from "react";
-import Header from "./components/Header";
-import Filters from "./components/Filters";
-import ArticlesGrid from "./components/ArticlesGrid";
-import AddArticleForm from "./components/AddArticleForm";
-import SettingsPanel from "./components/SettingsPanel";
-import { ThemeProvider } from "./context/ThemeContext";
-import { Article } from "./types";
+import { useEffect, useState } from "react";
+import { PLACEHOLDER_ARTICLES as DEFAULT_ARTICLES } from "@/constants/articles";
 import {
-  FetchArticles,
-  SaveArticle,
-  SetLocation,
-  GetLocation,
-  DeleteArticle,
-} from "../wailsjs/go/main/App";
-
-import { EventsOn } from "../wailsjs/runtime/runtime"; // import Wails runtime event listener
+	deleteArticle,
+	filterArticles,
+	getLocation,
+	loadArticlesFromBackend,
+	saveArticle,
+	setLocation,
+} from "@/lib/articles";
+import { EventsOff, EventsOn } from "../wailsjs/runtime";
+import AddArticleModal from "./components/add-article-modal";
+import ArticlesGrid from "./components/articles-grid";
+import Filters from "./components/filters";
+import Header from "./components/header";
+import SettingsPanel from "./components/settings-panel";
+import { ThemeProvider } from "./context/ThemeContext";
+import type { Article } from "./types";
 
 const App: React.FC = () => {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [filter, setFilter] = useState("all");
-  const [location, setLocation] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
+	const [articles, setArticles] = useState<Article[]>([]);
+	const [filter, setFilter] = useState("all");
+	const [location, setLocationState] = useState("international");
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [addArticleOpen, setAddArticleOpen] = useState(false);
 
-  // Initial fetch
-  useEffect(() => {
-    async function init() {
-      const loc = await GetLocation();
-      if (loc) setLocation(loc);
-      loadArticles();
-    }
-    init();
+	useEffect(() => {
+		async function init() {
+			const loc = await getLocation();
+			if (loc) setLocationState(loc);
 
-    // Subscribe to Wails event to open settings
-    EventsOn("open-settings", () => {
-      setSettingsOpen(true);
-    });
+			const backendArticles = await loadArticlesFromBackend();
+			setArticles(backendArticles);
+		}
+		init();
+	}, []);
 
-  }, []);
+	useEffect(() => {
+		const handleOpenSettings = () => setSettingsOpen(true);
 
-  const loadArticles = async () => {
-    try {
-      const result = await FetchArticles();
-      if (!result) {
-        setArticles([]);
-        return;
-      }
-      const parsed: Article[] = JSON.parse(result);
-      setArticles(parsed);
-    } catch (err) {
-      console.error("Failed to load articles:", err);
-    }
-  };
+		EventsOn("open-settings", handleOpenSettings);
 
-  const handleSaveArticle = async (title: string, url: string, content: string) => {
-    try {
-      await SaveArticle(title, url, content);
-      loadArticles();
-    } catch (err) {
-      console.error("Failed to save article:", err);
-    }
-  };
+		return () => {
+			EventsOff("open-settings", handleOpenSettings as any);
+		};
+	}, []);
 
-  const handleDeleteArticle = async (id: string) => {
-    try {
-      await DeleteArticle(id);
-      loadArticles();
-    } catch (err) {
-      console.error("Failed to delete article:", err);
-    }
-  };
+	const handleSaveArticle = async (
+		title: string,
+		url: string,
+		content: string,
+		edition?: string,
+	) => {
+		const success = await saveArticle(title, url, content, edition);
+		if (success) setArticles(await loadArticlesFromBackend());
+		setAddArticleOpen(false);
+	};
 
-  const handleUpdateLocation = async () => {
-    try {
-      await SetLocation(location);
-    } catch (err) {
-      console.error("Failed to update location:", err);
-    }
-  };
+	const handleDeleteArticle = async (id: string) => {
+		const success = await deleteArticle(id);
+		if (success) setArticles(await loadArticlesFromBackend());
+	};
 
-  const filteredArticles = articles.filter(
-    (a) => filter === "all" || a.bias === filter
-  );
+	const handleUpdateLocation = async () => {
+		await setLocation(location);
+	};
 
-  return (
-    <ThemeProvider>
-      <div
-        className="min-h-screen p-4"
-        style={{
-          backgroundColor: "var(--color-background)",
-          color: "var(--color-foreground)",
-        }}
-      >
-        {/* Settings panel overlay */}
-        <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+	// Merge backend articles with defaults, then filter
+	const baseArticles = [...DEFAULT_ARTICLES, ...articles];
+	const displayArticles = filterArticles(
+		baseArticles,
+		filter as "left" | "center" | "right" | "all",
+		location,
+	);
 
-        {/* Main components */}
-        <Header
-          location={location}
-          onLocationChange={setLocation}
-          onUpdateLocation={handleUpdateLocation}
-        />
+	return (
+		<ThemeProvider>
+			<div className="min-h-screen p-6 bg-background text-foreground space-y-8 max-w-[1600px] mx-auto">
+				<SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+				<AddArticleModal
+					isOpen={addArticleOpen}
+					onClose={() => setAddArticleOpen(false)}
+					onSave={handleSaveArticle}
+				/>
 
-        <Filters filter={filter} onChange={setFilter} />
+				<Header
+					location={location}
+					onLocationChange={setLocationState}
+					onUpdateLocation={handleUpdateLocation}
+				/>
 
-        <AddArticleForm onSave={handleSaveArticle} />
+				<Filters filter={filter} onChange={setFilter} />
 
-        <ArticlesGrid articles={filteredArticles} onDelete={handleDeleteArticle} />
-      </div>
-    </ThemeProvider>
-  );
+				<ArticlesGrid articles={displayArticles} onArchive={handleDeleteArticle} />
+			</div>
+		</ThemeProvider>
+	);
 };
 
 export default App;

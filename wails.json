@@ -8,7 +8,7 @@
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "viteServerTimeout": 10,
-  "wailsjsdir": "frontend/wailsjs",
+  "wailsjsdir": "frontend",
   "debounceMS": 100,
   "author": {
     "name": "Shmaplex",
