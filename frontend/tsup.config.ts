@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-	entry: ["src/p2p/node.ts"],
+	entry: ["src/p2p/setup.ts"],
 	outDir: "dist/p2p",
 	format: ["esm"], // --format esm
 	target: "node22", // --target node22

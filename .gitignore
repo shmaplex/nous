@@ -25,6 +25,7 @@ orbitdb/
 orbitdb-keystore/
 orbitdb*/
 orbitdb-keystore*/
+helia-repo/
 data/
 !frontend/src/orbitdb
 

@@ -61,7 +61,7 @@ var keystorePath string = ORBITDB_KEYSTORE_PATH
 var dbPath string = ORBITDB_DB_PATH
 
 func KillLingeringNode() {
-	scriptPath := "frontend/src/p2p/node.ts"
+	scriptPath := "frontend/src/p2p/setup.ts"
 
 	switch runtime.GOOS {
 	case "windows":
@@ -190,7 +190,7 @@ func (a *App) StartP2PNode() string {
 	}
 
 	// Path to the compiled P2P script
-	jsNodePath := "./frontend/dist/p2p/node.js"
+	jsNodePath := "./frontend/dist/p2p/setup.js"
 	if _, err := os.Stat(jsNodePath); os.IsNotExist(err) {
 		return fmt.Sprintf("Compiled P2P node not found at %s. Run build first.", jsNodePath)
 	}
