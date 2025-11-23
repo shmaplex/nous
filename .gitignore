@@ -26,6 +26,7 @@ orbitdb-keystore/
 orbitdb*/
 orbitdb-keystore*/
 data/
+!frontend/src/orbitdb
 
 # ---------------------------
 # OS / IDE / Temp
