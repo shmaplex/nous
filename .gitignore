@@ -1,4 +1,54 @@
-build/bin
-node_modules
-frontend/dist
-  
+# ---------------------------
+# Node / Frontend
+# ---------------------------
+node_modules/
+frontend/dist/
+frontend/package-lock.json
+frontend/package.json.md5
+
+# ---------------------------
+# Build output
+# ---------------------------
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+*.app
+bin/
+.node-cache
+
+# ---------------------------
+# OrbitDB / Helia
+# ---------------------------
+orbitdb/
+orbitdb-keystore/
+orbitdb*/
+orbitdb-keystore*/
+data/
+
+# ---------------------------
+# OS / IDE / Temp
+# ---------------------------
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+.vscode/
+.idea/
+*.bak
+*.tsbuildinfo
+
+# ---------------------------
+# Go specific
+# ---------------------------
+*.test
+*.out
+
+# ---------------------------
+# Misc
+# ---------------------------
+.env
+.env.local

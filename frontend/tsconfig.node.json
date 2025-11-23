@@ -1,9 +1,18 @@
 {
   "compilerOptions": {
+    "target": "ES2020",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "composite": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "allowSyntheticDefaultImports": true
+    "skipLibCheck": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "./dist/p2p",
+    "rootDir": "./src/p2p",
+    "declaration": true,
+    "declarationMap": true,
+    "noEmit": false
   },
-  "include": ["vite.config.ts"]
+  "include": ["./src/p2p/**/*.ts", "./src/types/**/*.d.ts"]
 }

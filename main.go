@@ -75,20 +75,17 @@ func main() {
 		Title:  "Nous - P2P News Analysis",
 		Width:  1024,
 		Height: 768,
-
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-
-		OnStartup: app.Startup,
-
+		OnStartup:        app.Startup,
+		OnBeforeClose:    app.BeforeClose, // cleanup before closing window
+		// OnShutdown: func(ctx context.Context) {
+		// 	app.StopP2PNode()
+		// },
 		Menu: AppMenu,
-
-		Bind: []interface{}{
-			app,
-		},
+		Bind: []interface{}{app},
 	})
 
 	if err != nil {

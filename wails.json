@@ -37,7 +37,6 @@
       "outputType": "classes"
     }
   },
-  "preBuildHooks": {},
   "postBuildHooks": {},
   "protocols": [],
   "fileAssociations": [],
