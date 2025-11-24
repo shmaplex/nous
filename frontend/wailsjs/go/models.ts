@@ -7,12 +7,16 @@ export namespace main {
 	    instructions?: string;
 	    apiLink?: string;
 	    enabled?: boolean;
-	    requiresKey?: boolean;
+	    requiresApiKey?: boolean;
 	    category?: string;
 	    tags?: string[];
 	    language?: string;
 	    region?: string;
 	    authType?: string;
+	    rateLimitPerMinute?: number;
+	    headers?: Record<string, string>;
+	    lastUpdated?: string;
+	    pinned?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Source(source);
@@ -26,12 +30,16 @@ export namespace main {
 	        this.instructions = source["instructions"];
 	        this.apiLink = source["apiLink"];
 	        this.enabled = source["enabled"];
-	        this.requiresKey = source["requiresKey"];
+	        this.requiresApiKey = source["requiresApiKey"];
 	        this.category = source["category"];
 	        this.tags = source["tags"];
 	        this.language = source["language"];
 	        this.region = source["region"];
 	        this.authType = source["authType"];
+	        this.rateLimitPerMinute = source["rateLimitPerMinute"];
+	        this.headers = source["headers"];
+	        this.lastUpdated = source["lastUpdated"];
+	        this.pinned = source["pinned"];
 	    }
 	}
 

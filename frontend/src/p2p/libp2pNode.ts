@@ -5,7 +5,7 @@ import { webRTC } from "@libp2p/webrtc";
 import { webTransport } from "@libp2p/webtransport";
 import { type Multiaddr, multiaddr } from "@multiformats/multiaddr";
 import { createLibp2p, type Libp2p } from "libp2p";
-import { log } from "../lib/utils";
+import { addDebugLog, log } from "@/lib/log";
 
 /**
  * Initializes a Libp2p node with common transports, relays, and PubSub logging.
@@ -35,21 +35,45 @@ export async function createLibp2pNode(
 	// Log listening addresses (forEach callback should not return a value)
 	libp2p.getMultiaddrs().forEach((addr: Multiaddr) => {
 		log(`🚦 Listening on: ${addr.toString()}`);
+		addDebugLog({
+			message: `🚦 Listening on: ${addr.toString()}`,
+			level: "info",
+			meta: { address: addr.toString() },
+			type: "p2p",
+		});
 	});
 
 	// Connect to relays
 	for (const addr of relayAddresses) {
 		try {
 			await libp2p.dial(multiaddr(addr));
-			log(`Connected to relay ${addr}`);
+			log(`Connected to relay ${addr.toString()}`);
+			addDebugLog({
+				message: `Connected to relay ${addr.toString()}`,
+				level: "info",
+				meta: { address: addr.toString() },
+				type: "p2p",
+			});
 		} catch (err) {
 			log(`Failed to connect to relay ${addr}: ${(err as Error).message}`);
+			addDebugLog({
+				message: `Failed to connect to relay ${addr}: ${(err as Error).message}`,
+				level: "info",
+				meta: { address: addr.toString(), error: (err as Error).message },
+				type: "p2p",
+			});
 		}
 	}
 
 	// PubSub logging
 	(libp2p.services.pubsub as any).addEventListener("message", (evt: any) => {
 		log(`PubSub message received: ${JSON.stringify(evt.detail)}`);
+		addDebugLog({
+			message: `PubSub message received: ${JSON.stringify(evt.detail)}`,
+			level: "info",
+			meta: { event: JSON.stringify(evt.detail) },
+			type: "p2p",
+		});
 	});
 
 	return libp2p;

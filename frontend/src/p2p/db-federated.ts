@@ -6,8 +6,8 @@
  * Provides helper functions for saving, retrieving, and querying federated article pointers.
  */
 
-import { log, updateStatus } from "../lib/utils";
-import type { FederatedArticlePointer, NodeStatus } from "../types";
+import { addDebugLog, log, updateStatus } from "@/lib/log";
+import type { FederatedArticlePointer, NodeStatus } from "@/types";
 
 // --- In-memory placeholder for federated pointers ---
 const federatedDB: FederatedArticlePointer[] = [];
@@ -19,11 +19,23 @@ const federatedDB: FederatedArticlePointer[] = [];
  * @param status - Node status object for syncing updates
  * @returns Helper functions and DB instance
  */
-export function setupFederatedDB(status: NodeStatus) {
+export async function setupFederatedDB(status: NodeStatus) {
 	// --- Optional logging ---
-	function logUpdate(entry: FederatedArticlePointer) {
+	async function logUpdate(entry: FederatedArticlePointer) {
 		log(`🔄 Federated pointer updated: ${JSON.stringify(entry)}`);
 		log(`📦 Total federated pointers: ${federatedDB.length}`);
+		await addDebugLog({
+			message: `🔄 Federated pointer updated: ${JSON.stringify(entry)}`,
+			level: "info",
+			meta: { pointer: JSON.stringify(entry) },
+			type: "federated",
+		});
+		await addDebugLog({
+			message: `📦 Total federated pointers: ${federatedDB.length}`,
+			level: "info",
+			meta: { length: federatedDB.length },
+			type: "federated",
+		});
 	}
 
 	// --- DB Operations ---
@@ -36,8 +48,8 @@ export function setupFederatedDB(status: NodeStatus) {
 	async function saveFederatedArticle(ptr: FederatedArticlePointer) {
 		updateStatus(status, true, true);
 		federatedDB.push(ptr);
-		logUpdate(ptr);
-		updateStatus(status, true, false);
+		await logUpdate(ptr);
+		// updateStatus(status, true, false);
 	}
 
 	/**

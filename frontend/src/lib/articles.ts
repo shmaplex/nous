@@ -1,4 +1,6 @@
 // frontend/src/lib/articles.ts
+
+import { getAvailableSources, type SourceWithHidden } from "@/lib/sources";
 import { type ArticleAnalyzed, ArticleAnalyzedSchema } from "@/types";
 import {
 	DeleteArticle,
@@ -9,7 +11,7 @@ import {
 } from "../../wailsjs/go/main/App";
 
 /**
- * Safely load articles from backend.
+ * Safely load all AI-analyzed articles from backend.
  * Falls back to empty array if invalid JSON or errors.
  */
 export const loadArticlesFromBackend = async (): Promise<ArticleAnalyzed[]> => {
@@ -39,6 +41,20 @@ export const loadArticlesFromBackend = async (): Promise<ArticleAnalyzed[]> => {
 		return validArticles;
 	} catch (err) {
 		console.error("Failed to load articles:", err);
+		return [];
+	}
+};
+
+/**
+ * Get only sources that are free or have a valid API key.
+ * Ensures frontend only shows usable sources for fetching.
+ */
+export const loadEnabledSources = async (): Promise<SourceWithHidden[]> => {
+	try {
+		const sources = await getAvailableSources();
+		return sources;
+	} catch (err) {
+		console.error("Failed to load available sources:", err);
 		return [];
 	}
 };

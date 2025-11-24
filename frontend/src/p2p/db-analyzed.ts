@@ -7,7 +7,8 @@
  */
 
 import type { OrbitDB } from "@orbitdb/core";
-import { log, updateStatus } from "../lib/utils";
+import { addDebugLog, log } from "@/lib/log";
+import { updateStatus } from "../lib/log";
 import type { ArticleAnalyzed, NodeStatus } from "../types";
 
 /**
@@ -30,8 +31,21 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 	// --- Optional update logging ---
 	db.events.on("update", async (entry: any) => {
 		log(`🔄 Update from peer (analyzed): ${JSON.stringify(entry)}`);
+		await addDebugLog({
+			message: `🔄 Update from peer (analyzed): ${JSON.stringify(entry)}`,
+			level: "info",
+			meta: { pointer: JSON.stringify(entry) },
+			type: "analyzed",
+		});
+
 		const all = await db.query(() => true);
 		log(`📦 Analyzed articles in DB: ${all.length}`);
+		await addDebugLog({
+			message: `📦 Analyzed articles in DB: ${all.length}`,
+			level: "info",
+			meta: { length: all.length },
+			type: "analyzed",
+		});
 	});
 
 	// --- DB Operations ---
@@ -46,7 +60,13 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 		updateStatus(status, true, true);
 		await db.put(doc);
 		log(`Saved analyzed article: ${doc.id}`);
-		updateStatus(status, true, false);
+		await addDebugLog({
+			message: `Saved analyzed article: ${doc.id}`,
+			level: "info",
+			meta: { length: doc.id },
+			type: "analyzed",
+		});
+		// updateStatus(status, true, false);
 	}
 
 	/**
@@ -59,7 +79,13 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 		updateStatus(status, true, true);
 		await db.del(id);
 		log(`Deleted analyzed article: ${id}`);
-		updateStatus(status, true, false);
+		await addDebugLog({
+			message: `Deleted analyzed article: ${id}`,
+			level: "info",
+			meta: { id },
+			type: "analyzed",
+		});
+		// updateStatus(status, true, false);
 	}
 
 	/**

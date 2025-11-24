@@ -76,6 +76,7 @@ export function createHttpServer(httpPort: number, context: HttpServerContext): 
 				// Call route handler with merged context
 				await route.handler({
 					...context,
+					req,
 					res,
 					body: validatedBody,
 				});

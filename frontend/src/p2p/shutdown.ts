@@ -1,14 +1,30 @@
 import type { Helia } from "helia";
+import { log } from "@/lib/log";
+import { cleanLockFiles } from "../lib/utils";
 
-import { cleanLockFiles, log } from "../lib/utils";
+export interface P2PDatabases {
+	debugDB?: { close: () => Promise<void> };
+	sourcesDB?: { close: () => Promise<void> };
+	analyzedDB?: { close: () => Promise<void> };
+	federatedDB?: { close: () => Promise<void> };
+}
 
+/**
+ * Setup graceful shutdown for P2P node.
+ * @param server HTTP server instance
+ * @param orbitdb OrbitDB instance
+ * @param helia Helia instance
+ * @param keystorePath Path to OrbitDB keystore
+ * @param dbPath Path to OrbitDB databases
+ * @param databases Optional DB references to close
+ */
 export function setupGracefulShutdown(
 	server: any,
-	newsDB: any,
 	orbitdb: any,
 	helia: Helia,
 	keystorePath: string,
 	dbPath: string,
+	databases?: P2PDatabases,
 ) {
 	let shuttingDown = false;
 
@@ -24,9 +40,13 @@ export function setupGracefulShutdown(
 			log("HTTP server closed");
 
 			log("Shutting down OrbitDB and Helia...");
-			await newsDB.close();
 			await orbitdb.stop();
 			await helia.stop();
+
+			if (databases?.debugDB) await databases.debugDB.close();
+			if (databases?.sourcesDB) await databases.sourcesDB.close();
+			if (databases?.analyzedDB) await databases.analyzedDB.close();
+			if (databases?.federatedDB) await databases.federatedDB.close();
 
 			log("Cleaning LOCK files...");
 			cleanLockFiles(keystorePath);

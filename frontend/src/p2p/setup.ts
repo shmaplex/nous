@@ -1,19 +1,10 @@
-// frontend/src/p2p/setup.ts
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { createOrbitDB } from "@orbitdb/core";
-import type { Helia } from "helia";
-import { createHelia } from "helia";
-import type { Libp2p } from "libp2p";
-import { cleanLockFiles, log, updateStatus } from "../lib/utils";
-import type { NodeConfig, NodeStatus } from "../types";
-import { setupAnalyzedDB } from "./db-analyzed";
-import { setupFederatedDB } from "./db-federated";
-import { setupSourcesDB } from "./db-sources";
+import fs from "node:fs";
+import path from "node:path";
+import { log } from "@/lib/log";
+import type { NodeConfig } from "../types";
 import { createHttpServer, type HttpServerContext } from "./httpServer";
-import { getOrbitDBIdentity } from "./identity";
-import { createLibp2pNode } from "./libp2pNode";
 import { startNetworkStatusPoll } from "./networkStatus";
+import { getP2PNode } from "./node"; // <-- import the singleton helper
 import { setupGracefulShutdown } from "./shutdown";
 
 const ORBITDB_KEYSTORE_PATH =
@@ -26,72 +17,56 @@ const ORBITDB_DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "orbitdb
 });
 
 const RELAYS: string[] = process.env.RELAYS?.split(",") || [];
-const status: NodeStatus = { running: true, connected: false, syncing: false, lastSync: null };
 
-/**
- * Starts the P2P node with OrbitDB, Helia, Libp2p, and HTTP server.
- *
- * Merges all DB handlers (sources, analyzed, federated) into a single HTTP context.
- *
- * @param config - Node configuration (ports, relay addresses)
- * @returns Initialized node components
- */
 export async function startP2PNode(config: NodeConfig) {
-	const { httpPort, libp2pListenAddr, relayAddresses } = config;
-	log("Starting P2P node...");
+	log("Setting up node...");
 
-	// --- Clean leftover locks ---
-	await cleanLockFiles(ORBITDB_KEYSTORE_PATH);
-	await cleanLockFiles(ORBITDB_DB_PATH);
-
-	// --- Libp2p ---
-	const libp2p: Libp2p = await createLibp2pNode(libp2pListenAddr, relayAddresses);
-
-	// --- Helia ---
-	const helia: Helia = await createHelia({ libp2p });
-	updateStatus(status, true, false);
-
-	// --- OrbitDB ---
-	const { identity, identities } = await getOrbitDBIdentity();
-	const orbitdb = await createOrbitDB({
-		ipfs: helia,
-		identity,
-		identities,
-		directory: ORBITDB_DB_PATH,
-	});
-
-	// --- Setup DBs ---
-	const sourcesDB = await setupSourcesDB(orbitdb, status);
-	const analyzedDB = await setupAnalyzedDB(orbitdb, status);
-	const federatedDB = setupFederatedDB(status);
+	// Get or create running instance
+	const {
+		libp2p,
+		helia,
+		orbitdb,
+		status: nodeStatus,
+		debugDB,
+		sourcesDB,
+		analyzedDB,
+		federatedDB,
+	} = await getP2PNode(config);
 
 	// --- Start network polling ---
-	const stopNetworkPoll = startNetworkStatusPoll(helia, status);
+	const stopNetworkPoll = startNetworkStatusPoll(helia, nodeStatus);
 
 	// --- HTTP server ---
 	const httpContext: HttpServerContext = {
-		status,
+		status: nodeStatus,
 		orbitdbConnected: Boolean(orbitdb),
-		httpPort,
+		httpPort: config.httpPort,
 		...sourcesDB,
 		...analyzedDB,
 		...federatedDB,
 	};
 
-	const server = createHttpServer(httpPort, httpContext);
+	const server = createHttpServer(config.httpPort, httpContext);
 
 	// --- Graceful shutdown ---
+	const databases = {
+		debugDB: debugDB.db,
+		sourcesDB: sourcesDB.db,
+		analyzedDB: analyzedDB.db,
+		federatedDB: federatedDB.db,
+	};
 	const shutdown = setupGracefulShutdown(
 		server,
-		sourcesDB.db,
 		orbitdb,
 		helia,
 		ORBITDB_KEYSTORE_PATH,
 		ORBITDB_DB_PATH,
+		databases,
 	);
 
 	return {
 		// DBs
+		debugDB,
 		sourcesDB,
 		analyzedDB,
 		federatedDB,
@@ -100,7 +75,7 @@ export async function startP2PNode(config: NodeConfig) {
 		orbitdb,
 		server,
 		libp2p,
-		identity,
+		nodeStatus,
 		stopNetworkPoll,
 		shutdown,
 	};

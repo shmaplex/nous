@@ -3,7 +3,7 @@ import { dagCbor } from "@helia/dag-cbor";
 import type { Helia } from "helia";
 import { CID } from "multiformats/cid";
 import type { FederatedArticlePointer } from "@/types";
-import { log } from "../utils";
+import { log } from "../log";
 
 export interface FederatedDB {
 	federatedArticlesDB: any; // pass the OrbitDB store here

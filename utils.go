@@ -15,7 +15,7 @@ import (
 
 // KillLingeringNode kills any leftover node processes running the P2P script
 func KillLingeringNode() {
-	scriptPath := "frontend/src/p2p/setup.ts"
+	scriptPath := "frontend/dist/p2p/setup.ts"
 
 	switch runtime.GOOS {
 	case "windows":

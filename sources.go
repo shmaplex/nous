@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
 
 // SaveSources persists sources locally (e.g., JSON file)
@@ -36,11 +37,15 @@ func (a *App) LoadSources() ([]Source, error) {
 		return nil, err
 	}
 
+	t := time.Now()
+	iso := t.Format(time.RFC3339)
+
 	// Optional: auto-enable if APIKey exists
 	for i := range sources {
+		sources[i].LastUpdated = &iso
 		if sources[i].Enabled == nil {
 			sources[i].Enabled = new(bool)
-			*sources[i].Enabled = sources[i].APIKey != ""
+			*sources[i].Enabled = sources[i].APIKey != nil
 		}
 	}
 

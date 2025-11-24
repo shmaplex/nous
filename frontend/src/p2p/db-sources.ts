@@ -1,5 +1,5 @@
 import type { OrbitDB } from "@orbitdb/core";
-import { log, updateStatus } from "../lib/utils";
+import { addDebugLog, log, updateStatus } from "@/lib/log";
 import type { Article, NodeStatus } from "../types";
 
 /**
@@ -29,8 +29,18 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 	// Log updates from peers
 	db.events.on("update", async (entry: any) => {
 		log(`🔄 Update from peer: ${JSON.stringify(entry)}`);
+		await addDebugLog({
+			message: `🔄 Update from peer: ${JSON.stringify(entry)}`,
+			level: "info",
+			type: "source",
+		});
 		const all = await db.query(() => true);
 		log(`📦 Articles in sources DB: ${all.length}`);
+		await addDebugLog({
+			message: `📦 Articles in sources DB: ${all.length}`,
+			level: "info",
+			type: "source",
+		});
 	});
 
 	/**
@@ -47,6 +57,12 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 		updateStatus(status, true, true);
 		await db.put(doc);
 		log(`Saved to sources DB: ${doc.url}`);
+		await addDebugLog({
+			message: `Saved to sources DB: ${doc.url}`,
+			level: "info",
+			meta: { url: doc.url },
+			type: "source",
+		});
 		updateStatus(status, true, false);
 	}
 
@@ -59,6 +75,12 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 		updateStatus(status, true, true);
 		await db.del(url);
 		log(`Deleted from sources DB: ${url}`);
+		await addDebugLog({
+			message: `Deleted from sources DB: ${url}`,
+			level: "info",
+			meta: { url },
+			type: "source",
+		});
 		updateStatus(status, true, false);
 	}
 

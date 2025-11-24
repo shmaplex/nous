@@ -3,6 +3,7 @@ export * from "./article-analyzed";
 export * from "./article-federated";
 export * from "./article-stored";
 export * from "./filter";
+export * from "./log";
 export * from "./p2p";
 export * from "./routes";
 export * from "./source";

@@ -1,6 +1,6 @@
 // frontend/src/p2p/networkStatus.ts
 import type { Helia } from "helia";
-import { log, updateStatus } from "../lib/utils";
+import { addDebugLog, log } from "@/lib/log";
 import type { ConnectionInfo, NodeStatus } from "../types";
 
 export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interval = 5000) {
@@ -17,10 +17,34 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 					})
 				: [];
 			status.peers = peers;
-			updateStatus(status, peers.length > 0, status.syncing);
+
+			// Log each peer individually
+			for (const peer of peers) {
+				await addDebugLog({
+					message: `Peer status: ${peer.peerId} — ${peer.connected ? "Connected" : "Disconnected"}`,
+					level: "info",
+					meta: { ...peer, type: "peers" }, // <-- include peerId here
+				});
+			}
+
+			// Optional: log overall network summary
+			await addDebugLog({
+				message: `Network summary: ${peers.length} peers, syncing=${status.syncing}`,
+				level: "info",
+				meta: {
+					peerCount: peers.length,
+					connected: peers.length > 0,
+					syncing: status.syncing,
+					type: "network",
+				},
+			});
 		} catch (err) {
 			log(`Network status error: ${(err as Error).message}`);
-			updateStatus(status, false, status.syncing);
+			await addDebugLog({
+				message: `Network status error: ${(err as Error).message}`,
+				level: "error",
+				meta: { error: (err as Error).message, type: "peers" },
+			});
 			status.peers = [];
 		}
 	}

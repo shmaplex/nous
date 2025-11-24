@@ -1,11 +1,12 @@
 // frontend/src/lib/utils.ts
-import * as fs from "node:fs";
-import * as path from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 import { dagCbor } from "@helia/dag-cbor";
 import type { Helia } from "helia";
 import { CID } from "multiformats/cid";
 import { sha256 } from "multiformats/hashes/sha2";
 import type { NodeStatus } from "../types";
+import { log } from "./log";
 
 /**
  * Combine multiple class names into a single string, ignoring falsy values.
@@ -62,47 +63,6 @@ export async function generateCID<T extends Record<string, any>>(doc: T): Promis
 }
 
 /**
- * Logs a message to the console with timestamp and [P2P NODE] prefix
- * @param message - The message to log
- */
-export function log(message: string) {
-	console.log(`[P2P NODE] ${new Date().toISOString()} - ${message}`);
-}
-
-/**
- * Updates the global NodeStatus and optionally writes it to a JSON file.
- * @param status - The NodeStatus object to update
- * @param connected - Whether the node is connected
- * @param syncing - Whether the node is syncing
- * @param push - Whether to write status to /data/p2p-status.json
- */
-export function updateStatus(
-	status: NodeStatus,
-	connected: boolean,
-	syncing: boolean,
-	push = true,
-) {
-	status.connected = connected;
-	status.syncing = syncing;
-
-	if (!syncing) status.lastSync = new Date().toISOString();
-
-	if (push) {
-		try {
-			const statusDir = path.resolve("../data");
-			fs.mkdirSync(statusDir, { recursive: true }); // create folder if missing
-
-			fs.writeFileSync(
-				path.join(statusDir, "p2p-status.json"),
-				JSON.stringify({ ...status, port: process.env.HTTP_PORT }),
-			);
-		} catch (err) {
-			log(`Failed to write status file: ${(err as Error).message}`);
-		}
-	}
-}
-
-/**
  * Recursively cleans all "LOCK" files in the specified directory.
  * @param dir - Directory to clean
  */
@@ -126,3 +86,39 @@ export async function cleanLockFiles(dir: string) {
 		}
 	}
 }
+
+/**
+ * @deprecated Use the @/lib/log method now as it fetches from the debug
+ * OrbitDB database and keeps things all nice and neat.
+ *
+ * Updates the global NodeStatus and optionally writes it to a JSON file.
+ * @param status - The NodeStatus object to update
+ * @param connected - Whether the node is connected
+ * @param syncing - Whether the node is syncing
+ * @param push - Whether to write status to /data/p2p-status.json
+ */
+// export function updateStatus(
+// 	status: NodeStatus,
+// 	connected: boolean,
+// 	syncing: boolean,
+// 	push = true,
+// ) {
+// 	status.connected = connected;
+// 	status.syncing = syncing;
+
+// 	if (!syncing) status.lastSync = new Date().toISOString();
+
+// 	if (push) {
+// 		try {
+// 			const statusDir = path.resolve("../data");
+// 			fs.mkdirSync(statusDir, { recursive: true }); // create folder if missing
+
+// 			fs.writeFileSync(
+// 				path.join(statusDir, "p2p-status.json"),
+// 				JSON.stringify({ ...status, port: process.env.HTTP_PORT }),
+// 			);
+// 		} catch (err) {
+// 			log(`Failed to write status file: ${(err as Error).message}`);
+// 		}
+// 	}
+// }

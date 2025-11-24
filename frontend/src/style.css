@@ -364,3 +364,14 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes fade {
+	0% { opacity: 0; transform: translateY(4px); }
+	10% { opacity: 1; transform: translateY(0); }
+	90% { opacity: 1; }
+	100% { opacity: 0; transform: translateY(-4px); }
+}
+
+.animate-fade {
+	animation: fade 2.4s ease forwards;
+}
