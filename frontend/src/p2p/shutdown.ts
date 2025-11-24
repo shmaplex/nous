@@ -1,6 +1,6 @@
 import type { Helia } from "helia";
 
-import { cleanLockFiles, log } from "./utils";
+import { cleanLockFiles, log } from "../lib/utils";
 
 export function setupGracefulShutdown(
 	server: any,

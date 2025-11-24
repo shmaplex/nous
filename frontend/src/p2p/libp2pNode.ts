@@ -5,7 +5,7 @@ import { webRTC } from "@libp2p/webrtc";
 import { webTransport } from "@libp2p/webtransport";
 import { type Multiaddr, multiaddr } from "@multiformats/multiaddr";
 import { createLibp2p, type Libp2p } from "libp2p";
-import { log } from "./utils";
+import { log } from "../lib/utils";
 
 /**
  * Initializes a Libp2p node with common transports, relays, and PubSub logging.

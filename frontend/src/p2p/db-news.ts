@@ -6,15 +6,15 @@
  */
 
 import type { OrbitDB } from "@orbitdb/core";
+import { log, updateStatus } from "../lib/utils";
 import type { Article, NodeStatus } from "../types";
-import { log, updateStatus } from "./utils";
 
 /**
  * Sets up the news DB in OrbitDB using an existing OrbitDB instance.
  *
- * @param {OrbitDB} orbitdb - Existing OrbitDB instance to avoid lock conflicts
- * @param {NodeStatus} status - Node status object for syncing updates
- * @returns {Promise<Record<string, any>>} Helper functions and DB instance
+ * @param orbitdb - Existing OrbitDB instance to avoid lock conflicts
+ * @param status - Node status object for syncing updates
+ * @returns Helper functions and DB instance
  */
 export async function setupDB(orbitdb: OrbitDB, status: NodeStatus) {
 	// --- Open / create the news feed DB ---

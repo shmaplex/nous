@@ -1,5 +1,5 @@
 // frontend/src/lib/articles.ts
-import { type Article, ArticleSchema } from "@/types";
+import { type ArticleAnalyzed, ArticleAnalyzedSchema } from "@/types";
 import {
 	DeleteArticle,
 	FetchArticles,
@@ -15,7 +15,7 @@ const BIASES = ["left", "center", "right"] as const;
  * Safely load articles from backend.
  * Falls back to empty array if invalid JSON or errors.
  */
-export const loadArticlesFromBackend = async (): Promise<Article[]> => {
+export const loadArticlesFromBackend = async (): Promise<ArticleAnalyzed[]> => {
 	try {
 		const result = await FetchArticles();
 		if (!result) return [];
@@ -31,13 +31,13 @@ export const loadArticlesFromBackend = async (): Promise<Article[]> => {
 		const validArticles = (parsed as unknown[])
 			.map((a: unknown) => {
 				try {
-					const parsedArticle = ArticleSchema.parse(a);
+					const parsedArticle = ArticleAnalyzedSchema.parse(a);
 					return { ...parsedArticle, id: parsedArticle.id ?? crypto.randomUUID() };
 				} catch {
 					return null;
 				}
 			})
-			.filter(Boolean) as Article[];
+			.filter(Boolean) as ArticleAnalyzed[];
 
 		return validArticles;
 	} catch (err) {
@@ -58,7 +58,7 @@ export const saveArticle = async (
 	const newArticle = { title, url, content, edition };
 
 	try {
-		ArticleSchema.parse(newArticle);
+		ArticleAnalyzedSchema.parse(newArticle);
 	} catch (err) {
 		console.error("Invalid article:", err);
 		return false;
@@ -114,12 +114,12 @@ export const setLocation = async (loc: string): Promise<void> => {
  * Filter articles by bias and edition
  */
 export const filterArticles = (
-	articles: Article[],
+	articles: ArticleAnalyzed[],
 	biasFilter: "left" | "center" | "right" | "all",
 	locationFilter: string,
-): Article[] => {
+): ArticleAnalyzed[] => {
 	return articles.filter((a) => {
-		const bias: "left" | "center" | "right" = a.bias ?? "center"; // default if missing
+		const bias: "left" | "center" | "right" = a.politicalBias ?? "center"; // default if missing
 		const biasMatches = biasFilter === "all" ? BIASES.includes(bias) : bias === biasFilter;
 
 		// If locationFilter is "international", ignore edition

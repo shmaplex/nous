@@ -1,5 +1,6 @@
 export * from "./articles";
-export * from "./articles-local";
+export * from "./articles-analyzed";
+export * from "./articles-federated";
 export * from "./articles-stored";
 export * from "./p2p";
 export * from "./routes";

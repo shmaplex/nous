@@ -21,26 +21,39 @@ import (
 
 // Article represents a news article stored locally in OrbitDB.
 type Article struct {
-	ID            string   `json:"id,omitempty"`
-	Title         string   `json:"title"`
-	URL           string   `json:"url"`
-	Content       string   `json:"content"`
-	Bias          *string  `json:"bias,omitempty"`
-	Antithesis    *string  `json:"antithesis,omitempty"`
-	Philosophical *string  `json:"philosophical,omitempty"`
-	Source        *string  `json:"source,omitempty"`
-	Category      *string  `json:"category,omitempty"`
-	Author        *string  `json:"author,omitempty"`
-	PublishedAt   *string  `json:"publishedAt,omitempty"`
-	Tags          []string `json:"tags,omitempty"`
-	Sentiment     *string  `json:"sentiment,omitempty"`
+	ID                string   `json:"id,omitempty"`
+	Title             string   `json:"title"`
+	URL               string   `json:"url"`
+	Content           string   `json:"content"`
+	Bias              *string  `json:"bias,omitempty"` // "left"|"center"|"right"
+	Antithesis        *string  `json:"antithesis,omitempty"`
+	Philosophical     *string  `json:"philosophical,omitempty"`
+	Source            *string  `json:"source,omitempty"`
+	Category          *string  `json:"category,omitempty"`
+	Author            *string  `json:"author,omitempty"`
+	PublishedAt       *string  `json:"publishedAt,omitempty"`
+	Tags              []string `json:"tags,omitempty"`
+	Sentiment         *string  `json:"sentiment,omitempty"`
+	Edition           *string  `json:"edition,omitempty"`           // "international"|"us"|"kr"
+	Analyzed          *bool    `json:"analyzed,omitempty"`          // flag to indicate analysis completed
+	IPFSHash          *string  `json:"ipfsHash,omitempty"`          // IPFS hash of full content
+	AnalysisTimestamp *string  `json:"analysisTimestamp,omitempty"` // when analysis was performed
 }
 
+// Source represents a data source for articles or feeds.
 type Source struct {
-	Name         string `json:"name"`
-	URL          string `json:"url"`
-	Instructions string `json:"instructions,omitempty"`
-	APILink      string `json:"apiLink,omitempty"`
+	Name         string   `json:"name"`
+	Endpoint     string   `json:"endpoint"`         // replaces URL
+	APIKey       string   `json:"apiKey,omitempty"` // optional user-entered key
+	Instructions string   `json:"instructions,omitempty"`
+	APILink      string   `json:"apiLink,omitempty"`
+	Enabled      *bool    `json:"enabled,omitempty"`     // true if source should be active
+	RequiresKey  *bool    `json:"requiresKey,omitempty"` // optional future flag
+	Category     *string  `json:"category,omitempty"`    // optional categorization
+	Tags         []string `json:"tags,omitempty"`        // optional tags
+	Language     *string  `json:"language,omitempty"`    // optional language code
+	Region       *string  `json:"region,omitempty"`      // optional region code
+	AuthType     *string  `json:"authType,omitempty"`    // optional: "none", "apiKey", "bearerToken", "oauth"
 }
 
 type App struct {
@@ -371,7 +384,6 @@ func (a *App) OpenAbout() {
 
 // SaveSources persists sources locally (e.g., JSON file)
 func (a *App) SaveSources(sources []Source) error {
-	// Ensure the data directory exists
 	if err := os.MkdirAll("data", os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
@@ -386,20 +398,26 @@ func (a *App) SaveSources(sources []Source) error {
 
 // LoadSources loads sources from local file
 func (a *App) LoadSources() ([]Source, error) {
-	// Ensure the data directory exists
 	if _, err := os.Stat("data"); os.IsNotExist(err) {
-		return nil, nil // no data folder means no sources yet
+		return nil, nil
 	}
 
 	data, err := os.ReadFile("data/sources.json")
 	if err != nil {
-		// return nil if file doesn't exist
 		return nil, nil
 	}
 
 	var sources []Source
 	if err := json.Unmarshal(data, &sources); err != nil {
 		return nil, err
+	}
+
+	// Optional: auto-enable if APIKey exists
+	for i := range sources {
+		if sources[i].Enabled == nil {
+			sources[i].Enabled = new(bool)
+			*sources[i].Enabled = sources[i].APIKey != ""
+		}
 	}
 
 	return sources, nil

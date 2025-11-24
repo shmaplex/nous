@@ -1,30 +1,43 @@
+// src/types/articles-stored.ts
+
 import { z } from "zod";
+import { ArticleSchema } from "./articles";
+import { ArticleAnalyzedSchema } from "./articles-analyzed";
 
 /**
- * Zod schema representing an article stored in OrbitDB as strings
- * (all fields are stored as strings for docstore compatibility).
+ * A discriminated union representing any article stored in the system.
+ *
+ * This allows your storage layer (DB, KV, filesystem, etc.) to contain:
+ *
+ * **1. Raw articles (unprocessed / unanalyzed)**
+ *    - Fetched directly from GDELT, RSS, HTML, or custom sources
+ *    - Lightweight structure containing metadata, raw text, and optional summaries
+ *    - Corresponds to `ArticleSchema`
+ *
+ * **2. Fully analyzed articles**
+ *    - Enriched with bias detection, sentiment, categorization, tags, philosophical notes,
+ *      antithesis summaries, timestamps, and optional IPFS references
+ *    - Corresponds to `ArticleAnalyzedSchema`
+ *
+ * The union is **discriminated** using the `analyzed` boolean field:
+ * - `analyzed: false` → Raw `ArticleSchema`
+ * - `analyzed: true`  → Fully processed `ArticleAnalyzedSchema`
+ *
+ * This provides:
+ * - Safe type narrowing at runtime
+ * - Clean branching logic in your data pipeline
+ * - Strong guarantees that all stored articles are valid states of your ingestion & analysis flow
  */
-export const StoredArticleSchema = z.object({
-	id: z.string(),
-	title: z.string(),
-	url: z.string(),
-	content: z.string(),
-	bias: z.string(),
-	antithesis: z.string(),
-	philosophical: z.string(),
-	source: z.string(),
-	category: z.string(),
-	author: z.string(),
-	publishedAt: z.string(),
-	tags: z.string(), // JSON string of string[]
-	sentiment: z.string(),
-	edition: z.string(),
-	analyzed: z.string(), // boolean stored as string
-	ipfsHash: z.string(),
-	analysisTimestamp: z.string(),
-});
+export const ArticleStoredSchema = z.discriminatedUnion("analyzed", [
+	ArticleAnalyzedSchema, // analyzed: true
+	ArticleSchema, // analyzed: false
+]);
 
 /**
- * TypeScript type inferred from the Zod schema
+ * Type alias for any stored article.
+ *
+ * Resolves to either:
+ * - `ArticleAnalyzed` (if `analyzed: true`)
+ * - `NormalizedArticle` (if `analyzed: false`)
  */
-export type StoredArticle = z.infer<typeof StoredArticleSchema>;
+export type ArticleStored = z.infer<typeof ArticleStoredSchema>;

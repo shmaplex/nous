@@ -13,7 +13,11 @@
     "declaration": true,
     "declarationMap": true,
     "resolveJsonModule": true,
-    "noEmit": false
+    "noEmit": false,
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["*"]
+    }
   },
-  "include": ["./src/p2p/**/*", "./src/types/*.ts"]
+  "include": ["./src/lib/**/*", "./src/p2p/**/*", "./src/types/*.ts"]
 }

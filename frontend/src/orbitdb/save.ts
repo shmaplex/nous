@@ -3,44 +3,38 @@ import { Documents } from "@orbitdb/core";
 import { MemoryDatastore } from "datastore-core/memory";
 import { createHelia, type Helia } from "helia";
 import { v4 as uuidv4 } from "uuid";
-import type { FeedType, LocalArticle, StoredArticle } from "../types";
+import type { ArticleStored, FederatedArticlePointer, FeedType } from "../types";
 
 /**
- * Initialize a Helia IPFS node and an OrbitDB document store for the specified feed.
+ * Initialize a Helia IPFS node and an OrbitDB document store for a given feed.
  *
- * Steps:
- * 1. Create a Helia node with an in-memory datastore (for testing or ephemeral storage).
- * 2. Determine the OrbitDB address based on feed type ("local" or "analyzed").
- * 3. Generate an OrbitDB document store with "url" as the index key.
- * 4. Return both the Helia instance and the OrbitDB store.
- *
- * @param feed - The type of feed, either "local" or "analyzed".
- * @returns An object containing the Helia node and the initialized OrbitDB store.
+ * @param feed - Type of feed ("local", "analyzed", "federated", "archived").
+ * @returns An object containing:
+ *   - `ipfs`: the initialized Helia node
+ *   - `store`: the OrbitDB document store instance
  */
 async function getDB(feed: FeedType) {
-	const ipfs = await createHelia({
-		datastore: new MemoryDatastore(),
-	});
+	const ipfs = await createHelia({ datastore: new MemoryDatastore() });
 
-	const address = feed === "local" ? "/orbitdb/local-articles" : "/orbitdb/analyzed-articles";
+	const addressMap: Record<FeedType, string> = {
+		local: "/orbitdb/local-articles",
+		analyzed: "/orbitdb/analyzed-articles",
+		federated: "/orbitdb/federated-articles",
+		archived: "/orbitdb/archived-articles",
+	};
 
 	const Store = Documents({ indexBy: "url" });
-	const store = await Store({ ipfs, address, identity: undefined });
+	const store = await Store({ ipfs, address: addressMap[feed], identity: undefined });
 
 	return { ipfs, store };
 }
 
 /**
- * Store an object in IPFS using DAG-CBOR encoding.
+ * Store a JavaScript object in IPFS using DAG-CBOR encoding.
  *
- * Steps:
- * 1. Wrap the Helia node with DAG-CBOR.
- * 2. Add the content object to IPFS.
- * 3. Return the CID string representing the stored content.
- *
- * @param ipfs - The Helia IPFS node to use for storing data.
- * @param content - The JavaScript object to store in IPFS.
- * @returns The CID string representing the stored content.
+ * @param ipfs - Helia node instance
+ * @param content - Object to store
+ * @returns CID string representing the content in IPFS
  */
 async function storeArticleContent(ipfs: Helia, content: unknown): Promise<string> {
 	const dag = dagCbor(ipfs);
@@ -49,65 +43,57 @@ async function storeArticleContent(ipfs: Helia, content: unknown): Promise<strin
 }
 
 /**
- * Save a LocalArticle to the specified OrbitDB feed and store its content in IPFS.
+ * Save an `ArticleStored` to the specified feed.
  *
- * This function handles both "local" and "analyzed" feeds.
+ * This function:
+ * - Generates a UUID if missing
+ * - Adds `analysisTimestamp` if article is analyzed
+ * - Stores the full content in IPFS DAG-CBOR
+ * - Saves the article to OrbitDB
+ * - Optionally generates a federated pointer for distribution
  *
- * Steps:
- * 1. Ensure the article has a unique ID (generate one if missing).
- * 2. For the "analyzed" feed, add an analysis timestamp if missing.
- * 3. Store the article content in IPFS DAG-CBOR and save the resulting CID.
- * 4. Map the article to a string-only object suitable for the OrbitDB document store.
- *    - JSON-stringify arrays such as `tags`.
- *    - Convert booleans to string.
- * 5. Save the article to the OrbitDB document store.
- * 6. Log the storage operation for debugging.
- * 7. Stop the Helia node to clean up resources.
- *
- * @param article - The article to save.
- * @param feed - The feed type: "local" or "analyzed" (default: "local").
+ * @param article - The article to save (raw or analyzed)
+ * @param feed - Feed type; defaults to "local"
  */
-export async function saveArticle(article: LocalArticle, feed: FeedType = "local") {
+export async function saveArticle(article: ArticleStored, feed: FeedType = "local") {
 	const { ipfs, store } = await getDB(feed);
 
-	// Ensure unique ID
+	// Ensure UUID
 	if (!article.id) article.id = uuidv4();
 
-	// Add analyzed timestamp if applicable
-	if (feed === "analyzed" && !article.analysisTimestamp) {
-		article.analysisTimestamp = new Date().toISOString();
+	// Store full content in IPFS
+	const cid = await storeArticleContent(ipfs, article);
+
+	// Narrow union safely
+	if (article.analyzed) {
+		// ArticleAnalyzed
+		article.ipfsHash = cid;
+		article.analysisTimestamp ??= new Date().toISOString();
+		article.source ??= article.source ?? "";
+		article.edition ??= article.edition ?? "other";
+	} else {
+		// ArticleSchema (raw)
+		article.ipfsHash = cid;
+		// Map raw article fields to federated-compatible fields
+		(article as ArticleStored & { source: string }).source = article.sourceDomain ?? "";
+		(article as ArticleStored & { edition: string }).edition = "other";
 	}
 
-	// Store content in IPFS DAG-CBOR
-	const cid = await storeArticleContent(ipfs, article.content);
-	article.ipfsHash = cid;
-
-	// Map article to string-only format for OrbitDB
-	const articleToStore: StoredArticle = {
-		id: article.id!,
-		title: article.title,
-		url: article.url,
-		content: article.content,
-		bias: article.bias ?? "",
-		antithesis: article.antithesis ?? "",
-		philosophical: article.philosophical ?? "",
-		source: article.source ?? "",
-		category: article.category ?? "",
-		author: article.author ?? "",
-		publishedAt: article.publishedAt ?? "",
-		tags: JSON.stringify(article.tags || []),
-		sentiment: article.sentiment ?? "",
-		edition: article.edition ?? "",
-		analyzed: String(article.analyzed ?? false),
-		ipfsHash: article.ipfsHash ?? "",
-		analysisTimestamp: article.analysisTimestamp ?? "",
-	};
-
 	// Save to OrbitDB
-	await store.put(articleToStore as unknown as { [key: string]: string });
+	await store.put(article as any);
 
-	console.log(`Saved article to ${feed} feed: ${article.title}, CID: ${cid}`);
+	// Federated pointer (use it or remove)
+	// const pointer: FederatedArticlePointer = {
+	// 	cid,
+	// 	timestamp: new Date().toISOString(),
+	// 	analyzed: article.analyzed,
+	// 	source: (article as any).source, // now safe
+	// 	edition: (article as any).edition,
+	// };
+	// TODO: Save to federated store
+	// await federatedStore.put(pointer as any);
 
-	// Clean up Helia node
+	console.log(`Saved article "${article.title}" to feed ${feed}, CID: ${cid}`);
+
 	await ipfs.stop();
 }

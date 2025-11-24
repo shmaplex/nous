@@ -1,106 +1,105 @@
-/**
- * @file OrbitDB setup and DB operations for local and analyzed articles
- * @description
- * Sets up the "local-articles" and "analyzed-articles" databases
- * and provides helper functions for saving, querying, and retrieving articles.
- */
-
 import type { OrbitDB } from "@orbitdb/core";
-import type { Article } from "../types/articles";
+import { log, updateStatus } from "../lib/utils";
+import type { ArticleAnalyzed, ArticleStored, FederatedArticlePointer, NodeStatus } from "../types";
 
-/**
- * Represents our local and analyzed article databases.
- */
 export interface DBs {
-	localArticlesDB: any; // OrbitDB Documents DB instance
+	localArticlesDB: any;
 	analyzedArticlesDB: any;
+	federatedArticlesDB?: any;
 }
 
-/**
- * Initialize the local and analyzed article databases.
- *
- * @param orbitdb - OrbitDB instance
- * @returns Helper functions and DB instances
- */
-export async function initDBs(orbitdb: OrbitDB): Promise<
-	DBs & {
-		saveLocalArticle: (doc: Article) => Promise<void>;
-		saveAnalyzedArticle: (doc: Article) => Promise<void>;
-		getAllLocalArticles: () => Promise<Article[]>;
-		getAllAnalyzedArticles: () => Promise<Article[]>;
-	}
-> {
-	// --- Open / create local articles DB ---
+export async function initDBs(
+	orbitdb: OrbitDB,
+	status: NodeStatus,
+	options?: { includeFederated?: boolean },
+) {
+	// --- Local Articles DB ---
 	const localArticlesDB = (await orbitdb.open("local-articles", {
 		type: "documents",
 		meta: { indexBy: "url" },
 	})) as any;
+	localArticlesDB.events.on("update", async (entry: any) => {
+		log(`📝 Local article updated: ${JSON.stringify(entry)}`);
+		const all = await localArticlesDB.query(() => true);
+		log(`📦 Local articles count: ${all.length}`);
+	});
 
-	// --- Open / create analyzed articles DB ---
+	// --- Analyzed Articles DB ---
 	const analyzedArticlesDB = (await orbitdb.open("analyzed-articles", {
 		type: "documents",
 		meta: { indexBy: "url" },
 	})) as any;
+	analyzedArticlesDB.events.on("update", async (entry: any) => {
+		log(`🧠 Analyzed article updated: ${JSON.stringify(entry)}`);
+		const all = await analyzedArticlesDB.query(() => true);
+		log(`📦 Analyzed articles count: ${all.length}`);
+	});
 
-	console.log(`Local DB: ${localArticlesDB.address}`);
-	console.log(`Analyzed DB: ${analyzedArticlesDB.address}`);
-
-	// --- Optional update logging ---
-	localArticlesDB.events.on("update", async (entry: any) =>
-		console.log(`📝 Local article updated: ${JSON.stringify(entry)}`),
-	);
-	analyzedArticlesDB.events.on("update", async (entry: any) =>
-		console.log(`🧠 Analyzed article updated: ${JSON.stringify(entry)}`),
-	);
-
-	// --- DB Operations ---
-
-	/**
-	 * Save an article to the local articles DB
-	 * @param doc Article to save
-	 */
-	async function saveLocalArticle(doc: Article) {
-		await localArticlesDB.put({ ...doc, tags: doc.tags?.join(",") ?? "" });
-		console.log(`Saved local article: ${doc.url}`);
+	// --- Optional Federated Articles DB ---
+	let federatedArticlesDB: any;
+	if (options?.includeFederated) {
+		federatedArticlesDB = await orbitdb.open("federated-articles", {
+			type: "documents",
+			meta: { indexBy: "cid" },
+		});
+		federatedArticlesDB.events.on("update", async (entry: any) => {
+			log(`🌐 Federated article updated: ${JSON.stringify(entry)}`);
+			const all = await federatedArticlesDB.query(() => true);
+			log(`📦 Federated articles count: ${all.length}`);
+		});
 	}
 
-	/**
-	 * Save an article to the analyzed articles DB
-	 * @param doc Article to save
-	 */
-	async function saveAnalyzedArticle(doc: Article) {
-		await analyzedArticlesDB.put({ ...doc, tags: doc.tags?.join(",") ?? "" });
-		console.log(`Saved analyzed article: ${doc.url}`);
+	// --- Save helpers ---
+	async function saveLocalArticle(doc: ArticleStored) {
+		updateStatus(status, true, true);
+		await localArticlesDB.put(doc);
+		log(`Saved local article: ${doc.url}`);
+		updateStatus(status, true, false);
 	}
 
-	/**
-	 * Get all local articles
-	 */
-	async function getAllLocalArticles(): Promise<Article[]> {
-		const docs = localArticlesDB.query(() => true) ?? [];
-		return docs.map((doc: Article & { tags: string }) => ({
-			...doc,
-			tags: typeof doc.tags === "string" ? doc.tags.split(",") : doc.tags,
-		}));
+	async function saveAnalyzedArticle(doc: ArticleAnalyzed) {
+		updateStatus(status, true, true);
+		const storedDoc = { ...doc, tags: doc.tags?.join(",") ?? "" };
+		await analyzedArticlesDB.put(storedDoc);
+		log(`Saved analyzed article: ${doc.url}`);
+		updateStatus(status, true, false);
 	}
 
-	/**
-	 * Get all analyzed articles
-	 */
-	async function getAllAnalyzedArticles(): Promise<Article[]> {
+	async function saveFederatedArticle(doc: FederatedArticlePointer) {
+		if (!federatedArticlesDB) throw new Error("Federated DB not initialized");
+		updateStatus(status, true, true);
+		await federatedArticlesDB.put(doc);
+		log(`Saved federated article: ${doc.cid}`);
+		updateStatus(status, true, false);
+	}
+
+	// --- Get helpers ---
+	async function getAllLocalArticles(): Promise<ArticleStored[]> {
+		return localArticlesDB.query(() => true) ?? [];
+	}
+
+	async function getAllAnalyzedArticles(): Promise<ArticleAnalyzed[]> {
 		const docs = analyzedArticlesDB.query(() => true) ?? [];
-		return docs.map((doc: Article & { tags: string }) => ({
+		return docs.map((doc: ArticleAnalyzed & { tags: string }) => ({
 			...doc,
 			tags: typeof doc.tags === "string" ? doc.tags.split(",") : doc.tags,
 		}));
+	}
+
+	async function getAllFederatedArticles(): Promise<FederatedArticlePointer[]> {
+		if (!federatedArticlesDB) return [];
+		return federatedArticlesDB.query(() => true) ?? [];
 	}
 
 	return {
 		localArticlesDB,
 		analyzedArticlesDB,
+		federatedArticlesDB,
 		saveLocalArticle,
 		saveAnalyzedArticle,
+		saveFederatedArticle: options?.includeFederated ? saveFederatedArticle : undefined,
 		getAllLocalArticles,
 		getAllAnalyzedArticles,
+		getAllFederatedArticles: options?.includeFederated ? getAllFederatedArticles : undefined,
 	};
 }

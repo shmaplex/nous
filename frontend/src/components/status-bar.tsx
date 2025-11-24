@@ -80,7 +80,7 @@ const StatusBar: React.FC = () => {
 	}, []);
 
 	const statusItem = (icon: React.ReactNode, text: string, tooltip?: string) => (
-		<div className="flex items-center space-x-1 text-xs sm:text-sm" title={tooltip}>
+		<div className="flex items-center space-x-1 text-xs sm:text-xs" title={tooltip}>
 			{icon}
 			<span className="font-medium truncate max-w-[120px]">{text}</span>
 		</div>
@@ -88,7 +88,7 @@ const StatusBar: React.FC = () => {
 
 	return (
 		<>
-			<div className="fixed bottom-0 left-0 w-full px-3 py-2 bg-card text-card-foreground flex justify-between items-center shadow-md z-50 space-x-4 text-xs sm:text-sm">
+			<div className="fixed bottom-0 left-0 w-full px-3 py-0 bg-card text-card-foreground flex justify-between items-center shadow-md z-50 space-x-4 text-xs sm:text-sm">
 				{statusItem(
 					<Server
 						className={`${status.running ? "text-green-400" : "text-red-500"}`}
@@ -125,7 +125,7 @@ const StatusBar: React.FC = () => {
 					`Port: ${status.port}`,
 					"HTTP Port",
 				)}
-				<Button variant="outline" size="sm" onClick={() => setShowOverlay(!showOverlay)}>
+				<Button variant="link" size="sm" onClick={() => setShowOverlay(!showOverlay)}>
 					Debug
 				</Button>
 			</div>
