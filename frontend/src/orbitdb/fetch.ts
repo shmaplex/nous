@@ -2,7 +2,7 @@ import { dagCbor } from "@helia/dag-cbor";
 import { Documents } from "@orbitdb/core";
 import { MemoryDatastore } from "datastore-core/memory";
 import { createHelia, type Helia } from "helia";
-import type { FeedType, LocalArticle } from "../types";
+import type { Article, FeedType } from "@/types";
 
 /**
  * Initialize a Helia node and OrbitDB document store for a given feed.
@@ -55,21 +55,21 @@ export async function storeArticleContent(ipfs: Helia, content: unknown): Promis
  * Fetch all articles from a specified feed.
  *
  * @param feed - The feed type to fetch ('local' or 'analyzed'). Defaults to 'local'.
- * @returns An array of LocalArticle objects reconstructed from OrbitDB.
+ * @returns An array of Article objects reconstructed from OrbitDB.
  *
  * Steps:
  * 1. Initialize the Helia node and the appropriate OrbitDB docstore.
  * 2. Query all stored documents.
- * 3. Map the stored string-based documents back into LocalArticle objects.
+ * 3. Map the stored string-based documents back into Article objects.
  * 4. Stop the Helia node.
  * 5. Return the array of articles.
  */
-export async function fetchArticles(feed: FeedType = "local"): Promise<LocalArticle[]> {
+export async function fetchArticles(feed: FeedType = "local"): Promise<Article[]> {
 	const { ipfs, store } = await getDB(feed);
 
 	const raw: Record<string, any>[] = store.query?.(() => true) || [];
 
-	const articles: LocalArticle[] = raw.map((a) => ({
+	const articles: Article[] = raw.map((a) => ({
 		title: a.title,
 		url: a.url,
 		content: a.content,

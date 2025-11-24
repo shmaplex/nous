@@ -132,7 +132,11 @@ const App = () => {
 	 * ----------------------------------------- */
 	useEffect(() => {
 		const handle = () => setSettingsOpen(true);
-		EventsOn("open-settings", handle);
+		if (EventsOn) {
+			EventsOn("open-settings", handle);
+		} else {
+			console.warn("Wails runtime not loaded yet");
+		}
 		return () => EventsOff("open-settings", handle as any);
 	}, []);
 

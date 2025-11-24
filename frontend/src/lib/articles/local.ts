@@ -1,6 +1,6 @@
 // frontend/src/lib/articles/local.ts
 import { type ArticleAnalyzed, ArticleAnalyzedSchema } from "@/types";
-import { DeleteArticle, FetchArticles, SaveArticle } from "../../../wailsjs/go/main/App";
+import { DeleteArticle, FetchAnalyzedArticles, SaveArticle } from "../../../wailsjs/go/main/App";
 
 /**
  * Load analyzed or local articles from backend (OrbitDB / Go bridge)
@@ -9,14 +9,14 @@ import { DeleteArticle, FetchArticles, SaveArticle } from "../../../wailsjs/go/m
  */
 export const loadLocalArticles = async (): Promise<ArticleAnalyzed[]> => {
 	try {
-		const result = await FetchArticles();
+		const result = await FetchAnalyzedArticles();
 		if (!result) return [];
 
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse(result);
 		} catch {
-			console.warn("FetchArticles returned invalid JSON:", result);
+			console.warn("FetchAnalyzedArticles returned invalid JSON:", result);
 			return [];
 		}
 
