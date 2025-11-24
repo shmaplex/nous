@@ -15,20 +15,20 @@
     "email": "team@shmaplex.com"
   },
   "info": {
-    "fileAssociations": [
-      {
-        "ext": "png",
-        "name": "appicon",
-        "description": "App file",
-        "iconName": "appicon",
-        "role": "Editor"
-      }
-    ],
     "companyName": "Shmaplex",
     "productName": "Nous",
     "productVersion": "1.0.0",
     "copyright": "© 2025 Shmaplex",
-    "comments": "Nous: P2P news analysis platform."
+    "comments": "Nous: P2P news analysis platform.",
+    "fileAssociations": [
+      {
+        "ext": "png",
+        "name": "PNG Image",
+        "description": "Image File",
+        "iconName": "appicon",
+        "role": "Editor"
+      }
+    ]
   },
   "bindings": {
     "ts_generation": {
@@ -37,9 +37,6 @@
       "outputType": "classes"
     }
   },
-  "postBuildHooks": {},
-  "protocols": [],
-  "fileAssociations": [],
   "obfuscated": false,
   "runNonNativeBuildHooks": false
 }

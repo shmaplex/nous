@@ -19,5 +19,10 @@
       "@/*": ["*"]
     }
   },
-  "include": ["./src/lib/**/*", "./src/p2p/**/*", "./src/types/*.ts"]
+  "include": [
+    "./src/constants/**/*",
+    "./src/lib/**/*",
+    "./src/p2p/**/*",
+    "./src/types/*.ts"
+  ]
 }

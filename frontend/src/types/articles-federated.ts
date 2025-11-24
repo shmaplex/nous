@@ -1,6 +1,8 @@
 // frontend/src/types/articles-federated.ts
 import { z } from "zod";
 
+export const feedTypes = ["local", "analyzed", "federated", "archived"];
+
 /**
  * Pointer to an article stored in the federation (or distributed network).
  *
@@ -37,5 +39,5 @@ export type FederatedArticlePointer = z.infer<typeof FederatedArticlePointerSche
  * - `federated`: The article pointer has been shared or received via the federation.
  * - `archived`: Historical or immutable articles, used for long-term storage or audits.
  */
-export const FeedTypeSchema = z.enum(["local", "analyzed", "federated", "archived"]);
+export const FeedTypeSchema = z.enum(feedTypes);
 export type FeedType = z.infer<typeof FeedTypeSchema>;

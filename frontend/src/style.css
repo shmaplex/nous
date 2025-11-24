@@ -5,140 +5,274 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 
+@import "tailwindcss";
+@import "tw-animate-css";
+
 /* ----------------------- */
-/* Global Colors + Theme    */
+/* Custom Dark Variant      */
+/* ----------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ----------------------- */
+/* Custom Dark Variant     */
+/* ----------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ----------------------- */
+/* Custom Dark Variant     */
+/* ----------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ----------------------- */
+/* Global Palette          */
 /* ----------------------- */
 :root {
-  /* Aligned to U.S. political spectrum & your palette coherence */
+  /* --- Core Brand --- */
+  --primary: #2C2F65;
+  --primary-foreground: #F5F7FA;
+  --accent: #009D91;
+  --accent-foreground: #ffffff;
+  --highlight: #FF902A;
+  --highlight-foreground: #1a1a1a;
+
+  /* --- Political Bias --- */
   --bias-left: #4F7CFF;
-  --bias-center: #E5E5E5;    /* light neutral / soft gray */
+  --bias-center: #A0A0A0;
   --bias-right: #FF6B6B;
   --bias-none: #B0B8C1;
 
-  /* Brand-aligned neutrals and surfaces */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  /* --- Sentiment --- */
+  --sentiment-positive: #00A8A5;
+  --sentiment-neutral: #A0A0A0;
+  --sentiment-negative: #FF4C4C;
+  --sentiment-all: #2C2F65;
 
-  /* Logo-aligned primary (deep navy) */
-  --primary: #2C2F65; /* your logo deep navy */
-  --primary-foreground: #F5F7FA;
+  /* --- Coverage --- */
+  --coverage-high: #FF902A;
+  --coverage-medium: #FFB56E;
+  --coverage-low: #E5E7EB;
 
-  /* Secondary accent (your teal/cyan family) */
-  --accent: #00A8A5;
-  --accent-foreground: #022;
+  /* --- Confidence --- */
+  --confidence-high: #00A8A5;
+  --confidence-medium: #FFB56E;
+  --confidence-low: #FF6B6B;
 
-  /* A richer orange accent that harmonizes with your right-bias color */
-  --warn: #FF902A;
+  /* --- Editions --- */
+  --edition-international: #2C2F65;
+  --edition-us: #4F7CFF;
+  --edition-uk: #6B63FF;
+  --edition-eu: #00A8A5;
+  --edition-kr: #FF902A;
+  --edition-cn: #FF4C4C;
+  --edition-other: #A0A0A0;
 
+  /* --- Categories --- */
+  --category-sports: #FF902A;
+  --category-politics: #2C2F65;
+  --category-technology: #009D91;
+  --category-entertainment: #A855F7;
+  --category-business: #335CFF;
+  --category-science: #00A8A5;
+  --category-health: #FF6B6B;
+
+  /* --- Surface / Backgrounds --- */
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1C2C;
+  --secondary: #F5F7FA;
+  --secondary-foreground: #1A1C2C;
+  --background: #F5F7FA;
+  --foreground: #1A1C2C;
+  --card: #ffffff;
+  --card-foreground: #1A1C2C;
+  --muted: #E5E7EB;
+  --muted-foreground: #6B7280;
+  --border: #D1D5DB;
+  --input: #F3F4F6;
+  --ring: #C7D2FE;
+
+  /* --- Sidebar / Panels --- */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A1C2C;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: #E5E7EB;
+  --sidebar-ring: #C7D2FE;
+
+  /* --- Charts --- */
+  --chart-1: #4F7CFF;
+  --chart-2: #FF6B6B;
+  --chart-3: #FF902A;
+  --chart-4: #009D91;
+  --chart-5: #A0A0A0;
+
+  /* --- Typography / Radius --- */
   --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
-  /* Filters */
-  --filter-inactive: #e5e7eb;
-  --filter-inactive-foreground: #2c2f65;
-
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-
-  /* Charts (kept but recolored subtly for brand match) */
-  --chart-1: #335CFF;
-  --chart-2: #00A8A5;
-  --chart-3: #A855F7;
-  --chart-4: #FF902A;
-  --chart-5: #FF4A4A;
-
-  /* Sidebar */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: #1a1c2c;
-  --sidebar-primary: #2C2F65;
-  --sidebar-primary-foreground: #F8FAFC;
-  --sidebar-accent: #00A8A5;
-  --sidebar-accent-foreground: #022;
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* --- Filters / inactive --- */
+  --filter-inactive: #E5E7EB;
+  --filter-inactive-foreground: #6B7280;
 }
 
 /* ----------------------- */
-/* DARK MODE               */
+/* Dark Mode Overrides     */
 /* ----------------------- */
 .dark {
+  --primary: #5C63A8;
+  --primary-foreground: #F0F3FF;
+  --accent: #29C6C3;
+  --accent-foreground: #001c1b;
+  --highlight: #FFB56E;
+  --highlight-foreground: #1A1C2C;
+
   --bias-left: #2A5ACC;
   --bias-center: #6B6B6B;
   --bias-right: #FF4C4C;
   --bias-none: #7D8790;
 
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
+  --sentiment-positive: #00C2A5;
+  --sentiment-neutral: #6B6B6B;
+  --sentiment-negative: #FF4C4C;
+  --sentiment-all: #F5F7FA;
 
-  --primary: #5C63A8; /* softened navy for dark mode */
-  --primary-foreground: #F0F3FF;
+  --coverage-high: #FFB56E;
+  --coverage-medium: #FFC88F;
+  --coverage-low: #3A3F7C;
 
-  --accent: #29C6C3; /* brighter teal for contrast */
-  --accent-foreground: #001c1b;
+  --confidence-high: #00C2A5;
+  --confidence-medium: #FFC88F;
+  --confidence-low: #FF4C4C;
 
-  --warn: #FFB56E;
+  --edition-international: #5C63A8;
+  --edition-us: #5C7CFF;
+  --edition-uk: #8370FF;
+  --edition-eu: #29C6C3;
+  --edition-kr: #FFB56E;
+  --edition-cn: #FF4C4C;
+  --edition-other: #6B6B6B;
 
-  --filter-inactive: #3a3f7c;
-  --filter-inactive-foreground: #ffffff;
+  --category-sports: #FFB56E;
+  --category-politics: #5C63A8;
+  --category-technology: #29C6C3;
+  --category-entertainment: #B87FFF;
+  --category-business: #5C7CFF;
+  --category-science: #00C2A5;
+  --category-health: #FF4C4C;
 
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  /* --- Surface / Backgrounds --- */
+  --popover: #2C2F42;
+  --popover-foreground: #F5F7FA;
+  --secondary: #3A3F7C;
+  --secondary-foreground: #F0F3FF;
 
-  --chart-1: #5C7CFF;
-  --chart-2: #29C6C3;
-  --chart-3: #C084FC;
-  --chart-4: #FFB56E;
-  --chart-5: #FF6B6B;
+  --background: #1A1C2C;
+  --foreground: #F5F7FA;
+  --card: #2C2F42;
+  --card-foreground: #F5F7FA;
+  --muted: #2C2F42;
+  --muted-foreground: #A0A0A0;
+  --border: #3F3F46;
+  --input: #2C2F42;
+  --ring: #4F46E5;
 
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: #F8FAFC;
+  --sidebar: #1A1C2C;
+  --sidebar-foreground: #F5F7FA;
   --sidebar-primary: #5C63A8;
   --sidebar-primary-foreground: #F0F3FF;
   --sidebar-accent: #29C6C3;
   --sidebar-accent-foreground: #001c1b;
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-border: #3F3F46;
+  --sidebar-ring: #4F46E5;
+
+  --chart-1: #5C7CFF;
+  --chart-2: #29C6C3;
+  --chart-3: #FFB56E;
+  --chart-4: #FF4C4C;
+  --chart-5: #6B6B6B;
+
+  --filter-inactive: #3A3F7C;
+  --filter-inactive-foreground: #F5F7FA;
 }
 
 /* ----------------------- */
 /* Tailwind Inline Theme   */
 /* ----------------------- */
 @theme inline {
-  --color-bias-left: var(--bias-left);     /* Democratic Blue */
-  --color-bias-center: var(--bias-center);   /* Centrist Purple */
-  --color-bias-right:var(--bias-right);    /* Republican Red */
-  --color-bias-none: var(--bias-none);     /* Neutral Gray */
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
+  /* --- Core Brand --- */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-warn: var(--highlight);
+  --color-warn-foreground: var(--highlight-foreground);
 
-  --color-warn: var(--warn);
+  /* --- Political Bias --- */
+  --color-bias-left: var(--bias-left);
+  --color-bias-center: var(--bias-center);
+  --color-bias-right: var(--bias-right);
+  --color-bias-none: var(--bias-none);
 
+  /* --- Sentiment --- */
+  --color-sentiment-positive: var(--sentiment-positive);
+  --color-sentiment-neutral: var(--sentiment-neutral);
+  --color-sentiment-negative: var(--sentiment-negative);
+  --color-sentiment-all: var(--sentiment-all);
+
+  /* --- Coverage --- */
+  --color-coverage-high: var(--coverage-high);
+  --color-coverage-medium: var(--coverage-medium);
+  --color-coverage-low: var(--coverage-low);
+
+  /* --- Confidence --- */
+  --color-confidence-high: var(--confidence-high);
+  --color-confidence-medium: var(--confidence-medium);
+  --color-confidence-low: var(--confidence-low);
+
+  /* --- Editions --- */
+  --color-edition-international: var(--edition-international);
+  --color-edition-us: var(--edition-us);
+  --color-edition-uk: var(--edition-uk);
+  --color-edition-eu: var(--edition-eu);
+  --color-edition-kr: var(--edition-kr);
+  --color-edition-cn: var(--edition-cn);
+  --color-edition-other: var(--edition-other);
+
+  /* --- Categories --- */
+  --color-category-sports: var(--category-sports);
+  --color-category-politics: var(--category-politics);
+  --color-category-technology: var(--category-technology);
+  --color-category-entertainment: var(--category-entertainment);
+  --color-category-business: var(--category-business);
+  --color-category-science: var(--category-science);
+  --color-category-health: var(--category-health);
+
+  /* --- Surface / Backgrounds --- */
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* --- Sidebar / Panels --- */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -148,30 +282,23 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* --- Charts --- */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
+  /* --- Filters / Inactive --- */
   --color-filter-inactive: var(--filter-inactive);
   --color-filter-inactive-foreground: var(--filter-inactive-foreground);
 
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-destructive: var(--destructive);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* --- Typography / Radius --- */
+  --radius: var(--radius);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
 }
 
 /* ----------------------- */

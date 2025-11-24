@@ -1,6 +1,6 @@
 import { Eye, EyeOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SourceWithHidden } from "../utils/sources";
+import type { SourceWithHidden } from "@/lib/sources";
 
 interface SourceHeaderProps {
 	source: SourceWithHidden;

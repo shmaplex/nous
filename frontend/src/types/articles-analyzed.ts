@@ -1,34 +1,7 @@
 import { z } from "zod";
-import { SourceTypes } from "./articles";
+import { editions, SourceMetaSchema, SourceTypes } from "./articles";
 
-/**
- * Editions define the target audience or regional context of the article.
- * Useful for categorizing content for different countries, regions, or language markets.
- */
-export const editions = [
-	"international",
-	"us",
-	"uk",
-	"ca",
-	"au",
-	"eu",
-	"de",
-	"fr",
-	"es",
-	"it",
-	"jp",
-	"kr",
-	"cn",
-	"in",
-	"br",
-	"ru",
-	"mx",
-	"sa",
-	"ae",
-	"ng",
-	"za",
-	"other",
-] as const;
+export const politicalBias = ["left", "center", "right"];
 
 /** Cognitive bias detection output from AI */
 export const CognitiveBiasSchema = z.object({
@@ -67,7 +40,7 @@ export const ArticleAnalyzedSchema = z.object({
 	// ----------------------
 
 	/** Political/ideological bias of the article (optional) */
-	politicalBias: z.enum(["left", "center", "right"]).optional(),
+	politicalBias: z.enum(politicalBias).optional(),
 
 	/** Concise summary of opposing viewpoints (antithesis), optional */
 	antithesis: z.string().optional(),
@@ -128,6 +101,9 @@ export const ArticleAnalyzedSchema = z.object({
 
 	/** Optional raw data snapshot for debugging / auditing */
 	raw: z.any().optional(),
+
+	/** Metadata about the source itself, including political bias and confidence */
+	sourceMeta: SourceMetaSchema.optional(),
 });
 
 export type ArticleAnalyzed = z.infer<typeof ArticleAnalyzedSchema>;

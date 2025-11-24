@@ -1,8 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { SourceWithHidden } from "@/lib/sources";
 import { OpenURL } from "../../../../wailsjs/go/main/App";
-import type { SourceWithHidden } from "../utils/sources";
 import SourceField from "./source-field";
 import SourceHeader from "./source-header";
 import SourceSelect from "./source-select";

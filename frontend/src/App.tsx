@@ -1,101 +1,111 @@
 import { useEffect, useState } from "react";
-import { PLACEHOLDER_ARTICLES as DEFAULT_ARTICLES } from "@/constants/articles";
-import {
-	deleteArticle,
-	filterArticles,
-	getLocation,
-	loadArticlesFromBackend,
-	saveArticle,
-	setLocation,
-} from "@/lib/articles";
 import { EventsOff, EventsOn } from "../wailsjs/runtime";
-import AddArticleModal from "./components/add-article-modal";
-import ArticlesGrid from "./components/articles-grid";
-import Filters from "./components/filters";
-import Header from "./components/header";
+import AddArticleModal from "./components/articles/add-article-modal";
+import ArticlesGrid from "./components/articles/articles-grid";
+import FiltersPanel from "./components/filters-panel";
 import HeaderTop from "./components/header-top";
+import InsightsPanel from "./components/insights-panel";
 import SettingsPanel from "./components/settings-panel";
 import StatusBar from "./components/status-bar";
 import { ThemeProvider } from "./context/ThemeContext";
-import type { Article } from "./types";
 
-const App: React.FC = () => {
-	const [articles, setArticles] = useState<Article[]>([]);
-	const [filter, setFilter] = useState("all");
+import type { ArticleAnalyzed, ArticleStored, FederatedArticlePointer } from "./types";
+import type { FilterOptions } from "./types/filters";
+
+/**
+ * Root application component
+ *
+ * Manages state for articles, filters, location, and modals.
+ * Integrates Wails runtime events for settings.
+ */
+const App = () => {
+	/** Local articles ingested directly */
+	const [articles, setArticles] = useState<ArticleStored[]>([]);
+	/** Articles fetched from federated sources */
+	const [federatedArticles, setFederatedArticles] = useState<FederatedArticlePointer[]>([]);
+	/** AI-analyzed articles with bias and sentiment data */
+	const [analyzedArticles, setAnalyzedArticles] = useState<ArticleAnalyzed[]>([]);
+	/** Current filter options applied to the article feed */
+	const [filter, setFilter] = useState<FilterOptions>({
+		bias: "all",
+		sentiment: "all",
+		coverage: "all",
+		confidence: "all",
+		edition: "international",
+	});
+	/** Currently selected location (for filtering or UI) */
 	const [location, setLocationState] = useState("international");
+	/** Toggle for settings modal visibility */
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	/** Toggle for add-article modal visibility */
 	const [addArticleOpen, setAddArticleOpen] = useState(false);
 
+	/**
+	 * Initialize application data on mount.
+	 * Currently sets empty arrays as placeholders.
+	 */
 	useEffect(() => {
-		async function init() {
-			const loc = await getLocation();
-			if (loc) setLocationState(loc);
-
-			const backendArticles = await loadArticlesFromBackend();
-			setArticles(backendArticles);
-		}
+		const init = async () => {
+			setArticles(await Promise.resolve([]));
+			setFederatedArticles(await Promise.resolve([]));
+			setAnalyzedArticles(await Promise.resolve([]));
+			setLocationState(await Promise.resolve("international"));
+		};
 		init();
 	}, []);
 
+	/**
+	 * Listen to Wails runtime events for opening settings modal.
+	 */
 	useEffect(() => {
 		const handleOpenSettings = () => setSettingsOpen(true);
-
 		EventsOn("open-settings", handleOpenSettings);
-
-		return () => {
-			EventsOff("open-settings", handleOpenSettings as any);
-		};
+		return () => EventsOff("open-settings", handleOpenSettings as any);
 	}, []);
 
-	const handleSaveArticle = async (
-		title: string,
-		url: string,
-		content: string,
-		edition?: string,
-	) => {
-		const success = await saveArticle(title, url, content, edition);
-		if (success) setArticles(await loadArticlesFromBackend());
-		setAddArticleOpen(false);
-	};
-
-	const handleDeleteArticle = async (id: string) => {
-		const success = await deleteArticle(id);
-		if (success) setArticles(await loadArticlesFromBackend());
-	};
-
-	const handleUpdateLocation = async () => {
-		await setLocation(location);
-	};
-
-	// Merge backend articles with defaults, then filter
-	const baseArticles = [...DEFAULT_ARTICLES, ...articles];
-	const displayArticles = filterArticles(
-		baseArticles,
-		filter as "left" | "center" | "right" | "all",
-		location,
-	);
+	/** Merge all articles into a single array for display in the grid */
+	const mergedArticles = [...articles, ...analyzedArticles, ...federatedArticles];
 
 	return (
 		<ThemeProvider>
-			<div className="min-h-screen flex flex-col bg-background text-foreground">
-				{/* Top bar with time + location selector */}
+			<div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
+				{/* Top Header */}
 				<HeaderTop selectedLocation={location} onLocationChange={setLocationState} />
-				<div className="flex-1 p-6 space-y-8 max-w-[1600px] mx-auto overflow-auto">
-					<SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
-					<AddArticleModal
-						isOpen={addArticleOpen}
-						onClose={() => setAddArticleOpen(false)}
-						onSave={handleSaveArticle}
-					/>
 
-					<Header location={location} />
-
-					<Filters filter={filter} onChange={setFilter} />
-
-					<ArticlesGrid articles={displayArticles} onArchive={handleDeleteArticle} />
+				{/* Filters Panel */}
+				<div className="sticky top-16 z-30 bg-background px-6 py-3 border-b border-border shadow-sm">
+					<FiltersPanel filter={filter} setFilter={setFilter} />
 				</div>
 
-				{/* Status bar fixed at bottom */}
+				{/* Main Content */}
+				<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6">
+					{/* Articles Feed */}
+					<div className="flex-1 space-y-4">
+						<ArticlesGrid
+							articles={mergedArticles}
+							onArchive={(id) => console.log("Archive:", id)}
+						/>
+					</div>
+
+					{/* Insights Panel */}
+					<div className="hidden lg:block w-80 shrink-0 sticky top-24">
+						<InsightsPanel
+							articles={articles}
+							federatedArticles={federatedArticles}
+							analyzedArticles={analyzedArticles}
+						/>
+					</div>
+				</div>
+
+				{/* Modals */}
+				<SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+				<AddArticleModal
+					isOpen={addArticleOpen}
+					onClose={() => setAddArticleOpen(false)}
+					onSave={async () => console.log("Save article placeholder")}
+				/>
+
+				{/* Bottom Status Bar */}
 				<StatusBar />
 			</div>
 		</ThemeProvider>
