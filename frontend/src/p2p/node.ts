@@ -6,7 +6,7 @@ import type { Helia } from "helia";
 import { createHelia } from "helia";
 import type { Libp2p } from "libp2p";
 import { log } from "@/lib/log";
-import { cleanLockFiles } from "../lib/utils";
+import { cleanLockFiles, clearStatus, updateStatus } from "../lib/utils";
 import { createEmptyNodeStatus, type NodeConfig, type NodeStatus } from "../types";
 import { setupAnalyzedDB } from "./db-analyzed";
 import { setupDebugDB } from "./db-debug";
@@ -59,7 +59,11 @@ export async function getP2PNode(config?: NodeConfig) {
 	await cleanLockFiles(ORBITDB_DB_PATH);
 
 	// --- Libp2p ---
-	const libp2p = await createLibp2pNode(nodeConfig.libp2pListenAddr, nodeConfig.relayAddresses);
+	const libp2p = await createLibp2pNode(
+		status,
+		nodeConfig.libp2pListenAddr,
+		nodeConfig.relayAddresses,
+	);
 
 	// --- Helia ---
 	const helia = await createHelia({ libp2p });
@@ -73,16 +77,31 @@ export async function getP2PNode(config?: NodeConfig) {
 		directory: ORBITDB_DB_PATH,
 	});
 
-	// --- Setup DBs ---
-	const debugDB = await setupDebugDB(orbitdb, status);
-	const sourcesDB = await setupSourcesDB(orbitdb, status);
-	const analyzedDB = await setupAnalyzedDB(orbitdb, status);
-	const federatedDB = await setupFederatedDB(status);
+	let debugDB: any;
+	let sourcesDB: any;
+	let analyzedDB: any;
+	let federatedDB: any;
+	try {
+		// --- Setup DBs ---
+		debugDB = await setupDebugDB(orbitdb);
+		sourcesDB = await setupSourcesDB(orbitdb);
+		analyzedDB = await setupAnalyzedDB(orbitdb);
+		federatedDB = await setupFederatedDB();
+
+		updateStatus(status, {
+			orbitConnected: true,
+		});
+	} catch (err: any) {
+		log(`OrbitDB setup failed: ${err.message}`);
+
+		updateStatus(status, {
+			orbitConnected: false,
+		});
+	}
 
 	runningInstance = { libp2p, helia, orbitdb, status, debugDB, sourcesDB, analyzedDB, federatedDB };
 
 	log("✅ P2P node initialized successfully");
-
 	return runningInstance;
 }
 
@@ -93,6 +112,11 @@ export async function stopP2PNode() {
 	if (!runningInstance) return;
 	const { libp2p } = runningInstance;
 	log("Shutting down P2P node...");
+
+	// Remove the p2p-status.json file
+	const status: NodeStatus = createEmptyNodeStatus();
+	clearStatus(status);
+
 	await libp2p.stop();
 	runningInstance = null;
 }

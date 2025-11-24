@@ -1,6 +1,7 @@
 // frontend/src/p2p/networkStatus.ts
 import type { Helia } from "helia";
 import { addDebugLog, log } from "@/lib/log";
+import { updateStatus } from "@/lib/utils";
 import type { ConnectionInfo, NodeStatus } from "../types";
 
 export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interval = 5000) {
@@ -16,7 +17,12 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 						};
 					})
 				: [];
-			status.peers = peers;
+
+			// ---- Merge Status ----
+			updateStatus({
+				peers,
+				connected: peers.some((p) => p.connected),
+			});
 
 			// Log each peer individually
 			for (const peer of peers) {
@@ -39,11 +45,19 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 				},
 			});
 		} catch (err) {
-			log(`Network status error: ${(err as Error).message}`);
+			const msg = (err as Error).message;
+
+			log(`Network status error: ${msg}`);
+
+			updateStatus({
+				peers: [],
+				connected: false,
+			});
+
 			await addDebugLog({
 				message: `Network status error: ${(err as Error).message}`,
 				level: "error",
-				meta: { error: (err as Error).message, type: "peers" },
+				meta: { error: msg, type: "peers" },
 			});
 			status.peers = [];
 		}

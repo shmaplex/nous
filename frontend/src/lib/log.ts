@@ -1,7 +1,7 @@
 // frontend/src/lib/log.ts
 
 import { v4 as uuidv4 } from "uuid";
-import type { DebugLogEntry, NodeStatus } from "@/types";
+import type { DebugLogEntry } from "@/types";
 
 /**
  * Console log helper
@@ -70,34 +70,5 @@ export async function getDebugLogs(): Promise<DebugLogEntry[]> {
 	} catch (err) {
 		console.error("Error fetching debug logs:", err);
 		return [];
-	}
-}
-
-/**
- * Update node status by writing a debug log instead of a file.
- *
- * @param status - Current NodeStatus object
- * @param connected - Whether the node is connected
- * @param syncing - Whether the node is syncing
- */
-export async function updateStatus(status: NodeStatus, connected: boolean, syncing: boolean) {
-	status.connected = connected;
-	status.syncing = syncing;
-
-	if (!syncing) {
-		status.lastSync = new Date().toISOString();
-	}
-
-	try {
-		await addDebugLog({
-			message: `Node status updated: connected=${connected}, syncing=${syncing}`,
-			level: "info",
-			meta: {
-				lastSync: status.lastSync,
-				port: process.env.HTTP_PORT,
-			},
-		});
-	} catch (err) {
-		console.error(`Failed to write status to debug log: ${(err as Error).message}`);
 	}
 }

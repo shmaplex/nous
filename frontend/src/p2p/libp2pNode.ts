@@ -6,6 +6,8 @@ import { webTransport } from "@libp2p/webtransport";
 import { type Multiaddr, multiaddr } from "@multiformats/multiaddr";
 import { createLibp2p, type Libp2p } from "libp2p";
 import { addDebugLog, log } from "@/lib/log";
+import { updateStatus } from "@/lib/utils";
+import type { NodeStatus } from "@/types";
 
 /**
  * Initializes a Libp2p node with common transports, relays, and PubSub logging.
@@ -18,6 +20,7 @@ import { addDebugLog, log } from "@/lib/log";
  * const libp2p = await createLibp2pNode("/ip4/127.0.0.1/tcp/15003", ["/ip4/1.2.3.4/tcp/15003/p2p/12D3KooXYZ"]);
  */
 export async function createLibp2pNode(
+	status: NodeStatus,
 	libp2pListenAddr: string,
 	relayAddresses: string[] = [],
 ): Promise<Libp2p> {
@@ -74,6 +77,10 @@ export async function createLibp2pNode(
 			meta: { event: JSON.stringify(evt.detail) },
 			type: "p2p",
 		});
+	});
+
+	updateStatus({
+		connected: true,
 	});
 
 	return libp2p;

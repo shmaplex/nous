@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { log } from "@/lib/log";
+import { updateStatus } from "@/lib/utils";
 import type { NodeConfig } from "../types";
 import { createHttpServer, type HttpServerContext } from "./httpServer";
 import { startNetworkStatusPoll } from "./networkStatus";
@@ -50,10 +51,10 @@ export async function startP2PNode(config: NodeConfig) {
 
 	// --- Graceful shutdown ---
 	const databases = {
-		debugDB: debugDB.db,
-		sourcesDB: sourcesDB.db,
-		analyzedDB: analyzedDB.db,
-		federatedDB: federatedDB.db,
+		debugDB: debugDB?.db || debugDB,
+		sourcesDB: sourcesDB?.db || sourcesDB,
+		analyzedDB: analyzedDB?.db || analyzedDB,
+		federatedDB: federatedDB?.db || federatedDB,
 	};
 	const shutdown = setupGracefulShutdown(
 		server,
@@ -63,6 +64,10 @@ export async function startP2PNode(config: NodeConfig) {
 		ORBITDB_DB_PATH,
 		databases,
 	);
+
+	updateStatus({
+		running: true,
+	});
 
 	return {
 		// DBs

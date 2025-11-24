@@ -19,7 +19,7 @@ export const getDebugLogsRoute: RouteHandler = {
 				return;
 			}
 
-			const db = await debugDB;
+			const db = debugDB.db;
 			const allLogs: DebugLogEntry[] = await db.getAll();
 			res.setHeader("Content-Type", "application/json");
 			res.end(JSON.stringify(allLogs));
@@ -63,7 +63,8 @@ export const postDebugLogRoute: RouteHandler = {
 				return;
 			}
 
-			const db = await debugDB;
+			const db = debugDB.db;
+			// const db = await debugDB;
 			const entry: DebugLogEntry = {
 				_id: body._id,
 				timestamp: new Date().toISOString(),

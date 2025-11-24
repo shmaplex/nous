@@ -1,5 +1,5 @@
 import type { ServerResponse } from "node:http";
-import type { NodeStatus, RouteHandler } from "../../types";
+import type { NodeStatus, RouteHandler } from "@/types";
 
 /**
  * GET /status

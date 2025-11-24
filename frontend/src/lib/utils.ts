@@ -5,8 +5,21 @@ import { dagCbor } from "@helia/dag-cbor";
 import type { Helia } from "helia";
 import { CID } from "multiformats/cid";
 import { sha256 } from "multiformats/hashes/sha2";
+import { STATUS_FILE_NAME, STATUS_FILE_PATH } from "@/constants/status";
 import type { NodeStatus } from "../types";
 import { log } from "./log";
+
+// Internal in-memory status singleton
+let status: NodeStatus = {
+	running: false,
+	connected: false,
+	syncing: false,
+	orbitConnected: false,
+	lastSync: null,
+	peers: [],
+	logs: [],
+	port: 9001,
+};
 
 /**
  * Combine multiple class names into a single string, ignoring falsy values.
@@ -88,37 +101,101 @@ export async function cleanLockFiles(dir: string) {
 }
 
 /**
- * @deprecated Use the @/lib/log method now as it fetches from the debug
- * OrbitDB database and keeps things all nice and neat.
- *
- * Updates the global NodeStatus and optionally writes it to a JSON file.
- * @param status - The NodeStatus object to update
- * @param connected - Whether the node is connected
- * @param syncing - Whether the node is syncing
- * @param push - Whether to write status to /data/p2p-status.json
+ * Reads and returns the latest persisted NodeStatus from /data/p2p-status.json.
+ * If the file does not exist or is malformed, returns null.
  */
-// export function updateStatus(
-// 	status: NodeStatus,
-// 	connected: boolean,
-// 	syncing: boolean,
-// 	push = true,
-// ) {
-// 	status.connected = connected;
-// 	status.syncing = syncing;
+export function loadLatestStatus(): Partial<NodeStatus> | null {
+	try {
+		const statusFilePath = path.resolve(STATUS_FILE_PATH);
 
-// 	if (!syncing) status.lastSync = new Date().toISOString();
+		if (!fs.existsSync(statusFilePath)) {
+			return null; // No persisted status
+		}
 
-// 	if (push) {
-// 		try {
-// 			const statusDir = path.resolve("../data");
-// 			fs.mkdirSync(statusDir, { recursive: true }); // create folder if missing
+		const raw = fs.readFileSync(statusFilePath, "utf-8");
+		const parsed = JSON.parse(raw);
 
-// 			fs.writeFileSync(
-// 				path.join(statusDir, "p2p-status.json"),
-// 				JSON.stringify({ ...status, port: process.env.HTTP_PORT }),
-// 			);
-// 		} catch (err) {
-// 			log(`Failed to write status file: ${(err as Error).message}`);
-// 		}
-// 	}
-// }
+		// Validate minimal structure
+		if (typeof parsed !== "object" || parsed === null) {
+			log("❌ Invalid status file format");
+			return null;
+		}
+
+		return parsed as Partial<NodeStatus>;
+	} catch (err) {
+		log(`❌ Failed to load status file: ${(err as Error).message}`);
+		return null;
+	}
+}
+
+/**
+ * Updates the global NodeStatus by merging only provided fields.
+ * Missing fields in newStatus do NOT overwrite existing status.
+ * Always hydrates the in-memory status from disk first.
+ */
+export function updateStatus(newStatus: Partial<NodeStatus>, push = true): NodeStatus {
+	// Hydrate from disk
+	const persisted = loadLatestStatus();
+	if (persisted) {
+		status = { ...status, ...persisted };
+	}
+
+	// Merge new fields
+	status = { ...status, ...newStatus };
+
+	// Auto-update lastSync if syncing switched to false
+	if (newStatus.syncing === false) {
+		status.lastSync = new Date().toISOString();
+	}
+
+	// Persist to disk
+	if (push) {
+		try {
+			const statusDir = path.resolve("data");
+			fs.mkdirSync(statusDir, { recursive: true });
+
+			fs.writeFileSync(path.join(statusDir, STATUS_FILE_NAME), JSON.stringify(status, null, 2));
+		} catch (err) {
+			log(`Failed to write status file: ${(err as Error).message}`);
+		}
+	}
+
+	return status;
+}
+
+/**
+ * Loads the persisted status (if exists) and merges it into the provided NodeStatus.
+ */
+export function hydrateStatusFromFile(status: NodeStatus) {
+	const latest = loadLatestStatus();
+	if (!latest) return status;
+
+	Object.assign(status, latest);
+	return status;
+}
+
+/**
+ * Clears the global NodeStatus and removes the persisted status file.
+ * @param status - The NodeStatus object to update
+ */
+export function clearStatus(status: NodeStatus) {
+	// Reset in-memory status
+	status.connected = false;
+	status.syncing = false;
+	status.running = false;
+	status.orbitConnected = false;
+	status.lastSync = null;
+	status.peers = [];
+	status.logs = [];
+
+	// Remove persisted status file
+	try {
+		const statusFilePath = path.resolve(STATUS_FILE_PATH);
+		if (fs.existsSync(statusFilePath)) {
+			fs.unlinkSync(statusFilePath);
+			log("✅ P2P status file removed");
+		}
+	} catch (err) {
+		log(`Failed to remove status file: ${(err as Error).message}`);
+	}
+}

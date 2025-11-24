@@ -46,7 +46,8 @@ export function setupGracefulShutdown(
 			if (databases?.debugDB) await databases.debugDB.close();
 			if (databases?.sourcesDB) await databases.sourcesDB.close();
 			if (databases?.analyzedDB) await databases.analyzedDB.close();
-			if (databases?.federatedDB) await databases.federatedDB.close();
+			// Federated database doesn't have a close function
+			// if (databases?.federatedDB) await databases.federatedDB.close();
 
 			log("Cleaning LOCK files...");
 			cleanLockFiles(keystorePath);

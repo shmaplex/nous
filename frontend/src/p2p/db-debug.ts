@@ -1,7 +1,6 @@
 // frontend/src/lib/db-debug.ts
 import type { OrbitDB } from "@orbitdb/core";
 import { log } from "@/lib/log";
-import type { NodeStatus } from "@/types";
 import type { DebugLogEntry } from "@/types/log";
 
 // Explicit type for the debug DB instance
@@ -19,10 +18,9 @@ let debugDBInstance: DebugDB | null = null;
  * Safe to call multiple times; will return existing instance.
  *
  * @param orbitdb - Existing OrbitDB instance.
- * @param status - Node status object to track sync/loading.
  * @returns DB instance and helper methods for logging and retrieving entries.
  */
-export async function setupDebugDB(orbitdb: OrbitDB, status: NodeStatus) {
+export async function setupDebugDB(orbitdb: OrbitDB) {
 	if (debugDBInstance) {
 		log("🟢 Debug DB already initialized, skipping setup");
 		return debugDBInstance;
@@ -60,8 +58,12 @@ export async function setupDebugDB(orbitdb: OrbitDB, status: NodeStatus) {
 		timestamp: new Date().toISOString(),
 		message: "Node debug DB initialized",
 		level: "info",
-		meta: { lastSync: status.lastSync, port: process.env.HTTP_PORT },
+		meta: { port: process.env.HTTP_PORT },
 	});
 
-	return debugDBInstance;
+	return {
+		db,
+		add,
+		getAll,
+	};
 }

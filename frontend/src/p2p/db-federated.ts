@@ -6,8 +6,9 @@
  * Provides helper functions for saving, retrieving, and querying federated article pointers.
  */
 
-import { addDebugLog, log, updateStatus } from "@/lib/log";
-import type { FederatedArticlePointer, NodeStatus } from "@/types";
+import { addDebugLog, log } from "@/lib/log";
+
+import type { FederatedArticlePointer } from "@/types";
 
 // --- In-memory placeholder for federated pointers ---
 const federatedDB: FederatedArticlePointer[] = [];
@@ -16,10 +17,9 @@ const federatedDB: FederatedArticlePointer[] = [];
  * Sets up a federated articles DB
  * Currently in-memory; can later use OrbitDB/IPFS
  *
- * @param status - Node status object for syncing updates
  * @returns Helper functions and DB instance
  */
-export async function setupFederatedDB(status: NodeStatus) {
+export async function setupFederatedDB() {
 	// --- Optional logging ---
 	async function logUpdate(entry: FederatedArticlePointer) {
 		log(`🔄 Federated pointer updated: ${JSON.stringify(entry)}`);
@@ -46,10 +46,8 @@ export async function setupFederatedDB(status: NodeStatus) {
 	 * @param {FederatedArticlePointer} ptr - Federated pointer to save
 	 */
 	async function saveFederatedArticle(ptr: FederatedArticlePointer) {
-		updateStatus(status, true, true);
 		federatedDB.push(ptr);
 		await logUpdate(ptr);
-		// updateStatus(status, true, false);
 	}
 
 	/**

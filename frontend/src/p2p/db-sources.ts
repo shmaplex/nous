@@ -1,6 +1,6 @@
 import type { OrbitDB } from "@orbitdb/core";
-import { addDebugLog, log, updateStatus } from "@/lib/log";
-import type { Article, NodeStatus } from "../types";
+import { addDebugLog, log } from "@/lib/log";
+import type { Article } from "../types";
 
 /**
  * Sets up the sources DB in OrbitDB using an existing OrbitDB instance.
@@ -9,7 +9,6 @@ import type { Article, NodeStatus } from "../types";
  * separate from analyzed content or federated pointers.
  *
  * @param orbitdb - The existing OrbitDB instance to avoid lock conflicts.
- * @param status - Node status object used to track syncing/loading state.
  * @returns An object containing DB instance and helper methods:
  * - `db`: The underlying OrbitDB database instance.
  * - `saveArticle(doc: Article)`: Saves a new article if it does not exist.
@@ -20,7 +19,7 @@ import type { Article, NodeStatus } from "../types";
  * - `refetchArticles(newArticles: Article[])`: Adds multiple articles, skipping duplicates.
  * - `getStatus()`: Returns the current node status.
  */
-export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
+export async function setupSourcesDB(orbitdb: OrbitDB) {
 	const db = (await orbitdb.open("nous.sources.feed", {
 		type: "documents",
 		meta: { indexBy: "url" },
@@ -54,7 +53,6 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 			log(`Skipping duplicate article: ${doc.url}`);
 			return;
 		}
-		updateStatus(status, true, true);
 		await db.put(doc);
 		log(`Saved to sources DB: ${doc.url}`);
 		await addDebugLog({
@@ -63,7 +61,6 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 			meta: { url: doc.url },
 			type: "source",
 		});
-		updateStatus(status, true, false);
 	}
 
 	/**
@@ -72,7 +69,6 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 	 * @param {string} url - The URL of the article to delete.
 	 */
 	async function deleteArticle(url: string) {
-		updateStatus(status, true, true);
 		await db.del(url);
 		log(`Deleted from sources DB: ${url}`);
 		await addDebugLog({
@@ -81,7 +77,6 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 			meta: { url },
 			type: "source",
 		});
-		updateStatus(status, true, false);
 	}
 
 	/**
@@ -133,15 +128,6 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 		return added;
 	}
 
-	/**
-	 * Get the current status of the node.
-	 *
-	 * @returns {NodeStatus} Current node status object.
-	 */
-	function getStatus(): NodeStatus {
-		return status;
-	}
-
 	// --- Return DB + helper functions ---
 	return {
 		db,
@@ -151,6 +137,5 @@ export async function setupSourcesDB(orbitdb: OrbitDB, status: NodeStatus) {
 		getArticle,
 		queryArticles,
 		addUniqueArticles,
-		getStatus,
 	};
 }

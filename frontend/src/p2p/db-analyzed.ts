@@ -8,8 +8,7 @@
 
 import type { OrbitDB } from "@orbitdb/core";
 import { addDebugLog, log } from "@/lib/log";
-import { updateStatus } from "../lib/log";
-import type { ArticleAnalyzed, NodeStatus } from "../types";
+import type { ArticleAnalyzed } from "../types";
 
 /**
  * Sets up the analyzed articles DB in OrbitDB using an existing OrbitDB instance.
@@ -18,10 +17,9 @@ import type { ArticleAnalyzed, NodeStatus } from "../types";
  * including cognitive bias, sentiment, antithesis, political bias, and other metadata.
  *
  * @param orbitdb - Existing OrbitDB instance to avoid lock conflicts
- * @param status - Node status object for syncing updates
  * @returns Helper functions and DB instance
  */
-export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
+export async function setupAnalyzedDB(orbitdb: OrbitDB) {
 	// --- Open / create the analyzed feed DB ---
 	const db = (await orbitdb.open("nous.analyzed.feed", {
 		type: "documents",
@@ -57,7 +55,6 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 	 * @param {ArticleAnalyzed} doc - Analyzed article to save
 	 */
 	async function saveArticle(doc: ArticleAnalyzed) {
-		updateStatus(status, true, true);
 		await db.put(doc);
 		log(`Saved analyzed article: ${doc.id}`);
 		await addDebugLog({
@@ -66,7 +63,6 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 			meta: { length: doc.id },
 			type: "analyzed",
 		});
-		// updateStatus(status, true, false);
 	}
 
 	/**
@@ -76,7 +72,6 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 	 * @param {string} id - Analyzed article ID
 	 */
 	async function deleteArticle(id: string) {
-		updateStatus(status, true, true);
 		await db.del(id);
 		log(`Deleted analyzed article: ${id}`);
 		await addDebugLog({
@@ -85,7 +80,6 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 			meta: { id },
 			type: "analyzed",
 		});
-		// updateStatus(status, true, false);
 	}
 
 	/**
@@ -117,15 +111,6 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 		return db.query(fn);
 	}
 
-	/**
-	 * Get the current node status
-	 *
-	 * @returns {NodeStatus} Node status object
-	 */
-	function getStatus(): NodeStatus {
-		return status;
-	}
-
 	// --- Return DB + helpers ---
 	return {
 		db,
@@ -134,6 +119,5 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB, status: NodeStatus) {
 		getAllArticles,
 		getArticle,
 		queryArticles,
-		getStatus,
 	};
 }
