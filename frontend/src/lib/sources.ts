@@ -1,6 +1,6 @@
+// frontend/src/lib/sources.ts
 import { DEFAULT_SOURCES } from "@/constants/sources";
-import type { Source } from "@/types/sources";
-import { SourcesSchema } from "@/types/sources";
+import { type Source, SourcesSchema } from "@/types/source";
 import { LoadSources, SaveSources } from "../../wailsjs/go/main/App";
 
 export interface SourceWithHidden extends Source {
@@ -26,26 +26,41 @@ export const initSources = async (): Promise<SourceWithHidden[]> => {
 	return combined;
 };
 
-// Save sources to backend
-// export const saveSources = async (sources: SourceWithHidden[]) => {
-// 	try {
-// 		await saveSourcesToBackend(
-// 			sources.map((s) => ({
-// 				name: s.name,
-// 				endpoint: s.endpoint,
-// 				apiKey: s.apiKey,
-// 				instructions: s.instructions,
-// 				apiLink: s.apiLink,
-// 				enabled: s.enabled,
-// 				requiresApiKey: s.requiresApiKey,
-// 				category: s.category,
-// 				authType: s.authType,
-// 			})),
-// 		);
-// 	} catch (err) {
-// 		console.error("Failed to save sources:", err);
-// 	}
-// };
+/**
+ * Get all sources that are free or have an API key applied.
+ *
+ * Includes:
+ * - Default free sources
+ * - Default sources with an API key
+ * - Custom user-added sources (from Wails backend)
+ */
+export const getAvailableSources = async (): Promise<SourceWithHidden[]> => {
+	// Load all sources from backend
+	const loadedSources = await loadSources();
+
+	// Combine loaded sources with defaults if no user sources exist
+	const allSources: SourceWithHidden[] = (
+		loadedSources.length > 0 ? loadedSources : DEFAULT_SOURCES
+	).map((s) => {
+		const isApiKeySource = s.requiresApiKey ?? false;
+		const enabled = isApiKeySource ? !!s.apiKey : (s.enabled ?? true);
+		const hidden = !isApiKeySource && !enabled;
+
+		return {
+			...s,
+			enabled,
+			hidden,
+			isDefault: DEFAULT_SOURCES.some((d) => d.name === s.name && d.endpoint === s.endpoint),
+		};
+	});
+
+	// Filter only sources that are free (does not require API key) OR has an API key applied
+	const availableSources = allSources.filter(
+		(s) => !s.requiresApiKey || (s.requiresApiKey && s.apiKey && s.apiKey.length > 0),
+	);
+
+	return availableSources;
+};
 
 /**
  * Load sources from the Wails backend.

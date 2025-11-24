@@ -2,7 +2,7 @@ import { InfoIcon, ListFilterIcon, ListFilterPlusIcon, ListRestartIcon } from "l
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { FilterOptions } from "@/types/filters";
+import type { FilterOptions } from "@/types/filter";
 
 interface FilterBarProps {
 	filter: FilterOptions;

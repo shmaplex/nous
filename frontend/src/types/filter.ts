@@ -1,6 +1,6 @@
-// src/types/filters.ts
+// frontend/src/types/filter.ts
 import { z } from "zod";
-import { editions } from "./articles";
+import { editions } from "./article";
 
 export const biasOptions = ["left", "center", "right", "all"];
 export const sentimentOptions = ["positive", "neutral", "negative", "all"];

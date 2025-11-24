@@ -8,9 +8,6 @@ import {
 	SetLocation,
 } from "../../wailsjs/go/main/App";
 
-// Allowed bias values
-const BIASES = ["left", "center", "right"] as const;
-
 /**
  * Safely load articles from backend.
  * Falls back to empty array if invalid JSON or errors.
@@ -108,24 +105,4 @@ export const setLocation = async (loc: string): Promise<void> => {
 	} catch (err) {
 		console.error("Failed to update location:", err);
 	}
-};
-
-/**
- * Filter articles by bias and edition
- */
-export const filterArticles = (
-	articles: ArticleAnalyzed[],
-	biasFilter: "left" | "center" | "right" | "all",
-	locationFilter: string,
-): ArticleAnalyzed[] => {
-	return articles.filter((a) => {
-		const bias: "left" | "center" | "right" = a.politicalBias ?? "center"; // default if missing
-		const biasMatches = biasFilter === "all" ? BIASES.includes(bias) : bias === biasFilter;
-
-		// If locationFilter is "international", ignore edition
-		const locationMatches =
-			locationFilter === "international" || !locationFilter || a.edition === locationFilter;
-
-		return biasMatches && locationMatches;
-	});
 };

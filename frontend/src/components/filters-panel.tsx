@@ -1,6 +1,5 @@
-import { FilterIcon, RotateCwIcon, SlidersIcon } from "lucide-react";
+// frontend/src/components/filters-panel.tsx
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -9,15 +8,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import type { FilterOptions } from "../types/filters";
 import {
 	biasOptions,
 	confidenceOptions,
 	coverageOptions,
 	editionOptions,
+	type FilterOptions,
 	sentimentOptions,
-} from "../types/filters";
+} from "@/types/filter";
 import { FilterBar } from "./filters/filter-bar";
 
 interface FiltersPanelProps {
@@ -58,23 +56,6 @@ export default function FiltersPanel({ filter, setFilter }: FiltersPanelProps) {
 		</div>
 	);
 
-	const renderPill = (label: string, value: string | undefined, onClear: () => void) => (
-		<Button
-			variant="outline"
-			size="sm"
-			key={label}
-			className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs sm:text-sm whitespace-nowrap ${
-				value === "all" ? "text-muted-foreground" : ""
-			}`}
-			onClick={onClear}
-		>
-			<span className="capitalize">
-				{label}: {value}
-			</span>
-			<span className="text-muted-foreground">✕</span>
-		</Button>
-	);
-
 	// Determine if all filters are default
 	const allDefault =
 		filter.bias === "all" &&
@@ -84,14 +65,13 @@ export default function FiltersPanel({ filter, setFilter }: FiltersPanelProps) {
 		filter.edition === "international";
 
 	return (
-		<div className="flex flex-col gap-3 p-4 bg-card rounded-2xl shadow-md border border-border w-full">
+		<div className="flex flex-col gap-3 px-4 py-2 bg-card rounded-2xl shadow-md border border-border w-full">
 			{/* Pills + Toggle icon */}
 			<FilterBar
 				filter={filter}
 				setFilter={setFilter}
 				showFilters={showFilters}
 				setShowFilters={setShowFilters}
-				renderPill={renderPill}
 				allDefault={allDefault}
 			/>
 

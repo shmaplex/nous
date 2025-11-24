@@ -6,7 +6,13 @@ export function AppStatus():Promise<string>;
 
 export function DeleteArticle(arg1:string):Promise<string>;
 
+export function FetchAnalyzedArticles():Promise<string>;
+
 export function FetchArticles():Promise<string>;
+
+export function FetchFederatedArticles():Promise<string>;
+
+export function FetchLocalArticles():Promise<string>;
 
 export function GetLocation():Promise<string>;
 

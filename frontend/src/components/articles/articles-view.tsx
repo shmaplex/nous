@@ -84,11 +84,7 @@ const ArticlesView: React.FC<Props> = ({
 			</div>
 
 			{/* Insights */}
-			<InsightsPanel
-				articles={articles}
-				analyzedArticles={analyzedArticles}
-				federatedArticles={federatedArticles}
-			/>
+			<InsightsPanel />
 
 			{/* Articles Table / List */}
 			<div className="bg-white dark:bg-gray-900 p-4 rounded-md border border-border">

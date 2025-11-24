@@ -1,4 +1,4 @@
-// src/types/articles.ts
+// frontend/src/types/article.ts
 import { z } from "zod";
 
 /**

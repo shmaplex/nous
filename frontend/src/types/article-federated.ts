@@ -1,4 +1,4 @@
-// frontend/src/types/articles-federated.ts
+// frontend/src/types/article-federated.ts
 import { z } from "zod";
 
 export const feedTypes = ["local", "analyzed", "federated", "archived"];

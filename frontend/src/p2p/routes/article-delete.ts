@@ -34,3 +34,5 @@ export const deleteArticleRoute: RouteHandler = {
 		}
 	},
 };
+
+export const routes: RouteHandler[] = [deleteArticleRoute];

@@ -1,8 +1,8 @@
-// src/types/articles-stored.ts
+// frontend/src/types/article-stored.ts
 
 import { z } from "zod";
-import { ArticleSchema } from "./articles";
-import { ArticleAnalyzedSchema } from "./articles-analyzed";
+import { ArticleSchema } from "./article";
+import { ArticleAnalyzedSchema } from "./article-analyzed";
 
 /**
  * A discriminated union representing any article stored in the system.

@@ -10,7 +10,7 @@ import StatusBar from "./components/status-bar";
 import { ThemeProvider } from "./context/ThemeContext";
 
 import type { ArticleAnalyzed, ArticleStored, FederatedArticlePointer } from "./types";
-import type { FilterOptions } from "./types/filters";
+import type { FilterOptions } from "./types/filter";
 
 /**
  * Root application component
@@ -68,17 +68,17 @@ const App = () => {
 
 	return (
 		<ThemeProvider>
-			<div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
+			<div className="min-h-screen flex flex-col bg-background text-foreground font-sans pb-12">
 				{/* Top Header */}
 				<HeaderTop selectedLocation={location} onLocationChange={setLocationState} />
 
 				{/* Filters Panel */}
-				<div className="sticky top-16 z-30 bg-background px-6 py-3 border-b border-border shadow-sm">
+				<div className="sticky top-0 z-30 bg-background px-6 py-3 border-b border-border shadow-sm">
 					<FiltersPanel filter={filter} setFilter={setFilter} />
 				</div>
 
 				{/* Main Content */}
-				<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6">
+				<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6 w-full">
 					{/* Articles Feed */}
 					<div className="flex-1 space-y-4">
 						<ArticlesGrid
@@ -89,11 +89,7 @@ const App = () => {
 
 					{/* Insights Panel */}
 					<div className="hidden lg:block w-80 shrink-0 sticky top-24">
-						<InsightsPanel
-							articles={articles}
-							federatedArticles={federatedArticles}
-							analyzedArticles={analyzedArticles}
-						/>
+						<InsightsPanel />
 					</div>
 				</div>
 

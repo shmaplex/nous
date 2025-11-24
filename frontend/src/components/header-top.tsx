@@ -10,7 +10,7 @@ interface HeaderTopProps {
 
 const HeaderTop: React.FC<HeaderTopProps> = ({ selectedLocation, onLocationChange }) => {
 	return (
-		<div className="flex items-center px-4 py-3 bg-card text-card-foreground rounded-b-xl shadow-md w-full flex-wrap mb-4 relative">
+		<div className="sticky top-0 left-0 flex items-center px-4 py-3 bg-card text-card-foreground rounded-b-xl shadow-md w-full flex-wrap mb-4 z-infinity">
 			{/* Left: Current time */}
 			<div className="flex-1">
 				<TimeDisplay className="text-xs opacity-75" />

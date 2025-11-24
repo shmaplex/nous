@@ -23,7 +23,7 @@ const ArticlesGrid: React.FC<ArticlesGridProps> = ({ articles, onArchive }) => {
 			<div className="text-center py-12 text-muted-foreground">
 				<h2 className="text-2xl font-semibold mb-2">No articles available</h2>
 				<p className="text-sm max-w-md mx-auto">
-					Articles will appear here once processed. Our platform ingests news from multiple sources,
+					Articles will appear here once processed. The platform ingests news from multiple sources,
 					analyzes bias, sentiment, and cognitive distortions, and federates content across
 					networks.
 				</p>
@@ -37,7 +37,7 @@ const ArticlesGrid: React.FC<ArticlesGridProps> = ({ articles, onArchive }) => {
 			<div className="px-4 sm:px-0">
 				<h2 className="text-xl font-bold mb-2">Your News Overview</h2>
 				<p className="text-sm text-muted-foreground max-w-2xl">
-					Our platform categorizes articles into three types:
+					The platform categorizes articles into three types:
 					<ul className="list-disc ml-5 mt-1">
 						<li>
 							<b>Local Articles:</b> Directly ingested content from familiar sources.

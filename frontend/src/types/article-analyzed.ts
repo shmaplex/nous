@@ -1,5 +1,6 @@
+// frontend/src/types/article-analyzed.ts
 import { z } from "zod";
-import { editions, SourceMetaSchema, SourceTypes } from "./articles";
+import { editions, SourceMetaSchema, SourceTypes } from "./article";
 
 export const politicalBias = ["left", "center", "right"];
 

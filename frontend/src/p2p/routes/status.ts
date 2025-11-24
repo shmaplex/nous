@@ -33,3 +33,5 @@ export const statusRoute: RouteHandler = {
 		res.end(JSON.stringify(full));
 	},
 };
+
+export const routes: RouteHandler[] = [statusRoute];

@@ -2,21 +2,15 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Article represents a news article stored locally in OrbitDB.
@@ -72,59 +66,6 @@ var httpPortBase int = 9001
 var libp2pPortBase int = 4001
 var keystorePath string = ORBITDB_KEYSTORE_PATH
 var dbPath string = ORBITDB_DB_PATH
-
-func KillLingeringNode() {
-	scriptPath := "frontend/src/p2p/setup.ts"
-
-	switch runtime.GOOS {
-	case "windows":
-		out, err := exec.Command("tasklist").Output()
-		if err != nil {
-			log.Println("Error listing processes:", err)
-			return
-		}
-		for _, line := range strings.Split(string(out), "\n") {
-			if strings.Contains(line, "node.exe") && strings.Contains(line, scriptPath) {
-				fields := strings.Fields(line)
-				if len(fields) > 1 {
-					pid := fields[1]
-					exec.Command("taskkill", "/PID", pid, "/F").Run()
-					log.Println("Killed Node process on Windows:", pid)
-				}
-			}
-		}
-	default: // macOS / Linux
-		out, err := exec.Command("pgrep", "-f", scriptPath).Output()
-		if err != nil {
-			return
-		}
-		for _, pid := range strings.Fields(string(out)) {
-			exec.Command("kill", "-9", pid).Run()
-			log.Println("Killed Node process:", pid)
-		}
-	}
-}
-
-// CleanOrbitDBLocks removes leftover LOCK files
-func CleanOrbitDBLocks() {
-	paths := []string{ORBITDB_DB_PATH, ORBITDB_KEYSTORE_PATH}
-
-	for _, base := range paths {
-		_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.Name() == "LOCK" {
-				if rmErr := os.Remove(path); rmErr != nil {
-					log.Println("Failed to remove LOCK file:", path, rmErr)
-				} else {
-					log.Println("Removed leftover LOCK file:", path)
-				}
-			}
-			return nil
-		})
-	}
-}
 
 // NewApp creates a new App instance
 func NewApp() *App {
@@ -270,90 +211,6 @@ func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
 	return false        // false = allow close
 }
 
-//
-// ----- HTTP HELPERS -----
-//
-
-func get(url string) (string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
-}
-
-func post(url string, data interface{}) (string, error) {
-	payload, err := json.Marshal(data)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(body), nil
-}
-
-// Per-instance port helper
-func instanceHTTPPort() int {
-	return httpPortBase + instanceID
-}
-
-//
-// ----- PUBLIC API CALLED FROM FRONTEND -----
-//
-
-// FetchArticles retrieves all articles
-func (a *App) FetchArticles() string {
-	body, err := get("http://127.0.0.1:9001/articles")
-	if err != nil {
-		return fmt.Sprintf("Error fetching articles: %v", err)
-	}
-	return body
-}
-
-// SaveArticle saves a new article, optionally with an edition
-func (a *App) SaveArticle(title, url, content, edition string) string {
-	data := map[string]string{
-		"title":   title,
-		"url":     url,
-		"content": content,
-	}
-	if edition != "" {
-		data["edition"] = edition
-	}
-
-	body, err := post("http://127.0.0.1:9001/save", data)
-	if err != nil {
-		return fmt.Sprintf("Error saving article: %v", err)
-	}
-	return body
-}
-
-// DeleteArticle removes an article by ID
-func (a *App) DeleteArticle(id string) string {
-	url := fmt.Sprintf("http://127.0.0.1:9001/delete/%s", id)
-	body, err := get(url)
-	if err != nil {
-		return fmt.Sprintf("Error deleting article: %v", err)
-	}
-	return body
-}
-
 // SetLocation stores user location locally
 func (a *App) SetLocation(loc string) string {
 	a.Location = loc
@@ -366,81 +223,6 @@ func (a *App) GetLocation() string {
 		return ""
 	}
 	return a.Location
-}
-
-func (a *App) OpenSettings() {
-	// Trigger React modal via Wails runtime events
-	wailsruntime.EventsEmit(a.ctx, "open-settings", nil)
-}
-
-func (a *App) OpenAbout() {
-	// Native system About dialog
-	wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
-		Type:    wailsruntime.InfoDialog,
-		Title:   "About Nous",
-		Message: "Nous - P2P News Analysis\nVersion 1.0.0\n\n© 2025 Shmaplex\n\nLicense: CSL\nhttps://github.com/shmaplex/csl",
-	})
-}
-
-// SaveSources persists sources locally (e.g., JSON file)
-func (a *App) SaveSources(sources []Source) error {
-	if err := os.MkdirAll("data", os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create data directory: %w", err)
-	}
-
-	data, err := json.Marshal(sources)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile("data/sources.json", data, 0644)
-}
-
-// LoadSources loads sources from local file
-func (a *App) LoadSources() ([]Source, error) {
-	if _, err := os.Stat("data"); os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	data, err := os.ReadFile("data/sources.json")
-	if err != nil {
-		return nil, nil
-	}
-
-	var sources []Source
-	if err := json.Unmarshal(data, &sources); err != nil {
-		return nil, err
-	}
-
-	// Optional: auto-enable if APIKey exists
-	for i := range sources {
-		if sources[i].Enabled == nil {
-			sources[i].Enabled = new(bool)
-			*sources[i].Enabled = sources[i].APIKey != ""
-		}
-	}
-
-	return sources, nil
-}
-
-func (a *App) OpenURL(url string) error {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		// macOS
-		cmd = exec.Command("open", url)
-	case "linux":
-		// Linux
-		cmd = exec.Command("xdg-open", url)
-	case "windows":
-		// Windows
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		return fmt.Errorf("unsupported platform")
-	}
-
-	return cmd.Start()
 }
 
 func (a *App) AppStatus() string {

@@ -28,3 +28,5 @@ export const saveArticleRoute: RouteHandler = {
 		}
 	},
 };
+
+export const routes: RouteHandler[] = [saveArticleRoute];

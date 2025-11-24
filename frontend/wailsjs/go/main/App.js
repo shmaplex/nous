@@ -10,8 +10,20 @@ export function DeleteArticle(arg1) {
   return window['go']['main']['App']['DeleteArticle'](arg1);
 }
 
+export function FetchAnalyzedArticles() {
+  return window['go']['main']['App']['FetchAnalyzedArticles']();
+}
+
 export function FetchArticles() {
   return window['go']['main']['App']['FetchArticles']();
+}
+
+export function FetchFederatedArticles() {
+  return window['go']['main']['App']['FetchFederatedArticles']();
+}
+
+export function FetchLocalArticles() {
+  return window['go']['main']['App']['FetchLocalArticles']();
 }
 
 export function GetLocation() {
