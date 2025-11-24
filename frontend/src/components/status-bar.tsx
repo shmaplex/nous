@@ -1,34 +1,56 @@
 import { Circle, Database, Link, RotateCw, Server } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { loadLatestStatus } from "@/lib/utils";
-import type { NodeStatus } from "@/types";
+import { createEmptyNodeStatus, type NodeStatus } from "@/types";
+import { AppStatus } from "../../wailsjs/go/main/App";
 
 interface StatusBarProps {
 	onOpenDebug?: (tab: string) => void;
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({ onOpenDebug }) => {
-	const [status, setStatus] = useState<NodeStatus>({
-		running: false,
-		connected: false,
-		orbitConnected: false,
-		syncing: false,
-		lastSync: null,
-		peers: [],
-		logs: [],
-		port: 9001,
-	});
+	const [status, setStatus] = useState<NodeStatus>({ ...createEmptyNodeStatus() });
 
 	useEffect(() => {
-		const interval = setInterval(() => {
+		const interval = setInterval(async () => {
 			try {
-				const latest = loadLatestStatus();
-				if (latest) {
-					setStatus((prev: any) => ({ ...prev, ...latest }));
-				}
-			} catch (err) {
-				console.error("Failed to load latest status:", err);
+				const raw = await AppStatus();
+				console.log("raw", raw);
+				const parsed: NodeStatus = raw
+					? (() => {
+							try {
+								const data = JSON.parse(raw);
+								return { ...data, port: data.port ?? 9001 }; // fallback to 9001
+							} catch {
+								return {
+									running: false,
+									connected: false,
+									orbitConnected: false,
+									syncing: false,
+									lastSync: null,
+									peers: [],
+									port: 9001,
+								};
+							}
+						})()
+					: {
+							running: false,
+							connected: false,
+							orbitConnected: false,
+							syncing: false,
+							lastSync: null,
+							peers: [],
+							port: 9001,
+						};
+				setStatus(parsed);
+			} catch {
+				setStatus((prev) => ({
+					...prev,
+					running: false,
+					connected: false,
+					orbitConnected: false,
+					syncing: false,
+				}));
 			}
 		}, 3000);
 

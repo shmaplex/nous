@@ -9,7 +9,9 @@ import { STATUS_FILE_NAME, STATUS_FILE_PATH } from "@/constants/status";
 import type { NodeStatus } from "../types";
 import { log } from "./log";
 
-// Internal in-memory status singleton
+const BASE_URL = "http://localhost:9001"; // or dynamic config
+
+// In-memory status
 let status: NodeStatus = {
 	running: false,
 	connected: false,
@@ -101,101 +103,63 @@ export async function cleanLockFiles(dir: string) {
 }
 
 /**
- * Reads and returns the latest persisted NodeStatus from /data/p2p-status.json.
- * If the file does not exist or is malformed, returns null.
+ * Fetch the latest NodeStatus from the backend
  */
-export function loadLatestStatus(): Partial<NodeStatus> | null {
+export async function loadLatestStatus(): Promise<Partial<NodeStatus> | null> {
 	try {
-		const statusFilePath = path.resolve(STATUS_FILE_PATH);
-
-		if (!fs.existsSync(statusFilePath)) {
-			return null; // No persisted status
-		}
-
-		const raw = fs.readFileSync(statusFilePath, "utf-8");
-		const parsed = JSON.parse(raw);
-
-		// Validate minimal structure
-		if (typeof parsed !== "object" || parsed === null) {
-			log("❌ Invalid status file format");
-			return null;
-		}
-
-		return parsed as Partial<NodeStatus>;
+		const res = await fetch(`${BASE_URL}/status`);
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const data = (await res.json()) as NodeStatus;
+		status = data; // update local singleton
+		return data;
 	} catch (err) {
-		log(`❌ Failed to load status file: ${(err as Error).message}`);
+		log(`❌ Failed to fetch latest status: ${(err as Error).message}`);
 		return null;
 	}
 }
 
 /**
- * Updates the global NodeStatus by merging only provided fields.
- * Missing fields in newStatus do NOT overwrite existing status.
- * Always hydrates the in-memory status from disk first.
+ * Update NodeStatus via backend POST /status
  */
-export function updateStatus(newStatus: Partial<NodeStatus>, push = true): NodeStatus {
-	// Hydrate from disk
-	const persisted = loadLatestStatus();
-	if (persisted) {
-		status = { ...status, ...persisted };
-	}
-
-	// Merge new fields
-	status = { ...status, ...newStatus };
-
-	// Auto-update lastSync if syncing switched to false
-	if (newStatus.syncing === false) {
-		status.lastSync = new Date().toISOString();
-	}
-
-	// Persist to disk
-	if (push) {
-		try {
-			const statusDir = path.resolve("data");
-			fs.mkdirSync(statusDir, { recursive: true });
-
-			fs.writeFileSync(path.join(statusDir, STATUS_FILE_NAME), JSON.stringify(status, null, 2));
-		} catch (err) {
-			log(`Failed to write status file: ${(err as Error).message}`);
-		}
-	}
-
-	return status;
-}
-
-/**
- * Loads the persisted status (if exists) and merges it into the provided NodeStatus.
- */
-export function hydrateStatusFromFile(status: NodeStatus) {
-	const latest = loadLatestStatus();
-	if (!latest) return status;
-
-	Object.assign(status, latest);
-	return status;
-}
-
-/**
- * Clears the global NodeStatus and removes the persisted status file.
- * @param status - The NodeStatus object to update
- */
-export function clearStatus(status: NodeStatus) {
-	// Reset in-memory status
-	status.connected = false;
-	status.syncing = false;
-	status.running = false;
-	status.orbitConnected = false;
-	status.lastSync = null;
-	status.peers = [];
-	status.logs = [];
-
-	// Remove persisted status file
+export async function updateStatus(newStatus: Partial<NodeStatus>): Promise<NodeStatus> {
 	try {
-		const statusFilePath = path.resolve(STATUS_FILE_PATH);
-		if (fs.existsSync(statusFilePath)) {
-			fs.unlinkSync(statusFilePath);
-			log("✅ P2P status file removed");
-		}
+		const res = await fetch(`${BASE_URL}/status`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(newStatus),
+		});
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const updated = (await res.json()) as NodeStatus;
+		status = updated;
+		return updated;
 	} catch (err) {
-		log(`Failed to remove status file: ${(err as Error).message}`);
+		log(`❌ Failed to update status: ${(err as Error).message}`);
+		// fallback: merge locally
+		status = { ...status, ...newStatus };
+		if (newStatus.syncing === false) status.lastSync = new Date().toISOString();
+		return status;
 	}
+}
+
+/**
+ * Hydrate an existing status object from backend
+ */
+export async function hydrateStatusFromServer(statusObj: NodeStatus) {
+	const latest = await loadLatestStatus();
+	if (!latest) return statusObj;
+	Object.assign(statusObj, latest);
+	return statusObj;
+}
+
+/**
+ * Clear local in-memory status (frontend only)
+ */
+export function clearStatus(statusObj: NodeStatus) {
+	statusObj.connected = false;
+	statusObj.syncing = false;
+	statusObj.running = false;
+	statusObj.orbitConnected = false;
+	statusObj.lastSync = null;
+	statusObj.peers = [];
+	statusObj.logs = [];
 }
