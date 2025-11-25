@@ -18,6 +18,7 @@ import { LoadingOverlay } from "./components/loading/loading-overlay";
 import SettingsPanel from "./components/settings-panel";
 import StatusBar from "./components/status-bar";
 import { ThemeProvider } from "./context/ThemeContext";
+import { useNodeStatus } from "./hooks/useNodeStatus";
 import { fetchArticlesBySources } from "./lib/sources";
 import type { FilterOptions } from "./types/filter";
 
@@ -50,6 +51,8 @@ const App = () => {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [addArticleOpen, setAddArticleOpen] = useState(false);
 
+	const status = useNodeStatus();
+
 	/** -----------------------------
 	 * Loading Overlay
 	 * ----------------------------- */
@@ -71,53 +74,41 @@ const App = () => {
 		initDebug();
 	}, []);
 
-	/** -----------------------------------------
-	 * 🔄 Fetch Articles from Backend on Load
-	 * ----------------------------------------- */
+	/**
+	 * Wait until P2P node, connection, and OrbitDB are ready,
+	 * then fetch articles **once**.
+	 */
 	useEffect(() => {
-		const loadSourcesAndArticles = async () => {
-			try {
-				setLoadingStatus("Connecting to local node…");
+		let fetched = false;
+
+		const waitForReady = async () => {
+			if (fetched) return; // Prevent double fetch
+			if (!status.running || !status.connected || !status.orbitConnected) {
+				// Still waiting for services
+				setLoadingStatus("Waiting for P2P node and databases…");
 				setProgress(10);
-				await new Promise((r) => setTimeout(r, 300));
+				return;
+			}
 
-				setLoadingStatus("Fetching articles from available sources…");
-				setProgress(40);
+			fetched = true;
+			setLoadingStatus("Fetching articles from sources…");
+			setProgress(40);
 
-				// Use the new fetchArticlesBySources function
+			try {
 				const data = await fetchArticlesBySources();
-
-				setLoadingStatus("Processing articles…");
-				setProgress(70);
-
-				// Save to state
 				setArticles(data);
-
-				setLoadingStatus("Finalizing setup…");
-				setProgress(95);
-				await new Promise((r) => setTimeout(r, 200));
-
 				setProgress(100);
 				setLoading(false);
 
-				if (data.length > 0) {
-					await addDebugLog({
-						message: `Loaded ${data.length} articles from sources`,
-						level: "info",
-						meta: { type: "fetch" },
-					});
-				} else {
-					await addDebugLog({
-						message: "No articles loaded from sources",
-						level: "warn",
-						meta: { type: "fetch" },
-					});
-				}
+				await addDebugLog({
+					message: `Loaded ${data.length} articles from sources`,
+					level: "info",
+					meta: { type: "fetch" },
+				});
 			} catch (err) {
 				console.error(err);
 				setLoadingStatus("Failed to fetch articles. Is node running?");
 				setProgress(0);
-
 				await addDebugLog({
 					message: `Failed to fetch articles: ${(err as Error).message}`,
 					level: "error",
@@ -126,8 +117,8 @@ const App = () => {
 			}
 		};
 
-		loadSourcesAndArticles();
-	}, []);
+		waitForReady();
+	}, [status]); // Re-run only until `fetched = true`
 
 	/** -----------------------------------------
 	 * 🔄 Wails Event - Open Settings
@@ -190,6 +181,7 @@ const App = () => {
 
 				{/* StatusBar */}
 				<StatusBar
+					status={status}
 					onOpenDebug={(tab) => {
 						setDebugTab(tab);
 						setDebugOpen(true);
