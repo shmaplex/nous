@@ -5,6 +5,7 @@ import { ArticleSchema } from "./article";
 import { ArticleAnalyzedSchema } from "./article-analyzed";
 
 /**
+ * @deprecated Using types/article.ts and types/article-analyzed.ts as separate types mostly.
  * A discriminated union representing any article stored in the system.
  *
  * This allows your storage layer (DB, KV, filesystem, etc.) to contain:

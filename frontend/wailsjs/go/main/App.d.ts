@@ -30,7 +30,7 @@ export function OpenSettings():Promise<void>;
 
 export function OpenURL(arg1:string):Promise<void>;
 
-export function SaveArticle(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+export function SaveArticle(arg1:Record<string, any>):Promise<string>;
 
 export function SaveSources(arg1:Array<main.Source>):Promise<void>;
 

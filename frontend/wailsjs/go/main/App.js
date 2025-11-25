@@ -58,8 +58,8 @@ export function OpenURL(arg1) {
   return window['go']['main']['App']['OpenURL'](arg1);
 }
 
-export function SaveArticle(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['SaveArticle'](arg1, arg2, arg3, arg4);
+export function SaveArticle(arg1) {
+  return window['go']['main']['App']['SaveArticle'](arg1);
 }
 
 export function SaveSources(arg1) {
