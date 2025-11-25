@@ -1,12 +1,15 @@
 // frontend/src/p2p/httpServer.ts
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { NodeStatus, RouteHandler } from "../types";
+import type { NodeStatus, RouteHandler } from "@/types";
 // external routes (see /routes)
-import * as deleteRoutes from "./routes/article-delete";
-import * as saveRoutes from "./routes/article-save";
-import * as federatedRoutes from "./routes/articles-federated";
-import * as sourcesRoutes from "./routes/articles-sources";
-import * as statusRoutes from "./routes/status";
+import * as deleteRoutes from "./routes/route-article-delete";
+import * as saveRoutes from "./routes/route-article-save";
+import * as federatedRoutes from "./routes/route-articles-federated";
+import * as sourcesRoutes from "./routes/route-articles-sources";
+import * as logRoutes from "./routes/route-log";
+import * as statusRoutes from "./routes/route-status";
+
+export const BASE_URL = "http://127.0.0.1";
 
 export const routes: RouteHandler[] = [
 	...federatedRoutes.routes,
@@ -14,6 +17,7 @@ export const routes: RouteHandler[] = [
 	...deleteRoutes.routes,
 	...statusRoutes.routes,
 	...saveRoutes.routes,
+	...logRoutes.routes,
 ];
 
 /**
@@ -40,8 +44,24 @@ export interface HttpServerContext {
  */
 export function createHttpServer(httpPort: number, context: HttpServerContext): Server {
 	const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+		// ----------------------
+		// Add CORS headers
+		// ----------------------
+		res.setHeader("Access-Control-Allow-Origin", "*"); // allow all origins
+		res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+		res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
 		res.setHeader("Content-Type", "application/json");
 
+		// Handle preflight OPTIONS requests
+		if (req.method === "OPTIONS") {
+			res.writeHead(204, {
+				"Access-Control-Allow-Origin": "*",
+				"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+				"Access-Control-Allow-Headers": "Content-Type, Authorization",
+			});
+			res.end();
+			return;
+		}
 		try {
 			let rawBody = "";
 			req.on("data", (chunk) => {
@@ -88,7 +108,7 @@ export function createHttpServer(httpPort: number, context: HttpServerContext): 
 	});
 
 	server.listen(httpPort, () => {
-		console.log(`P2P node HTTP API running on http://127.0.0.1:${httpPort}`);
+		console.log(`P2P node HTTP API running on ${BASE_URL}:${httpPort}`);
 	});
 
 	return server;

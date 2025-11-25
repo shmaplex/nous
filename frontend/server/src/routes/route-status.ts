@@ -1,10 +1,10 @@
-// frontend/src/p2p/statusRoute.ts
+// frontend/src/p2p/routes/route-status.ts
 import fs from "node:fs";
 import type { ServerResponse } from "node:http";
 import path from "node:path";
 import { STATUS_FILE_PATH } from "@/constants/status";
-import { log } from "@/lib/log";
 import type { NodeStatus, RouteHandler } from "@/types";
+import { handleError } from "./helpers";
 
 /**
  * GET /status
@@ -14,6 +14,8 @@ export const getStatusRoute: RouteHandler = {
 	method: "GET",
 	path: "/status",
 	handler: async ({ res }: { res: ServerResponse }) => {
+		res.setHeader("Content-Type", "application/json");
+
 		try {
 			let persisted: Partial<NodeStatus> = {};
 			if (fs.existsSync(STATUS_FILE_PATH)) {
@@ -21,24 +23,22 @@ export const getStatusRoute: RouteHandler = {
 				persisted = JSON.parse(raw) || {};
 			}
 
+			const status: NodeStatus = {
+				running: false,
+				connected: false,
+				syncing: false,
+				orbitConnected: false,
+				peers: [],
+				port: 9001,
+				logs: [],
+				...persisted,
+				lastSync: persisted?.lastSync ?? null, // coerce to string | null
+			};
+
 			res.statusCode = 200;
-			res.setHeader("Content-Type", "application/json");
-			res.end(
-				JSON.stringify({
-					running: false,
-					connected: false,
-					syncing: false,
-					orbitConnected: false,
-					peers: [],
-					port: 9001,
-					logs: [],
-					...persisted,
-				}),
-			);
+			res.end(JSON.stringify(status));
 		} catch (err) {
-			log(`❌ Failed to load status file: ${(err as Error).message}`);
-			res.statusCode = 500;
-			res.end(JSON.stringify({ error: (err as Error).message }));
+			await handleError(res, `Failed to load status file: ${(err as Error).message}`, 500, "error");
 		}
 	},
 };
@@ -51,10 +51,11 @@ export const updateStatusRoute: RouteHandler = {
 	method: "POST",
 	path: "/status",
 	handler: async ({ res, body }: { res: ServerResponse; body?: Partial<NodeStatus> }) => {
+		res.setHeader("Content-Type", "application/json");
+
 		try {
 			if (!body || typeof body !== "object") {
-				res.statusCode = 400;
-				res.end(JSON.stringify({ error: "Invalid body, expected JSON object" }));
+				await handleError(res, "Invalid body, expected JSON object", 400, "warn");
 				return;
 			}
 
@@ -79,7 +80,7 @@ export const updateStatusRoute: RouteHandler = {
 				lastSync:
 					body?.syncing === false
 						? new Date().toISOString()
-						: (persisted?.lastSync ?? body?.lastSync ?? null), // ensure string | null
+						: (persisted?.lastSync ?? body?.lastSync ?? null),
 			};
 
 			// Auto-update lastSync if syncing switched to false
@@ -93,15 +94,45 @@ export const updateStatusRoute: RouteHandler = {
 			fs.writeFileSync(STATUS_FILE_PATH, JSON.stringify(updated, null, 2));
 
 			res.statusCode = 200;
-			res.setHeader("Content-Type", "application/json");
 			res.end(JSON.stringify(updated));
 		} catch (err) {
-			log(`❌ Failed to update status file: ${(err as Error).message}`);
-			res.statusCode = 500;
-			res.end(JSON.stringify({ error: (err as Error).message }));
+			await handleError(
+				res,
+				`Failed to update status file: ${(err as Error).message}`,
+				500,
+				"error",
+			);
+		}
+	},
+};
+
+/**
+ * DELETE /status
+ * Removes the persisted status file entirely
+ */
+export const deleteStatusRoute: RouteHandler = {
+	method: "DELETE",
+	path: "/status",
+	handler: async ({ res }: { res: ServerResponse }) => {
+		res.setHeader("Content-Type", "application/json");
+
+		try {
+			if (fs.existsSync(STATUS_FILE_PATH)) {
+				fs.unlinkSync(STATUS_FILE_PATH);
+			}
+
+			res.statusCode = 200;
+			res.end(JSON.stringify({ deleted: true }));
+		} catch (err) {
+			await handleError(
+				res,
+				`Failed to delete status file: ${(err as Error).message}`,
+				500,
+				"error",
+			);
 		}
 	},
 };
 
 // Export all backend routes
-export const routes: RouteHandler[] = [getStatusRoute, updateStatusRoute];
+export const routes: RouteHandler[] = [getStatusRoute, updateStatusRoute, deleteStatusRoute];

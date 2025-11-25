@@ -5,13 +5,14 @@ import { createOrbitDB, type OrbitDB } from "@orbitdb/core";
 import type { Helia } from "helia";
 import { createHelia } from "helia";
 import type { Libp2p } from "libp2p";
-import { log } from "@/lib/log";
-import { cleanLockFiles, clearStatus, updateStatus } from "../lib/utils";
-import { createEmptyNodeStatus, type NodeConfig, type NodeStatus } from "../types";
-import { setupAnalyzedDB } from "./db-analyzed";
-import { setupDebugDB } from "./db-debug";
-import { setupFederatedDB } from "./db-federated";
-import { setupSourcesDB } from "./db-sources";
+import { log } from "@/lib/log.server";
+import { updateStatus } from "@/lib/status.server";
+import { cleanLockFiles } from "@/lib/utils.server";
+import { createEmptyNodeStatus, type NodeConfig, type NodeStatus } from "@/types";
+import { type AnalyzedDB, setupAnalyzedDB } from "./db-analyzed";
+import { type DebugDB, setupDebugDB } from "./db-debug";
+import { type FederatedDB, setupFederatedDB } from "./db-federated";
+import { type SourceDB, setupSourcesDB } from "./db-sources";
 import { getOrbitDBIdentity } from "./identity";
 import { createLibp2pNode } from "./libp2pNode";
 
@@ -24,10 +25,10 @@ let runningInstance: {
 	helia: Helia;
 	orbitdb: OrbitDB;
 	status: NodeStatus;
-	debugDB: any;
-	sourcesDB: any;
-	analyzedDB: any;
-	federatedDB: any;
+	debugDB: DebugDB;
+	sourcesDB: SourceDB;
+	analyzedDB: AnalyzedDB;
+	federatedDB: FederatedDB;
 } | null = null;
 
 /**
@@ -59,11 +60,10 @@ export async function getP2PNode(config?: NodeConfig) {
 	await cleanLockFiles(ORBITDB_DB_PATH);
 
 	// --- Libp2p ---
-	const libp2p = await createLibp2pNode(
-		status,
-		nodeConfig.libp2pListenAddr,
-		nodeConfig.relayAddresses,
-	);
+	const libp2p = await createLibp2pNode(nodeConfig.libp2pListenAddr, nodeConfig.relayAddresses);
+
+	// Libp2p Connected Status
+	status.connected = true;
 
 	// --- Helia ---
 	const helia = await createHelia({ libp2p });
@@ -77,10 +77,10 @@ export async function getP2PNode(config?: NodeConfig) {
 		directory: ORBITDB_DB_PATH,
 	});
 
-	let debugDB: any;
-	let sourcesDB: any;
-	let analyzedDB: any;
-	let federatedDB: any;
+	let debugDB: DebugDB;
+	let sourcesDB: SourceDB;
+	let analyzedDB: AnalyzedDB;
+	let federatedDB: FederatedDB;
 	try {
 		// --- Setup DBs ---
 		debugDB = await setupDebugDB(orbitdb);
@@ -88,35 +88,42 @@ export async function getP2PNode(config?: NodeConfig) {
 		analyzedDB = await setupAnalyzedDB(orbitdb);
 		federatedDB = await setupFederatedDB();
 
-		updateStatus(status, {
-			orbitConnected: true,
-		});
+		status.orbitConnected = true;
 	} catch (err: any) {
 		log(`OrbitDB setup failed: ${err.message}`);
-
-		updateStatus(status, {
-			orbitConnected: false,
-		});
+		// Fallback empty DBs if needed
+		debugDB = { db: null, add: async () => {}, getAll: async () => [] };
+		sourcesDB = {
+			db: null,
+			saveArticle: async () => {},
+			deleteArticle: async () => {},
+			getAllArticles: async () => [],
+			getArticle: async () => null,
+			queryArticles: async () => [],
+			addUniqueArticles: async () => 0,
+			fetchAllSources: async () => [],
+		};
+		analyzedDB = {
+			db: null,
+			saveArticle: async () => {},
+			deleteArticle: async () => {},
+			getAllArticles: async () => [],
+			getArticle: async () => null,
+			queryArticles: async () => [],
+		};
+		federatedDB = {
+			db: [],
+			saveFederatedArticle: async () => {},
+			getFederatedArticles: async () => [],
+			queryFederatedArticles: async () => [],
+		};
+		status.orbitConnected = false;
 	}
 
 	runningInstance = { libp2p, helia, orbitdb, status, debugDB, sourcesDB, analyzedDB, federatedDB };
 
 	log("✅ P2P node initialized successfully");
+
+	updateStatus(status);
 	return runningInstance;
-}
-
-/**
- * Stop the running instance (optional)
- */
-export async function stopP2PNode() {
-	if (!runningInstance) return;
-	const { libp2p } = runningInstance;
-	log("Shutting down P2P node...");
-
-	// Remove the p2p-status.json file
-	const status: NodeStatus = createEmptyNodeStatus();
-	clearStatus(status);
-
-	await libp2p.stop();
-	runningInstance = null;
 }

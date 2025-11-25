@@ -100,10 +100,7 @@ func (a *App) GetLocation() string {
 	return a.Location
 }
 
-func (a *App) AppStatus() string {
-	body, err := get(fmt.Sprintf("http://127.0.0.1:%d/status", instanceHTTPPort()))
-	if err != nil {
-		return fmt.Sprintf(`{"running": false, "port": %d, "error": "%v"}`, instanceHTTPPort(), err)
-	}
-	return body
+// Base URL for talking to the internal P2P HTTP API
+func GetNodeBaseUrl() string {
+	return fmt.Sprintf("http://127.0.0.1:%d", instanceHTTPPort())
 }

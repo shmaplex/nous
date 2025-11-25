@@ -1,8 +1,8 @@
 // frontend/src/p2p/networkStatus.ts
 import type { Helia } from "helia";
-import { addDebugLog, log } from "@/lib/log";
-import { updateStatus } from "@/lib/utils";
-import type { ConnectionInfo, NodeStatus } from "../types";
+import { addDebugLog, log } from "@/lib/log.server";
+import { updateStatus } from "@/lib/status.server";
+import type { ConnectionInfo, NodeStatus } from "@/types";
 
 export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interval = 5000) {
 	async function updateNetworkStatus() {
@@ -18,18 +18,20 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 					})
 				: [];
 
-			// ---- Merge Status ----
-			updateStatus({
-				peers,
-				connected: peers.some((p) => p.connected),
-			});
+			if (peers?.length) {
+				// ---- Merge Status ----
+				updateStatus({
+					peers,
+					connected: peers.some((p) => p.connected),
+				});
+			}
 
 			// Log each peer individually
 			for (const peer of peers) {
 				await addDebugLog({
 					message: `Peer status: ${peer.peerId} — ${peer.connected ? "Connected" : "Disconnected"}`,
 					level: "info",
-					meta: { ...peer, type: "peers" }, // <-- include peerId here
+					// meta: { ...peer, type: "peers" }, // <-- include peerId here
 				});
 			}
 
@@ -37,12 +39,12 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 			await addDebugLog({
 				message: `Network summary: ${peers.length} peers, syncing=${status.syncing}`,
 				level: "info",
-				meta: {
-					peerCount: peers.length,
-					connected: peers.length > 0,
-					syncing: status.syncing,
-					type: "network",
-				},
+				// meta: {
+				// 	peerCount: peers.length,
+				// 	connected: peers.length > 0,
+				// 	syncing: status.syncing,
+				// 	type: "network",
+				// },
 			});
 		} catch (err) {
 			const msg = (err as Error).message;
@@ -57,7 +59,7 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 			await addDebugLog({
 				message: `Network status error: ${(err as Error).message}`,
 				level: "error",
-				meta: { error: msg, type: "peers" },
+				// meta: { error: msg, type: "peers" },
 			});
 			status.peers = [];
 		}

@@ -1,6 +1,11 @@
-// frontend/src/p2p/routes/articles-federated.ts
-import type { FederatedArticlePointer, RouteHandler } from "../../types";
+// frontend/src/p2p/routes/route-article-federated.ts
+import type { FederatedArticlePointer, RouteHandler } from "@/types";
+import { handleError } from "./helpers";
 
+/**
+ * GET /articles/federated
+ * Returns all federated articles from the P2P node.
+ */
 export const federatedArticlesRoute: RouteHandler = {
 	method: "GET",
 	path: "/articles/federated",
@@ -12,17 +17,16 @@ export const federatedArticlesRoute: RouteHandler = {
 		res: import("node:http").ServerResponse;
 	}) => {
 		if (!getFederatedArticles) {
-			res.statusCode = 500;
-			res.end(JSON.stringify({ error: "getFederatedArticles not provided" }));
+			await handleError(res, "getFederatedArticles function not provided", 500, "error");
 			return;
 		}
 
 		try {
 			const articles: FederatedArticlePointer[] = await getFederatedArticles();
+			res.setHeader("Content-Type", "application/json");
 			res.end(JSON.stringify(articles));
 		} catch (err) {
-			res.statusCode = 500;
-			res.end(JSON.stringify({ error: (err as Error).message }));
+			await handleError(res, (err as Error).message, 500, "error");
 		}
 	},
 };

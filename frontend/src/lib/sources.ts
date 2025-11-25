@@ -1,12 +1,18 @@
 // frontend/src/lib/sources.ts
 import { DEFAULT_SOURCES } from "@/constants/sources";
-import { type AuthType, type Source, type SourceCategory, SourcesSchema } from "@/types/source";
-import { LoadSources, SaveSources } from "../../wailsjs/go/main/App";
-
-export interface SourceWithHidden extends Source {
-	hidden?: boolean;
-	isDefault?: boolean;
-}
+import {
+	type Article,
+	type AuthType,
+	type Edition,
+	editions,
+	type PoliticalBias,
+	PoliticalBiasValues,
+	type Source,
+	type SourceCategory,
+	SourcesSchema,
+	type SourceWithHidden,
+} from "@/types";
+import { FetchArticlesBySources, LoadSources, SaveSources } from "../../wailsjs/go/main/App";
 
 /**
  * Normalize raw source data into a valid Source object.
@@ -126,29 +132,88 @@ export const initSources = async (): Promise<SourceWithHidden[]> => {
  * - Default sources with an API key
  * - Custom user-added sources (from Wails backend)
  */
-export const getAvailableSources = async (): Promise<SourceWithHidden[]> => {
-	// Load all sources from backend
+export const getAvailableSources = async (): Promise<Source[]> => {
 	const loadedSources = await loadSources();
 
-	// Combine loaded sources with defaults if no user sources exist
-	const allSources: SourceWithHidden[] = (
-		loadedSources.length > 0 ? loadedSources : DEFAULT_SOURCES
-	).map((s) => {
-		const isApiKeySource = s.requiresApiKey ?? false;
-		const enabled = isApiKeySource ? !!s.apiKey : (s.enabled ?? true);
-		const hidden = !isApiKeySource && !enabled;
-		return {
-			...s,
-			enabled,
-			hidden,
-			isDefault: DEFAULT_SOURCES.some((d) => d.name === s.name && d.endpoint === s.endpoint),
-		};
-	});
+	const availableSources: Source[] = (loadedSources.length > 0 ? loadedSources : DEFAULT_SOURCES)
+		.map((s) => {
+			const isApiKeySource = s.requiresApiKey ?? false;
+			const enabled = isApiKeySource ? !!s.apiKey : (s.enabled ?? true);
 
-	// Filter only sources that are free (does not require API key) OR has an API key applied
-	const availableSources = allSources.filter(
-		(s) => !s.requiresApiKey || (s.requiresApiKey && s.apiKey && s.apiKey.length > 0),
-	);
+			// Keep lastUpdated as Date, don't convert to string
+			return {
+				...s,
+				enabled,
+				lastUpdated:
+					s.lastUpdated instanceof Date
+						? s.lastUpdated
+						: s.lastUpdated
+							? new Date(s.lastUpdated)
+							: undefined,
+			};
+		})
+		.filter((s) => !s.requiresApiKey || (s.requiresApiKey && s.apiKey));
 
 	return availableSources;
+};
+
+/**
+ * Fetch articles from all available sources.
+ *
+ * This function:
+ * 1. Gets all currently available sources (free or with an API key applied)
+ * 2. Calls the Wails backend `FetchArticlesBySources` to fetch articles from those sources
+ * 3. Returns a flattened array of articles
+ *
+ * @returns {Promise<Article[]>} Array of articles fetched from all available sources
+ */
+export const fetchArticlesBySources = async (): Promise<Article[]> => {
+	try {
+		const availableSources = await getAvailableSources();
+		if (availableSources.length === 0) return [];
+
+		const articlesFromBackend = await FetchArticlesBySources(availableSources);
+
+		if (!Array.isArray(articlesFromBackend)) {
+			console.error("Invalid response: expected an array of articles.");
+			return [];
+		}
+
+		const validArticles: Article[] = articlesFromBackend
+			.filter((a) => a.url && a.title && a.content)
+			.map((a) => {
+				const analyzed = false as const;
+
+				// Map edition to Edition union type
+				const edition: Edition = editions.includes(a.edition as Edition)
+					? (a.edition as Edition)
+					: "other";
+
+				// Map political bias string to PoliticalBias union
+				const sourceMeta = a.sourceMeta
+					? {
+							...a.sourceMeta,
+							bias: PoliticalBiasValues.includes(a.sourceMeta.bias as PoliticalBias)
+								? (a.sourceMeta.bias as PoliticalBias)
+								: "center", // fallback
+						}
+					: undefined;
+
+				return {
+					...a,
+					analyzed,
+					edition,
+					sourceMeta,
+				};
+			});
+
+		console.log(
+			`Fetched ${validArticles.length} articles from ${availableSources.length} sources.`,
+		);
+
+		return validArticles;
+	} catch (err) {
+		console.error("Failed to fetch articles by sources:", err);
+		return [];
+	}
 };

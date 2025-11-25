@@ -9,11 +9,11 @@ export default defineConfig(() => {
 	return {
 		server: {
 			host: "localhost",
+			port,
 			hmr: {
 				host: "localhost",
 				protocol: "ws",
 			},
-			port,
 		},
 		plugins: [tsconfigPaths(), tailwindcss(), react()],
 	};

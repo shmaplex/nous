@@ -22,5 +22,5 @@
   },
   "include": ["./src/**/*", "./src/types/**/*.d.ts"],
   "exclude": ["./src/p2p/**/*"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": [{ "path": "./tsconfig.server.json" }]
 }

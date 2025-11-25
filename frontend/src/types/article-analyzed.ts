@@ -1,8 +1,6 @@
 // frontend/src/types/article-analyzed.ts
 import { z } from "zod";
-import { editions, SourceMetaSchema, SourceTypes } from "./article";
-
-export const politicalBias = ["left", "center", "right"];
+import { editions, PoliticalBiasValues, SourceMetaSchema, SourceTypes } from "./article";
 
 /** Cognitive bias detection output from AI */
 export const CognitiveBiasSchema = z.object({
@@ -41,7 +39,7 @@ export const ArticleAnalyzedSchema = z.object({
 	// ----------------------
 
 	/** Political/ideological bias of the article (optional) */
-	politicalBias: z.enum(politicalBias).optional(),
+	politicalBias: z.enum(PoliticalBiasValues).optional(),
 
 	/** Concise summary of opposing viewpoints (antithesis), optional */
 	antithesis: z.string().optional(),

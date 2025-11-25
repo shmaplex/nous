@@ -33,7 +33,7 @@ type Source struct {
 	AuthType        *string           `json:"authType,omitempty"`           // Optional auth type: none, apiKey, bearerToken, oauth, etc.
 	RateLimitPerMin *int              `json:"rateLimitPerMinute,omitempty"` // Optional rate limit
 	Headers         map[string]string `json:"headers,omitempty"`            // Optional custom headers
-	LastUpdated     *string           `json:"lastUpdated,omitempty"`        // Optional timestamp of last update
+	LastUpdated     interface{}       `json:"lastUpdated,omitempty"`        // Optional string or timestamp of last update
 	Pinned          *bool             `json:"pinned,omitempty"`             // Optional flag for pinned sources
 }
 

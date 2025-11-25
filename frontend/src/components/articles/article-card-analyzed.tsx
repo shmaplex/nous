@@ -3,7 +3,7 @@ import { Archive } from "lucide-react";
 import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ArticleAnalyzed, CognitiveBias } from "../../types";
+import { type ArticleAnalyzed, type CognitiveBias, PoliticalBiasValues } from "@/types";
 import BiasBar from "../bias-bar";
 
 interface Props {
@@ -26,7 +26,10 @@ const ArticleCardAnalyzed: React.FC<Props> = ({ article, onArchive }) => {
 		if (onArchive) onArchive(article.id);
 	};
 
-	const politicalBiasKey = article.politicalBias?.toLowerCase() || "none";
+	const politicalBiasKey: "left" | "center" | "right" | "none" =
+		article.politicalBias && PoliticalBiasValues.includes(article.politicalBias as any)
+			? (article.politicalBias as "left" | "center" | "right")
+			: "none";
 
 	return (
 		<Card

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { loadArticlesFromBackend } from "@/lib/articles";
 import { addDebugLog } from "@/lib/log";
 import {
 	type ArticleAnalyzed,
@@ -19,6 +18,7 @@ import { LoadingOverlay } from "./components/loading/loading-overlay";
 import SettingsPanel from "./components/settings-panel";
 import StatusBar from "./components/status-bar";
 import { ThemeProvider } from "./context/ThemeContext";
+import { fetchArticlesBySources } from "./lib/sources";
 import type { FilterOptions } from "./types/filter";
 
 const App = () => {
@@ -75,19 +75,22 @@ const App = () => {
 	 * 🔄 Fetch Articles from Backend on Load
 	 * ----------------------------------------- */
 	useEffect(() => {
-		const loadSources = async () => {
+		const loadSourcesAndArticles = async () => {
 			try {
 				setLoadingStatus("Connecting to local node…");
 				setProgress(10);
 				await new Promise((r) => setTimeout(r, 300));
 
-				setLoadingStatus("Fetching source articles…");
+				setLoadingStatus("Fetching articles from available sources…");
 				setProgress(40);
 
-				const data = await loadArticlesFromBackend();
+				// Use the new fetchArticlesBySources function
+				const data = await fetchArticlesBySources();
 
 				setLoadingStatus("Processing articles…");
 				setProgress(70);
+
+				// Save to state
 				setArticles(data);
 
 				setLoadingStatus("Finalizing setup…");
@@ -98,13 +101,15 @@ const App = () => {
 				setLoading(false);
 
 				if (data.length > 0) {
-					// setDebugStatus((prev) => ({
-					// 	...prev,
-					// 	fetchStatus: [...prev.fetchStatus, `Loaded ${data.length} source articles`],
-					// }));
 					await addDebugLog({
-						message: `Loaded ${data.length} source articles`,
+						message: `Loaded ${data.length} articles from sources`,
 						level: "info",
+						meta: { type: "fetch" },
+					});
+				} else {
+					await addDebugLog({
+						message: "No articles loaded from sources",
+						level: "warn",
 						meta: { type: "fetch" },
 					});
 				}
@@ -112,10 +117,7 @@ const App = () => {
 				console.error(err);
 				setLoadingStatus("Failed to fetch articles. Is node running?");
 				setProgress(0);
-				// setDebugStatus((prev) => ({
-				// 	...prev,
-				// 	fetchStatus: [...prev.fetchStatus, "Failed to fetch articles from backend"],
-				// }));
+
 				await addDebugLog({
 					message: `Failed to fetch articles: ${(err as Error).message}`,
 					level: "error",
@@ -124,7 +126,7 @@ const App = () => {
 			}
 		};
 
-		loadSources();
+		loadSourcesAndArticles();
 	}, []);
 
 	/** -----------------------------------------

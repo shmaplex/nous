@@ -1,7 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { SourceWithHidden } from "@/lib/sources";
+import type { SourceWithHidden } from "@/types";
+// import { BrowserOpenURL } from "../../../../wailsjs/runtime/runtime";
 import { OpenURL } from "../../../../wailsjs/go/main/App";
 import SourceField from "./source-field";
 import SourceHeader from "./source-header";
@@ -35,6 +36,7 @@ export const SourceItem: React.FC<Props> = ({
 
 	const handleOpenURL = (url?: string) => {
 		if (!url) return;
+		// TODO: Look into replacing with BrowserOpenURL
 		OpenURL(url).catch((err: any) => console.error("Failed to open URL:", err));
 	};
 

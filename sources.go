@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"time"
 )
@@ -50,4 +53,42 @@ func (a *App) LoadSources() ([]Source, error) {
 	}
 
 	return sources, nil
+}
+
+// FetchArticlesBySources calls the P2P node to fetch articles from the provided sources
+// and returns them as a slice of Article objects.
+func (a *App) FetchArticlesBySources(sources []Source) ([]Article, error) {
+	url := GetNodeBaseUrl() + "/articles/sources/fetch"
+
+	body := map[string]interface{}{
+		"sources": sources,
+	}
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal sources: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("POST request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var articles []Article
+	if err := json.Unmarshal(respBody, &articles); err != nil {
+		return nil, fmt.Errorf("failed to parse articles JSON: %w", err)
+	}
+
+	return articles, nil
 }

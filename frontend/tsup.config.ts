@@ -1,11 +1,13 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-	entry: ["src/p2p/setup.ts"],
+	entry: ["server/src/setup.ts"],
 	outDir: "dist/p2p",
-	format: ["esm"], // --format esm
-	target: "node22", // --target node22
-	minify: true, // --minify
+	format: ["esm"],
+	target: "node22",
+	minify: true,
+	sourcemap: false,
+	clean: true,
 	external: [
 		"node_datachannel",
 		"libp2p",
@@ -18,6 +20,5 @@ export default defineConfig({
 		"helia",
 		"uuid",
 	],
-	sourcemap: false,
-	clean: true, // optional: cleans output folder before build
+	tsconfig: "tsconfig.server.json",
 });

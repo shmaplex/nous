@@ -1,6 +1,14 @@
 // frontend/src/types/article.ts
 import { z } from "zod";
 
+export const PoliticalBiasValues = ["left", "center", "right"];
+
+/** TypeScript type for political bias */
+export type PoliticalBias = (typeof PoliticalBiasValues)[number];
+
+// Zod schema for bias
+export const PoliticalBiasSchema = z.enum(PoliticalBiasValues);
+
 /**
  * Metadata about a news source, including political bias and confidence.
  * This is used to enrich article analysis by providing context about the source
@@ -11,7 +19,7 @@ export const SourceMetaSchema = z.object({
 	name: z.string(),
 
 	/** Political/ideological leaning of the source */
-	bias: z.enum(["left", "center", "right"]),
+	bias: PoliticalBiasSchema,
 
 	/**
 	 * Confidence score for the source's bias classification
@@ -48,6 +56,12 @@ export const editions = [
 	"za",
 	"other",
 ] as const;
+
+/** TypeScript type for edition */
+export type Edition = (typeof editions)[number];
+
+/** Zod schema for edition */
+export const EditionSchema = z.enum(editions);
 
 /**
  * Enumeration of supported source types for news ingestion.

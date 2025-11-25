@@ -28,6 +28,7 @@ orbitdb-keystore*/
 helia-repo/
 data/
 !frontend/src/orbitdb
+!frontend/server/src/orbitdb
 
 # ---------------------------
 # OS / IDE / Temp

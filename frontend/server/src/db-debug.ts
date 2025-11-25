@@ -1,6 +1,6 @@
 // frontend/src/lib/db-debug.ts
 import type { OrbitDB } from "@orbitdb/core";
-import { log } from "@/lib/log";
+import { log } from "@/lib/log.server";
 import type { DebugLogEntry } from "@/types/log";
 
 // Explicit type for the debug DB instance
@@ -30,6 +30,8 @@ export async function setupDebugDB(orbitdb: OrbitDB) {
 		type: "documents",
 		meta: { indexBy: "timestamp" },
 	})) as any;
+
+	console.log("debugDB -> ", db);
 
 	// Log updates from peers
 	db.events.on("update", async (entry: any) => {
@@ -61,9 +63,5 @@ export async function setupDebugDB(orbitdb: OrbitDB) {
 		meta: { port: process.env.HTTP_PORT },
 	});
 
-	return {
-		db,
-		add,
-		getAll,
-	};
+	return debugDBInstance;
 }

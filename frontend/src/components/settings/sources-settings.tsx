@@ -6,7 +6,8 @@ import {
 	AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { initSources, type SourceWithHidden, saveSources } from "@/lib/sources";
+import { initSources, saveSources } from "@/lib/sources";
+import type { SourceWithHidden } from "@/types";
 import { SourceItem } from "./source-item";
 
 export const SourcesSettings: React.FC = () => {

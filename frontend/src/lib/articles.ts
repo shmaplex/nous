@@ -1,7 +1,7 @@
 // frontend/src/lib/articles.ts
 
-import { getAvailableSources, type SourceWithHidden } from "@/lib/sources";
-import { type ArticleAnalyzed, ArticleAnalyzedSchema } from "@/types";
+import { getAvailableSources } from "@/lib/sources";
+import { type ArticleAnalyzed, ArticleAnalyzedSchema, type SourceWithHidden } from "@/types";
 import {
 	DeleteArticle,
 	FetchArticles,

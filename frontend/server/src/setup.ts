@@ -1,12 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
-import { log } from "@/lib/log";
-import { updateStatus } from "@/lib/utils";
-import type { NodeConfig } from "../types";
+import { log } from "@/lib/log.server";
+import { loadStatus, updateStatus } from "@/lib/status.server";
+import type { NodeConfig } from "@/types";
+import type { AnalyzedDB } from "./db-analyzed";
+import type { DebugDB } from "./db-debug";
+import type { FederatedDB } from "./db-federated";
+import type { SourceDB } from "./db-sources";
 import { createHttpServer, type HttpServerContext } from "./httpServer";
 import { startNetworkStatusPoll } from "./networkStatus";
-import { getP2PNode } from "./node"; // <-- import the singleton helper
-import { setupGracefulShutdown } from "./shutdown";
+import { getP2PNode } from "./node";
+import { registerShutdownHandlers, setRunningInstance, shutdownP2PNode } from "./shutdown";
 
 const ORBITDB_KEYSTORE_PATH =
 	process.env.KEYSTORE_PATH || path.join(process.cwd(), "orbitdb-keystore");
@@ -18,6 +22,13 @@ const ORBITDB_DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "orbitdb
 });
 
 const RELAYS: string[] = process.env.RELAYS?.split(",") || [];
+
+export type P2PDatabases = {
+	debugDB: DebugDB;
+	sourcesDB: SourceDB;
+	analyzedDB: AnalyzedDB;
+	federatedDB: FederatedDB;
+};
 
 export async function startP2PNode(config: NodeConfig) {
 	log("Setting up node...");
@@ -50,24 +61,18 @@ export async function startP2PNode(config: NodeConfig) {
 	const server = createHttpServer(config.httpPort, httpContext);
 
 	// --- Graceful shutdown ---
-	const databases = {
-		debugDB: debugDB?.db || debugDB,
-		sourcesDB: sourcesDB?.db || sourcesDB,
-		analyzedDB: analyzedDB?.db || analyzedDB,
-		federatedDB: federatedDB?.db || federatedDB,
-	};
-	const shutdown = setupGracefulShutdown(
-		server,
-		orbitdb,
-		helia,
-		ORBITDB_KEYSTORE_PATH,
-		ORBITDB_DB_PATH,
-		databases,
-	);
+	const runningInstance = { libp2p, helia, orbitdb, debugDB, sourcesDB, analyzedDB, federatedDB };
+	setRunningInstance(runningInstance);
+
+	const status = loadStatus();
+	console.log("Current status:", status);
 
 	updateStatus({
 		running: true,
 	});
+
+	// Register process signals once
+	registerShutdownHandlers();
 
 	return {
 		// DBs
@@ -82,7 +87,7 @@ export async function startP2PNode(config: NodeConfig) {
 		libp2p,
 		nodeStatus,
 		stopNetworkPoll,
-		shutdown,
+		shutdown: shutdownP2PNode,
 	};
 }
 

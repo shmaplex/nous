@@ -5,9 +5,7 @@ import { webRTC } from "@libp2p/webrtc";
 import { webTransport } from "@libp2p/webtransport";
 import { type Multiaddr, multiaddr } from "@multiformats/multiaddr";
 import { createLibp2p, type Libp2p } from "libp2p";
-import { addDebugLog, log } from "@/lib/log";
-import { updateStatus } from "@/lib/utils";
-import type { NodeStatus } from "@/types";
+import { addDebugLog, log } from "@/lib/log.server";
 
 /**
  * Initializes a Libp2p node with common transports, relays, and PubSub logging.
@@ -20,7 +18,6 @@ import type { NodeStatus } from "@/types";
  * const libp2p = await createLibp2pNode("/ip4/127.0.0.1/tcp/15003", ["/ip4/1.2.3.4/tcp/15003/p2p/12D3KooXYZ"]);
  */
 export async function createLibp2pNode(
-	status: NodeStatus,
 	libp2pListenAddr: string,
 	relayAddresses: string[] = [],
 ): Promise<Libp2p> {
@@ -41,8 +38,8 @@ export async function createLibp2pNode(
 		addDebugLog({
 			message: `🚦 Listening on: ${addr.toString()}`,
 			level: "info",
-			meta: { address: addr.toString() },
-			type: "p2p",
+			// meta: { address: addr.toString() },
+			// type: "p2p",
 		});
 	});
 
@@ -54,16 +51,16 @@ export async function createLibp2pNode(
 			addDebugLog({
 				message: `Connected to relay ${addr.toString()}`,
 				level: "info",
-				meta: { address: addr.toString() },
-				type: "p2p",
+				// meta: { address: addr.toString() },
+				// type: "p2p",
 			});
 		} catch (err) {
 			log(`Failed to connect to relay ${addr}: ${(err as Error).message}`);
 			addDebugLog({
 				message: `Failed to connect to relay ${addr}: ${(err as Error).message}`,
 				level: "info",
-				meta: { address: addr.toString(), error: (err as Error).message },
-				type: "p2p",
+				// meta: { address: addr.toString(), error: (err as Error).message },
+				// type: "p2p",
 			});
 		}
 	}
@@ -74,13 +71,9 @@ export async function createLibp2pNode(
 		addDebugLog({
 			message: `PubSub message received: ${JSON.stringify(evt.detail)}`,
 			level: "info",
-			meta: { event: JSON.stringify(evt.detail) },
-			type: "p2p",
+			// meta: { event: JSON.stringify(evt.detail) },
+			// type: "p2p",
 		});
-	});
-
-	updateStatus({
-		connected: true,
 	});
 
 	return libp2p;

@@ -1,7 +1,8 @@
+// frontend/src/p2p/routes/route-article-sources.ts
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { addDebugLog } from "@/lib/log";
-import { getAvailableSources, type SourceWithHidden } from "@/lib/sources";
-import type { Article, RouteHandler } from "../../types";
+import { addDebugLog, log } from "@/lib/log.server";
+import type { Article, RouteHandler, Source } from "@/types";
+import { handleError } from "./helpers";
 
 /**
  * Simple in-memory throttle map to limit requests per IP
@@ -11,10 +12,69 @@ const THROTTLE_LIMIT = 5; // max requests per TIME_WINDOW
 const TIME_WINDOW = 1000 * 10; // 10 seconds
 
 /**
+ * POST /articles/sources/fetch
+ * Fetch articles from a list of enabled sources.
+ *
+ * Expects `body.sources` to be an array of source objects, each containing:
+ * - `endpoint`: string — the URL to fetch articles from
+ * - `enabled`: boolean — whether this source should be used
+ *
+ * The route will call the provided `fetchAllSources` function, passing the
+ * sources from the request body. It returns the flattened array of all fetched articles.
+ *
+ * Example request body:
+ * ```json
+ * {
+ *   "sources": [
+ *     { "endpoint": "https://news.example.com/api", "enabled": true },
+ *     { "endpoint": "https://other.example.com/api", "enabled": false }
+ *   ]
+ * }
+ * ```
+ */
+export const fetchSourcesRoute: RouteHandler = {
+	method: "POST",
+	path: "/articles/sources/fetch",
+	handler: async ({
+		fetchAllSources,
+		res,
+		body,
+	}: {
+		fetchAllSources?: (sources: Source[]) => Promise<Article[]>;
+		res: ServerResponse;
+		body?: { sources: Source[] };
+	}) => {
+		res.setHeader("Content-Type", "application/json");
+
+		if (!body || !Array.isArray(body.sources)) {
+			await handleError(res, "Missing or invalid 'sources' array in body", 400, "warn");
+			return;
+		}
+
+		if (!fetchAllSources) {
+			await handleError(res, "fetchAllSources function not provided", 500, "error");
+			return;
+		}
+
+		try {
+			const fetchedArticles = await fetchAllSources(body.sources);
+			res.end(JSON.stringify({ success: true, articles: fetchedArticles }));
+		} catch (err) {
+			const message = (err as Error).message;
+			log(`Error in fetchSourcesRoute: ${message}`, "error");
+			await handleError(res, message, 500, "error");
+		}
+	},
+};
+
+/**
  * GET /articles/sources
- * Returns only articles whose source is enabled (available).
- * Throttled per client IP to protect bandwidth.
- * Adds debug logging for each request.
+ * Returns all articles from the sources DB, filtered by enabled sources.
+ * Throttled per client IP to prevent abuse.
+ *
+ * This route expects a `getAllArticles` function that returns all articles stored
+ * in the sources DB (e.g., OrbitDB). Only articles whose source endpoint is in
+ * the available sources list will be returned.
  */
 export const getAllSourcesRoute: RouteHandler = {
 	method: "GET",
@@ -28,42 +88,33 @@ export const getAllSourcesRoute: RouteHandler = {
 		res: ServerResponse<any>;
 		req: IncomingMessage;
 	}) => {
+		res.setHeader("Content-Type", "application/json");
 		const clientIP = req.socket.remoteAddress || "unknown";
 
-		// Throttle requests per IP
+		// --- Throttle requests per client IP ---
 		const now = Date.now();
 		const throttle = throttleMap.get(clientIP) || { count: 0, lastRequest: now };
-		if (now - throttle.lastRequest > TIME_WINDOW) {
-			throttle.count = 0; // reset after window
-		}
+
+		if (now - throttle.lastRequest > TIME_WINDOW) throttle.count = 0;
 		throttle.count++;
 		throttle.lastRequest = now;
 		throttleMap.set(clientIP, throttle);
 
 		if (throttle.count > THROTTLE_LIMIT) {
-			res.statusCode = 429;
-			const msg = "Too many requests — please slow down.";
-			await addDebugLog({ message: msg, level: "warn" });
-			res.end(JSON.stringify({ error: msg }));
+			await handleError(res, "Too many requests — please slow down.", 429, "warn");
 			return;
 		}
 
 		if (!getAllArticles) {
-			res.statusCode = 500;
-			const msg = "getAllArticles not provided";
-			await addDebugLog({ message: msg, level: "error" });
-			res.end(JSON.stringify({ error: msg }));
+			await handleError(res, "getAllArticles function not provided", 500, "error");
 			return;
 		}
 
 		try {
 			const allArticles = await getAllArticles();
-			const availableSources: SourceWithHidden[] = await getAvailableSources();
-
-			// Build a lookup of available endpoints
+			const availableSources: { endpoint: string }[] = []; // TODO: replace with real sources
 			const availableEndpoints = new Set(availableSources.map((s) => s.endpoint));
 
-			// Filter only articles whose source endpoint is in available sources
 			const filtered = allArticles.filter((article) =>
 				availableEndpoints.has(article.source || ""),
 			);
@@ -73,16 +124,10 @@ export const getAllSourcesRoute: RouteHandler = {
 				level: "info",
 			});
 
-			res.setHeader("Content-Type", "application/json");
 			res.end(JSON.stringify(filtered));
 		} catch (err) {
-			res.statusCode = 500;
 			const message = (err as Error).message || "Unknown error fetching articles";
-			await addDebugLog({
-				message: `Error fetching articles for ${clientIP}: ${message}`,
-				level: "error",
-			});
-			res.end(JSON.stringify({ error: message }));
+			await handleError(res, `Error fetching articles for ${clientIP}: ${message}`, 500, "error");
 		}
 	},
 };
@@ -103,34 +148,31 @@ export const getSourceByUrlRoute: RouteHandler = {
 		res: ServerResponse<any>;
 		url?: string;
 	}) => {
+		res.setHeader("Content-Type", "application/json");
+
 		if (!getArticle) {
-			res.statusCode = 500;
-			await addDebugLog({ message: "getArticle not provided", level: "error" });
-			res.end(JSON.stringify({ error: "getArticle not provided" }));
+			await handleError(res, "getArticle not provided", 500, "error");
 			return;
 		}
+
 		try {
 			const pathParts = url?.split("/") || [];
 			const articleUrl = decodeURIComponent(pathParts.slice(3).join("/"));
 			if (!articleUrl) {
-				res.statusCode = 400;
-				await addDebugLog({ message: "No article URL provided", level: "warn" });
-				res.end(JSON.stringify({ error: "No article URL provided" }));
+				await handleError(res, "No article URL provided", 400, "warn");
 				return;
 			}
+
 			const article = await getArticle(articleUrl);
 			if (!article) {
-				res.statusCode = 404;
-				await addDebugLog({ message: `Article not found: ${articleUrl}`, level: "warn" });
-				res.end(JSON.stringify({ error: "Article not found" }));
+				await handleError(res, `Article not found: ${articleUrl}`, 404, "warn");
 				return;
 			}
+
 			res.end(JSON.stringify(article));
 		} catch (err) {
 			const message = (err as Error).message;
-			res.statusCode = 500;
-			await addDebugLog({ message: `Error fetching article: ${message}`, level: "error" });
-			res.end(JSON.stringify({ error: message }));
+			await handleError(res, `Error fetching article: ${message}`, 500, "error");
 		}
 	},
 };
@@ -151,27 +193,24 @@ export const saveSourceRoute: RouteHandler = {
 		res: ServerResponse<any>;
 		body?: any;
 	}) => {
+		res.setHeader("Content-Type", "application/json");
+
 		if (!saveArticle) {
-			res.statusCode = 500;
-			await addDebugLog({ message: "saveArticle not provided", level: "error" });
-			res.end(JSON.stringify({ error: "saveArticle not provided" }));
+			await handleError(res, "saveArticle not provided", 500, "error");
 			return;
 		}
 		if (!body || !body.url || !body.title || !body.content) {
-			res.statusCode = 400;
-			await addDebugLog({ message: "Missing required article fields", level: "warn" });
-			res.end(JSON.stringify({ error: "Missing required article fields" }));
+			await handleError(res, "Missing required article fields", 400, "warn");
 			return;
 		}
+
 		try {
 			await saveArticle(body);
 			await addDebugLog({ message: `Saved article: ${body.url}`, level: "info" });
 			res.end(JSON.stringify({ success: true, url: body.url }));
 		} catch (err) {
 			const message = (err as Error).message;
-			res.statusCode = 500;
-			await addDebugLog({ message: `Error saving article: ${message}`, level: "error" });
-			res.end(JSON.stringify({ error: message }));
+			await handleError(res, `Error saving article: ${message}`, 500, "error");
 		}
 	},
 };
@@ -192,27 +231,24 @@ export const refetchSourcesRoute: RouteHandler = {
 		res: ServerResponse<any>;
 		body?: any;
 	}) => {
+		res.setHeader("Content-Type", "application/json");
+
 		if (!addUniqueArticles) {
-			res.statusCode = 500;
-			await addDebugLog({ message: "addUniqueArticles not provided", level: "error" });
-			res.end(JSON.stringify({ error: "addUniqueArticles not provided" }));
+			await handleError(res, "addUniqueArticles not provided", 500, "error");
 			return;
 		}
 		if (!body || !Array.isArray(body)) {
-			res.statusCode = 400;
-			await addDebugLog({ message: "Expected an array of articles", level: "warn" });
-			res.end(JSON.stringify({ error: "Expected an array of articles" }));
+			await handleError(res, "Expected an array of articles", 400, "warn");
 			return;
 		}
+
 		try {
 			const addedCount = await addUniqueArticles(body);
 			await addDebugLog({ message: `Refetched ${addedCount} unique articles`, level: "info" });
 			res.end(JSON.stringify({ success: true, added: addedCount }));
 		} catch (err) {
 			const message = (err as Error).message;
-			res.statusCode = 500;
-			await addDebugLog({ message: `Error refetching articles: ${message}`, level: "error" });
-			res.end(JSON.stringify({ error: message }));
+			await handleError(res, `Error refetching articles: ${message}`, 500, "error");
 		}
 	},
 };
@@ -233,35 +269,34 @@ export const deleteSourceRoute: RouteHandler = {
 		res: ServerResponse<any>;
 		url?: string;
 	}) => {
+		res.setHeader("Content-Type", "application/json");
+
 		if (!deleteArticle) {
-			res.statusCode = 500;
-			await addDebugLog({ message: "deleteArticle not provided", level: "error" });
-			res.end(JSON.stringify({ error: "deleteArticle not provided" }));
+			await handleError(res, "deleteArticle not provided", 500, "error");
 			return;
 		}
+
 		try {
 			const pathParts = url?.split("/") || [];
 			const articleUrl = decodeURIComponent(pathParts.slice(4).join("/"));
 			if (!articleUrl) {
-				res.statusCode = 400;
-				await addDebugLog({ message: "No article URL provided", level: "warn" });
-				res.end(JSON.stringify({ error: "No article URL provided" }));
+				await handleError(res, "No article URL provided", 400, "warn");
 				return;
 			}
+
 			await deleteArticle(articleUrl);
 			await addDebugLog({ message: `Deleted article: ${articleUrl}`, level: "info" });
 			res.end(JSON.stringify({ success: true, url: articleUrl }));
 		} catch (err) {
 			const message = (err as Error).message;
-			res.statusCode = 500;
-			await addDebugLog({ message: `Error deleting article: ${message}`, level: "error" });
-			res.end(JSON.stringify({ error: message }));
+			await handleError(res, `Error deleting article: ${message}`, 500, "error");
 		}
 	},
 };
 
 // Export all routes as array
 export const routes: RouteHandler[] = [
+	fetchSourcesRoute,
 	getAllSourcesRoute,
 	getSourceByUrlRoute,
 	saveSourceRoute,

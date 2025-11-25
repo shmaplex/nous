@@ -1,0 +1,10 @@
+{
+  "running": true,
+  "connected": true,
+  "syncing": false,
+  "orbitConnected": false,
+  "lastSync": null,
+  "peers": [],
+  "logs": [],
+  "port": 0
+}

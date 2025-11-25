@@ -54,6 +54,11 @@ export const AuthTypes = [
 
 export type AuthType = (typeof AuthTypes)[number];
 
+export interface SourceWithHidden extends Source {
+	hidden?: boolean;
+	isDefault?: boolean;
+}
+
 /**
  * Schema for a content or news source.
  *
