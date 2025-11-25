@@ -28,6 +28,9 @@ export const SourceMetaSchema = z.object({
 	confidence: z.number().min(0).max(1).optional(),
 });
 
+/** TypeScript type inferred from `SourceMetaSchema` */
+export type SourceMeta = z.infer<typeof SourceMetaSchema>;
+
 /**
  * Editions define the target audience or regional context of the article.
  * Useful for categorizing content for different countries, regions, or language markets.

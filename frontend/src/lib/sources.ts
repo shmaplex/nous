@@ -2,6 +2,7 @@
 import { DEFAULT_SOURCES } from "@/constants/sources";
 import {
 	type Article,
+	type ArticlesBySource,
 	type AuthType,
 	type Edition,
 	editions,
@@ -13,6 +14,8 @@ import {
 	type SourceWithHidden,
 } from "@/types";
 import { FetchArticlesBySources, LoadSources, SaveSources } from "../../wailsjs/go/main/App";
+import { getNormalizer, normalizers } from "./normalizers";
+import { getParser, parsers } from "./parsers";
 
 /**
  * Normalize raw source data into a valid Source object.
@@ -38,7 +41,7 @@ export function createSource(
 		headers: raw.headers ?? undefined,
 		lastUpdated: raw.lastUpdated ? new Date(raw.lastUpdated) : undefined,
 		pinned: raw.pinned ?? undefined,
-	};
+	} as Source;
 }
 
 /**
@@ -125,34 +128,34 @@ export const initSources = async (): Promise<SourceWithHidden[]> => {
 };
 
 /**
- * Get all sources that are free or have an API key applied.
+ * Get all sources that are actually available (enabled and usable).
  *
- * Includes:
- * - Default free sources
- * - Default sources with an API key
- * - Custom user-added sources (from Wails backend)
+ * Rules:
+ * - Sources with requiresApiKey = true → include only if apiKey exists
+ * - Sources with requiresApiKey = false → include if enabled = true
+ * - Disabled sources → excluded
  */
 export const getAvailableSources = async (): Promise<Source[]> => {
 	const loadedSources = await loadSources();
+	const sourcesToCheck = loadedSources.length > 0 ? loadedSources : DEFAULT_SOURCES;
 
-	const availableSources: Source[] = (loadedSources.length > 0 ? loadedSources : DEFAULT_SOURCES)
+	const availableSources: Source[] = sourcesToCheck
 		.map((s) => {
-			const isApiKeySource = s.requiresApiKey ?? false;
-			const enabled = isApiKeySource ? !!s.apiKey : (s.enabled ?? true);
+			const requiresKey = s.requiresApiKey ?? false;
 
-			// Keep lastUpdated as Date, don't convert to string
-			return {
-				...s,
-				enabled,
-				lastUpdated:
-					s.lastUpdated instanceof Date
-						? s.lastUpdated
-						: s.lastUpdated
-							? new Date(s.lastUpdated)
-							: undefined,
-			};
+			// Include only if source is usable
+			const usable = requiresKey ? !!s.apiKey && (s.enabled ?? true) : (s.enabled ?? true);
+
+			const lastUpdated =
+				s.lastUpdated instanceof Date
+					? s.lastUpdated
+					: s.lastUpdated
+						? new Date(s.lastUpdated)
+						: undefined;
+
+			return { ...s, enabled: usable, lastUpdated };
 		})
-		.filter((s) => !s.requiresApiKey || (s.requiresApiKey && s.apiKey));
+		.filter((s) => s.enabled); // remove anything not usable
 
 	return availableSources;
 };
@@ -172,43 +175,65 @@ export const fetchArticlesBySources = async (): Promise<Article[]> => {
 		const availableSources = await getAvailableSources();
 		if (availableSources.length === 0) return [];
 
-		const articlesFromBackend = await FetchArticlesBySources(availableSources);
+		console.log("availableSources", availableSources);
 
-		if (!Array.isArray(articlesFromBackend)) {
-			console.error("Invalid response: expected an array of articles.");
+		// Backend returns: Record<sourceName, rawArticles[]>
+		// backendResult is an object mapping source name -> array of raw articles
+		const backendResult: ArticlesBySource = await FetchArticlesBySources(availableSources);
+
+		if (typeof backendResult !== "object" || backendResult === null) {
+			console.error("Invalid backend response: expected object keyed by source.");
 			return [];
 		}
 
-		const validArticles: Article[] = articlesFromBackend
-			.filter((a) => a.url && a.title && a.content)
-			.map((a) => {
-				const analyzed = false as const;
+		const allNormalized: Article[] = [];
 
-				// Map edition to Edition union type
+		// Process each source individually
+		for (const source of availableSources) {
+			const rawForSource = backendResult[source.name];
+
+			if (!Array.isArray(rawForSource)) {
+				console.warn(`No article array for source: ${source.name}`);
+				continue;
+			}
+
+			const parser = getParser(source);
+			const normalizer = getNormalizer(source);
+
+			// Step 1: Parse raw backend data
+			const parsed = parser(rawForSource, source) ?? [];
+
+			// Step 2: Normalize each parsed item
+			const normalized = parsed.map((raw) => normalizer(raw, source));
+
+			allNormalized.push(...normalized);
+		}
+
+		// Step 3: Final structural validation & cleanup
+		const validArticles: Article[] = allNormalized
+			.filter((a) => a?.url && a.title)
+			.map((a) => {
+				// Edition mapping
 				const edition: Edition = editions.includes(a.edition as Edition)
 					? (a.edition as Edition)
 					: "other";
 
-				// Map political bias string to PoliticalBias union
-				const sourceMeta = a.sourceMeta
-					? {
-							...a.sourceMeta,
-							bias: PoliticalBiasValues.includes(a.sourceMeta.bias as PoliticalBias)
-								? (a.sourceMeta.bias as PoliticalBias)
-								: "center", // fallback
-						}
-					: undefined;
+				// Source bias mapping
+				const bias: PoliticalBias =
+					a.sourceMeta?.bias && PoliticalBiasValues.includes(a.sourceMeta.bias)
+						? (a.sourceMeta.bias as PoliticalBias)
+						: "center";
 
 				return {
 					...a,
-					analyzed,
+					analyzed: false as const,
 					edition,
-					sourceMeta,
+					sourceMeta: a.sourceMeta ? { ...a.sourceMeta, bias } : undefined,
 				};
 			});
 
 		console.log(
-			`Fetched ${validArticles.length} articles from ${availableSources.length} sources.`,
+			`Fetched + normalized ${validArticles.length} total articles from ${availableSources.length} sources.`,
 		);
 
 		return validArticles;

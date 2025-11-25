@@ -137,3 +137,21 @@ type ArticlesResponse struct {
 	Success  bool      `json:"success"`  // True if the fetch operation succeeded
 	Articles []Article `json:"articles"` // Array of Article objects retrieved
 }
+
+// ArticlesBySource represents a collection of raw feed data grouped by source name.
+//
+// Each entry maps a source name to the raw response fetched from that source.
+// The raw data can be JSON, XML, RSS, HTML, or any other format provided by the source.
+// Parsing and normalization is intended to be handled by the Node/JS frontend.
+//
+// This structure allows the frontend to handle different formats per source,
+// while Go focuses solely on fetching the data.
+//
+// Example:
+//
+//	{
+//	  "BBC News": "<rss>...</rss>",
+//	  "NY Times": "[{ \"id\": \"3\", \"title\": \"Article C\", \"url\": \"https://nytimes.com/c\" }]"
+//
+//	}
+type ArticlesBySource map[string][]byte

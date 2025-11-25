@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDebugLog } from "@/lib/log";
 import {
 	type ArticleAnalyzed,
@@ -60,6 +60,9 @@ const App = () => {
 	const [loadingStatus, setLoadingStatus] = useState("Starting up…");
 	const [progress, setProgress] = useState(5);
 
+	// Persisted flag to avoid refetching on status changes
+	const fetchedRef = useRef(false);
+
 	/** -----------------------------------------
 	 * 🔄 Initialize OrbitDB Debug DB
 	 * ----------------------------------------- */
@@ -79,10 +82,8 @@ const App = () => {
 	 * then fetch articles **once**.
 	 */
 	useEffect(() => {
-		let fetched = false;
-
 		const waitForReady = async () => {
-			if (fetched) return; // Prevent double fetch
+			if (fetchedRef.current) return; // Prevent double fetch
 			if (!status.running || !status.connected || !status.orbitConnected) {
 				// Still waiting for services
 				setLoadingStatus("Waiting for P2P node and databases…");
@@ -90,7 +91,7 @@ const App = () => {
 				return;
 			}
 
-			fetched = true;
+			fetchedRef.current = true; // Mark as fetched
 			setLoadingStatus("Fetching articles from sources…");
 			setProgress(40);
 

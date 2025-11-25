@@ -4,6 +4,8 @@ export * from "./article-federated";
 export * from "./article-stored";
 export * from "./filter";
 export * from "./log";
+export * from "./normalizer";
 export * from "./p2p";
+export * from "./parser";
 export * from "./routes";
 export * from "./source";

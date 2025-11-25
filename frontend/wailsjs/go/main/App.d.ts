@@ -14,7 +14,7 @@ export function FetchAnalyzedArticles():Promise<string>;
 
 export function FetchArticles():Promise<string>;
 
-export function FetchArticlesBySources(arg1:Array<main.Source>):Promise<Array<main.Article>>;
+export function FetchArticlesBySources(arg1:Array<main.Source>):Promise<main.ArticlesBySource>;
 
 export function FetchFederatedArticles():Promise<string>;
 

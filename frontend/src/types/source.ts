@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { SourceNormalizerSchema } from "./normalizer";
+import { SourceParserSchema } from "./parser";
 
 /**
  * Comprehensive list of source categories.
@@ -54,6 +56,9 @@ export const AuthTypes = [
 
 export type AuthType = (typeof AuthTypes)[number];
 
+/**
+ * Extends Source with hidden and default flags.
+ */
 export interface SourceWithHidden extends Source {
 	hidden?: boolean;
 	isDefault?: boolean;
@@ -113,6 +118,40 @@ export const SourceSchema = z.object({
 
 	/** Optional flag indicating whether this source is pinned for priority display */
 	pinned: z.boolean().optional(),
+
+	/**
+	 * Parser used to interpret the raw data returned by the source.
+	 *
+	 * The parser determines *how the raw payload is read* (RSS, JSON, GDELT, HTML, etc.)
+	 * **before** normalization.
+	 *
+	 * Examples:
+	 * - "rss" → uses rssParser
+	 * - "json" → uses jsonParser
+	 * - "gdelt" → uses gdeltParser
+	 * - "hn" → Hacker News-specific parser
+	 * - "html" → raw HTML parsing (scraping)
+	 *
+	 * Defaults to `"json"` since most APIs return JSON.
+	 */
+	parser: SourceParserSchema.default("json"),
+
+	/**
+	 * Normalizer used to convert parsed items into the unified `Article` shape.
+	 *
+	 * A normalizer transforms *parsed* items (RSS item, JSON entry, GDELT article, HN story ID)
+	 * into your internal application-wide `Article` format.
+	 *
+	 * Examples:
+	 * - "json" → normalizeJson
+	 * - "rss" → normalizeRss
+	 * - "gdelt" → normalizeGdelt
+	 * - "reddit" → normalizeReddit
+	 * - "hn" → normalizeHackerNews
+	 *
+	 * Defaults to `"json"` because it's the most common structure.
+	 */
+	normalizer: SourceNormalizerSchema.default("json"),
 });
 
 /** TypeScript type inferred from `SourceSchema` */
@@ -123,3 +162,22 @@ export const SourcesSchema = z.array(SourceSchema);
 
 /** TypeScript type inferred for an array of sources */
 export type Sources = z.infer<typeof SourcesSchema>;
+
+/**
+ * ArticlesBySource represents a collection of raw feed data grouped by source name.
+ *
+ * Each entry maps a source name to the raw response fetched from that source.
+ * The raw data can be JSON, XML, RSS, HTML, or any other format provided by the source.
+ * Parsing and normalization is intended to be handled by the Node/JS frontend.
+ *
+ * Example:
+ *
+ * {
+ *   "BBC News": "<rss>...</rss>",
+ *   "NY Times": "[{ \"id\": \"3\", \"title\": \"Article C\", \"url\": \"https://nytimes.com/c\" }]"
+ * }
+ */
+export const ArticlesBySourceSchema = z.record(z.string(), z.instanceof(Uint8Array).or(z.string()));
+
+/** TypeScript type for ArticlesBySource */
+export type ArticlesBySource = z.infer<typeof ArticlesBySourceSchema>;

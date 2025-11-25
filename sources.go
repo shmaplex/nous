@@ -55,13 +55,11 @@ func (a *App) LoadSources() ([]Source, error) {
 	return sources, nil
 }
 
-// FetchArticlesBySources calls the P2P node to fetch articles from the provided sources
-// and returns them as a slice of Article objects.
-func (a *App) FetchArticlesBySources(sources []Source) ([]Article, error) {
+// FetchArticlesBySources fetches raw data from all sources and returns a map keyed by source name
+func (a *App) FetchArticlesBySources(sources []Source) (ArticlesBySource, error) {
 	url := fmt.Sprintf("%s/articles/sources/fetch", GetNodeBaseUrl())
-	body := map[string]interface{}{
-		"sources": sources,
-	}
+	body := map[string]interface{}{"sources": sources}
+
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal sources: %w", err)
@@ -84,10 +82,15 @@ func (a *App) FetchArticlesBySources(sources []Source) ([]Article, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var respObj ArticlesResponse
+	var respObj map[string]json.RawMessage
 	if err := json.Unmarshal(respBody, &respObj); err != nil {
-		return nil, fmt.Errorf("failed to parse articles JSON: %w", err)
+		return nil, fmt.Errorf("failed to parse response JSON: %w", err)
 	}
 
-	return respObj.Articles, nil
+	grouped := make(ArticlesBySource)
+	for name, raw := range respObj {
+		grouped[name] = raw // store raw JSON/XML/HTML per source
+	}
+
+	return grouped, nil
 }
