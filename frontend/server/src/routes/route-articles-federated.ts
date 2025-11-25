@@ -6,7 +6,7 @@ import { handleError } from "./helpers";
  * GET /articles/federated
  * Returns all federated articles from the P2P node.
  */
-export const federatedArticlesRoute: RouteHandler = {
+export const fetchFederatedArticlesRoute: RouteHandler = {
 	method: "GET",
 	path: "/articles/federated",
 	handler: async ({
@@ -32,4 +32,4 @@ export const federatedArticlesRoute: RouteHandler = {
 };
 
 // Export as an array for easy spreading
-export const routes: RouteHandler[] = [federatedArticlesRoute];
+export const routes: RouteHandler[] = [fetchFederatedArticlesRoute];

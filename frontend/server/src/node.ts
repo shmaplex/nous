@@ -9,10 +9,10 @@ import { log } from "@/lib/log.server";
 import { updateStatus } from "@/lib/status.server";
 import { cleanLockFiles } from "@/lib/utils.server";
 import { createEmptyNodeStatus, type NodeConfig, type NodeStatus } from "@/types";
-import { type AnalyzedDB, setupAnalyzedDB } from "./db-analyzed";
+import { type ArticleAnalyzedDB, setupArticleAnalyzedDB } from "./db-articles-analyzed";
+import { type ArticleFederatedDB, setupArticleFederatedDB } from "./db-articles-federated";
+import { type ArticleLocalDB, setupArticleLocalDB } from "./db-articles-local";
 import { type DebugDB, setupDebugDB } from "./db-debug";
-import { type FederatedDB, setupFederatedDB } from "./db-federated";
-import { type SourceDB, setupSourcesDB } from "./db-sources";
 import { getOrbitDBIdentity } from "./identity";
 import { createLibp2pNode } from "./libp2pNode";
 
@@ -26,10 +26,43 @@ let runningInstance: {
 	orbitdb: OrbitDB;
 	status: NodeStatus;
 	debugDB: DebugDB;
-	sourcesDB: SourceDB;
-	analyzedDB: AnalyzedDB;
-	federatedDB: FederatedDB;
+	articleLocalDB: ArticleLocalDB;
+	articleAnalyzedDB: ArticleAnalyzedDB;
+	articleFederatedDB: ArticleFederatedDB;
 } | null = null;
+
+/**
+ * Generic fallback creator for any DB interface.
+ * Functions get async stubs, other properties get default values.
+ */
+function createFallbackDB<T extends Record<string, any>>(defaults?: Partial<T>): T {
+	const fallback: Record<string, any> = {};
+
+	for (const key in defaults) {
+		const value = defaults[key];
+		if (typeof value === "function") {
+			fallback[key] = async (..._args: any[]) => value(..._args);
+		} else {
+			fallback[key] = value;
+		}
+	}
+
+	return new Proxy(fallback, {
+		get(target, prop: string) {
+			if (!(prop in target)) {
+				// Auto-generate sensible defaults
+				return async (..._args: any[]) => {
+					// If prop name suggests array return
+					if (/^(get|fetch|query)/.test(prop)) return [];
+					// If prop name suggests void operation
+					if (/^(save|add|delete)/.test(prop)) return undefined;
+					return undefined;
+				};
+			}
+			return target[prop];
+		},
+	}) as T;
+}
 
 /**
  * Start or return the running P2P node instances
@@ -78,49 +111,34 @@ export async function getP2PNode(config?: NodeConfig) {
 	});
 
 	let debugDB: DebugDB;
-	let sourcesDB: SourceDB;
-	let analyzedDB: AnalyzedDB;
-	let federatedDB: FederatedDB;
+	let articleLocalDB: ArticleLocalDB;
+	let articleAnalyzedDB: ArticleAnalyzedDB;
+	let articleFederatedDB: ArticleFederatedDB;
 	try {
 		// --- Setup DBs ---
 		debugDB = await setupDebugDB(orbitdb);
-		sourcesDB = await setupSourcesDB(orbitdb);
-		analyzedDB = await setupAnalyzedDB(orbitdb);
-		federatedDB = await setupFederatedDB();
+		articleLocalDB = await setupArticleLocalDB(orbitdb);
+		articleAnalyzedDB = await setupArticleAnalyzedDB(orbitdb);
+		articleFederatedDB = await setupArticleFederatedDB();
 
 		status.orbitConnected = true;
 	} catch (err: any) {
-		log(`OrbitDB setup failed: ${err.message}`);
-		// Fallback empty DBs if needed
-		debugDB = { db: null, add: async () => {}, getAll: async () => [] };
-		sourcesDB = {
-			db: null,
-			saveArticle: async () => {},
-			deleteArticle: async () => {},
-			getAllArticles: async () => [],
-			getArticle: async () => null,
-			queryArticles: async () => [],
-			addUniqueArticles: async () => 0,
-			fetchAllSources: async () => [],
-		};
-		analyzedDB = {
-			db: null,
-			saveArticle: async () => {},
-			deleteArticle: async () => {},
-			getAllArticles: async () => [],
-			getArticle: async () => null,
-			queryArticles: async () => [],
-		};
-		federatedDB = {
-			db: [],
-			saveFederatedArticle: async () => {},
-			getFederatedArticles: async () => [],
-			queryFederatedArticles: async () => [],
-		};
+		log(`Critical error initializing OrbitDB databases: ${err.message}`, "error");
+
 		status.orbitConnected = false;
+		throw new Error("Failed to initialize databases. Node cannot start.");
 	}
 
-	runningInstance = { libp2p, helia, orbitdb, status, debugDB, sourcesDB, analyzedDB, federatedDB };
+	runningInstance = {
+		libp2p,
+		helia,
+		orbitdb,
+		status,
+		debugDB,
+		articleLocalDB,
+		articleAnalyzedDB,
+		articleFederatedDB,
+	};
 
 	log("✅ P2P node initialized successfully");
 

@@ -3,10 +3,10 @@ import path from "node:path";
 import { log } from "@/lib/log.server";
 import { loadStatus, updateStatus } from "@/lib/status.server";
 import type { NodeConfig } from "@/types";
-import type { AnalyzedDB } from "./db-analyzed";
+import type { ArticleAnalyzedDB } from "./db-articles-analyzed";
+import type { ArticleFederatedDB } from "./db-articles-federated";
+import type { ArticleLocalDB } from "./db-articles-local";
 import type { DebugDB } from "./db-debug";
-import type { FederatedDB } from "./db-federated";
-import type { SourceDB } from "./db-sources";
 import { createHttpServer, type HttpServerContext } from "./httpServer";
 import { startNetworkStatusPoll } from "./networkStatus";
 import { getP2PNode } from "./node";
@@ -25,9 +25,9 @@ const RELAYS: string[] = process.env.RELAYS?.split(",") || [];
 
 export type P2PDatabases = {
 	debugDB: DebugDB;
-	sourcesDB: SourceDB;
-	analyzedDB: AnalyzedDB;
-	federatedDB: FederatedDB;
+	articleLocalDB: ArticleLocalDB;
+	articleAnalyzedDB: ArticleAnalyzedDB;
+	articleFederatedDB: ArticleFederatedDB;
 };
 
 export async function startP2PNode(config: NodeConfig) {
@@ -40,9 +40,9 @@ export async function startP2PNode(config: NodeConfig) {
 		orbitdb,
 		status: nodeStatus,
 		debugDB,
-		sourcesDB,
-		analyzedDB,
-		federatedDB,
+		articleLocalDB,
+		articleAnalyzedDB,
+		articleFederatedDB,
 	} = await getP2PNode(config);
 
 	// --- Start network polling ---
@@ -53,15 +53,23 @@ export async function startP2PNode(config: NodeConfig) {
 		status: nodeStatus,
 		orbitdbConnected: Boolean(orbitdb),
 		httpPort: config.httpPort,
-		...sourcesDB,
-		...analyzedDB,
-		...federatedDB,
+		...articleLocalDB,
+		...articleAnalyzedDB,
+		...articleFederatedDB,
 	};
 
 	const server = createHttpServer(config.httpPort, httpContext);
 
 	// --- Graceful shutdown ---
-	const runningInstance = { libp2p, helia, orbitdb, debugDB, sourcesDB, analyzedDB, federatedDB };
+	const runningInstance = {
+		libp2p,
+		helia,
+		orbitdb,
+		debugDB,
+		articleLocalDB,
+		articleAnalyzedDB,
+		articleFederatedDB,
+	};
 	setRunningInstance(runningInstance);
 
 	const status = loadStatus();
@@ -77,9 +85,9 @@ export async function startP2PNode(config: NodeConfig) {
 	return {
 		// DBs
 		debugDB,
-		sourcesDB,
-		analyzedDB,
-		federatedDB,
+		articleLocalDB,
+		articleAnalyzedDB,
+		articleFederatedDB,
 		// Core node
 		helia,
 		orbitdb,

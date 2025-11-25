@@ -50,21 +50,16 @@ func (a *App) FetchFederatedArticles() string {
 }
 
 // SaveArticle stores a new article via HTTP
-func (a *App) SaveArticle(title, url, content, edition string) string {
-	data := map[string]string{
-		"title":   title,
-		"url":     url,
-		"content": content,
-	}
-	if edition != "" {
-		data["edition"] = edition
-	}
+func (a *App) SaveArticle(article map[string]interface{}) string {
 	baseUrl := fmt.Sprintf("%s/articles/save", GetNodeBaseUrl())
-	body, err := post(baseUrl, data)
+
+	// Send the entire article object to Node
+	body, err := post(baseUrl, article)
 	if err != nil {
 		log.Printf("Error saving article: %v", err)
 		return fmt.Sprintf("Error saving article: %v", err)
 	}
+
 	return body
 }
 

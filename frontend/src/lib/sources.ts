@@ -6,6 +6,7 @@ import {
 	type AuthType,
 	type Edition,
 	editions,
+	type ParserFn,
 	type PoliticalBias,
 	PoliticalBiasValues,
 	type Source,
@@ -165,10 +166,13 @@ export const getAvailableSources = async (): Promise<Source[]> => {
  *
  * This function:
  * 1. Gets all currently available sources (free or with an API key applied)
- * 2. Calls the Wails backend `FetchArticlesBySources` to fetch articles from those sources
- * 3. Returns a flattened array of articles
+ * 2. Calls the Wails backend `FetchArticlesBySources` to fetch raw feed data
+ *    (JSON, RSS/XML, HTML, etc.) for each source
+ * 3. Parses and normalizes each source’s raw data using its configured parser
+ *    and normalizer into the unified `Article` type
+ * 4. Returns a flattened array of valid articles
  *
- * @returns {Promise<Article[]>} Array of articles fetched from all available sources
+ * @returns Array of fully parsed and normalized articles
  */
 export const fetchArticlesBySources = async (): Promise<Article[]> => {
 	try {
@@ -177,8 +181,7 @@ export const fetchArticlesBySources = async (): Promise<Article[]> => {
 
 		console.log("availableSources", availableSources);
 
-		// Backend returns: Record<sourceName, rawArticles[]>
-		// backendResult is an object mapping source name -> array of raw articles
+		// Fetch raw feed data from backend (returns ArticlesBySource: { [sourceName]: rawData })
 		const backendResult: ArticlesBySource = await FetchArticlesBySources(availableSources);
 
 		if (typeof backendResult !== "object" || backendResult === null) {
@@ -192,33 +195,32 @@ export const fetchArticlesBySources = async (): Promise<Article[]> => {
 		for (const source of availableSources) {
 			const rawForSource = backendResult[source.name];
 
-			if (!Array.isArray(rawForSource)) {
-				console.warn(`No article array for source: ${source.name}`);
+			if (!rawForSource) {
+				console.warn(`No raw data returned for source: ${source.name}`);
 				continue;
 			}
 
+			// Get the parser/normalizer functions from the registry
 			const parser = getParser(source);
 			const normalizer = getNormalizer(source);
 
-			// Step 1: Parse raw backend data
-			const parsed = parser(rawForSource, source) ?? [];
+			// Parse raw feed data (JSON, RSS/XML, HTML, etc.)
+			const parsedItems = parser(rawForSource, source) ?? [];
 
-			// Step 2: Normalize each parsed item
-			const normalized = parsed.map((raw) => normalizer(raw, source));
+			// Normalize parsed items into standard Article shape
+			const normalizedItems = parsedItems.map((item) => normalizer(item, source));
 
-			allNormalized.push(...normalized);
+			allNormalized.push(...normalizedItems);
 		}
 
-		// Step 3: Final structural validation & cleanup
+		// Final validation & cleanup: only keep items with title and URL
 		const validArticles: Article[] = allNormalized
-			.filter((a) => a?.url && a.title)
+			.filter((a) => a?.url && a?.title)
 			.map((a) => {
-				// Edition mapping
 				const edition: Edition = editions.includes(a.edition as Edition)
 					? (a.edition as Edition)
 					: "other";
 
-				// Source bias mapping
 				const bias: PoliticalBias =
 					a.sourceMeta?.bias && PoliticalBiasValues.includes(a.sourceMeta.bias)
 						? (a.sourceMeta.bias as PoliticalBias)

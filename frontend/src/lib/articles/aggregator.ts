@@ -2,7 +2,7 @@ import type { Article, ArticleAnalyzed } from "@/types";
 import type { FederatedDB } from "./federated";
 import { fetchFederatedArticleContent, fetchFederatedArticles } from "./federated";
 import { loadLocalArticles } from "./local";
-import { fetchApiFeed, fetchRssFeed } from "./sources";
+// import { fetchApiFeed, fetchRssFeed } from "./sources";
 
 /**
  * Aggregate all articles for the UI
@@ -60,24 +60,29 @@ export const fetchAllArticles = async (
 	}
 
 	// 4️⃣ Load RSS / API feeds (optional)
-	const rssArticles: (Article | ArticleAnalyzed)[] = [];
-	if (options?.rssFeeds) {
-		for (const feed of options.rssFeeds) {
-			const articles = await fetchRssFeed(feed);
-			rssArticles.push(...articles);
-		}
-	}
+	// const rssArticles: (Article | ArticleAnalyzed)[] = [];
+	// if (options?.rssFeeds) {
+	// 	for (const feed of options.rssFeeds) {
+	// 		const articles = await fetchRssFeed(feed);
+	// 		rssArticles.push(...articles);
+	// 	}
+	// }
 
-	const apiArticles: (Article | ArticleAnalyzed)[] = [];
-	if (options?.apiFeeds) {
-		for (const feed of options.apiFeeds) {
-			const articles = await fetchApiFeed(feed.url, feed.apiKey);
-			apiArticles.push(...articles);
-		}
-	}
+	// const apiArticles: (Article | ArticleAnalyzed)[] = [];
+	// if (options?.apiFeeds) {
+	// 	for (const feed of options.apiFeeds) {
+	// 		const articles = await fetchApiFeed(feed.url, feed.apiKey);
+	// 		apiArticles.push(...articles);
+	// 	}
+	// }
 
 	// 5️⃣ Combine all articles
-	const allArticles = [...localArticles, ...federatedArticles, ...rssArticles, ...apiArticles];
+	const allArticles = [
+		...localArticles,
+		...federatedArticles,
+		// ...rssArticles,
+		// ...apiArticles
+	];
 
 	// 6️⃣ Sort by publishedAt descending
 	allArticles.sort((a, b) => {

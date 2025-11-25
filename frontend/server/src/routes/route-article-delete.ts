@@ -3,6 +3,7 @@ import type { RouteHandler } from "@/types";
 import { handleError } from "./helpers";
 
 /**
+ * @deprecated use deleteLocalArticleRoute etc.
  * POST /delete/:url
  * Deletes an article by its URL from the P2P node.
  *
@@ -10,7 +11,7 @@ import { handleError } from "./helpers";
  */
 export const deleteArticleRoute: RouteHandler = {
 	method: "POST",
-	path: "/delete/", // base path; the specific URL will be appended
+	path: "/articles/delete/", // base path; the specific URL will be appended
 	handler: async ({ res, deleteArticle, body }) => {
 		if (!deleteArticle) {
 			await handleError(res, "deleteArticle function not provided", 500, "error");

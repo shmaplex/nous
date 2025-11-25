@@ -1,4 +1,4 @@
-// frontend/src/p2p/routes/route-article-sources.ts
+// frontend/src/p2p/routes/route-article-local.ts
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { addDebugLog, log } from "@/lib/log.server";
 import type { Article, RouteHandler, Source } from "@/types";
@@ -12,7 +12,7 @@ const THROTTLE_LIMIT = 5; // max requests per TIME_WINDOW
 const TIME_WINDOW = 1000 * 10; // 10 seconds
 
 /**
- * POST /articles/sources/fetch
+ * POST /articles/local/fetch
  * Fetch articles from a list of enabled sources.
  *
  * Expects `body.sources` to be an array of source objects, each containing:
@@ -32,9 +32,9 @@ const TIME_WINDOW = 1000 * 10; // 10 seconds
  * }
  * ```
  */
-export const fetchSourcesRoute: RouteHandler = {
+export const fetchLocalArticlesRoute: RouteHandler = {
 	method: "POST",
-	path: "/articles/sources/fetch",
+	path: "/articles/local/fetch",
 	handler: async ({
 		fetchAllSources,
 		res,
@@ -61,24 +61,24 @@ export const fetchSourcesRoute: RouteHandler = {
 			res.end(JSON.stringify({ success: true, articles: fetchedArticles }));
 		} catch (err) {
 			const message = (err as Error).message;
-			log(`Error in fetchSourcesRoute: ${message}`, "error");
+			log(`Error in fetchLocalArticlesRoute: ${message}`, "error");
 			await handleError(res, message, 500, "error");
 		}
 	},
 };
 
 /**
- * GET /articles/sources
- * Returns all articles from the sources DB, filtered by enabled sources.
+ * GET /articles/local
+ * Returns all articles from the local article DB, filtered by enabled sources.
  * Throttled per client IP to prevent abuse.
  *
  * This route expects a `getAllArticles` function that returns all articles stored
- * in the sources DB (e.g., OrbitDB). Only articles whose source endpoint is in
+ * in the local article DB (e.g., OrbitDB). Only articles whose source endpoint is in
  * the available sources list will be returned.
  */
-export const getAllSourcesRoute: RouteHandler = {
+export const getAllLocalArticlesRoute: RouteHandler = {
 	method: "GET",
-	path: "/articles/sources",
+	path: "/articles/local",
 	handler: async ({
 		getAllArticles,
 		res,
@@ -133,12 +133,12 @@ export const getAllSourcesRoute: RouteHandler = {
 };
 
 /**
- * GET /articles/sources/:url
+ * GET /articles/local/:url
  * Fetch a single source article by URL
  */
-export const getSourceByUrlRoute: RouteHandler = {
+export const getLocalArticleByUrlRoute: RouteHandler = {
 	method: "GET",
-	path: "/articles/sources/",
+	path: "/articles/local/",
 	handler: async ({
 		getArticle,
 		res,
@@ -178,12 +178,12 @@ export const getSourceByUrlRoute: RouteHandler = {
 };
 
 /**
- * POST /articles/sources/save
+ * POST /articles/local/save
  * Save a single new source article
  */
-export const saveSourceRoute: RouteHandler = {
+export const saveLocalArticleRoute: RouteHandler = {
 	method: "POST",
-	path: "/articles/sources/save",
+	path: "/articles/local/save",
 	handler: async ({
 		saveArticle,
 		res,
@@ -216,12 +216,12 @@ export const saveSourceRoute: RouteHandler = {
 };
 
 /**
- * POST /articles/sources/refetch
+ * POST /articles/local/refetch
  * Add multiple articles, skipping duplicates
  */
-export const refetchSourcesRoute: RouteHandler = {
+export const refetchLocalArticlesRoute: RouteHandler = {
 	method: "POST",
-	path: "/articles/sources/refetch",
+	path: "/articles/local/refetch",
 	handler: async ({
 		addUniqueArticles,
 		res,
@@ -254,12 +254,12 @@ export const refetchSourcesRoute: RouteHandler = {
 };
 
 /**
- * DELETE /articles/sources/delete/:url
+ * DELETE /articles/local/delete/:url
  * Delete a source article by URL
  */
-export const deleteSourceRoute: RouteHandler = {
+export const deleteLocalArticleRoute: RouteHandler = {
 	method: "DELETE",
-	path: "/articles/sources/delete/",
+	path: "/articles/local/delete/",
 	handler: async ({
 		deleteArticle,
 		res,
@@ -296,10 +296,10 @@ export const deleteSourceRoute: RouteHandler = {
 
 // Export all routes as array
 export const routes: RouteHandler[] = [
-	fetchSourcesRoute,
-	getAllSourcesRoute,
-	getSourceByUrlRoute,
-	saveSourceRoute,
-	refetchSourcesRoute,
-	deleteSourceRoute,
+	fetchLocalArticlesRoute,
+	getAllLocalArticlesRoute,
+	getLocalArticleByUrlRoute,
+	refetchLocalArticlesRoute,
+	saveLocalArticleRoute,
+	deleteLocalArticleRoute,
 ];

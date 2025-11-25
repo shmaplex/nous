@@ -14,9 +14,9 @@ let runningInstance: {
 	helia: Helia;
 	orbitdb: OrbitDB;
 	debugDB?: P2PDatabases["debugDB"];
-	sourcesDB?: P2PDatabases["sourcesDB"];
-	analyzedDB?: P2PDatabases["analyzedDB"];
-	federatedDB?: P2PDatabases["federatedDB"];
+	articleLocalDB?: P2PDatabases["articleLocalDB"];
+	articleAnalyzedDB?: P2PDatabases["articleAnalyzedDB"];
+	articleFederatedDB?: P2PDatabases["articleFederatedDB"];
 } | null = null;
 
 /**
@@ -50,9 +50,9 @@ export async function closeDatabases(databases: P2PDatabases) {
 	}
 
 	// --- Sources DB ---
-	if (databases.sourcesDB?.db) {
+	if (databases.articleLocalDB?.db) {
 		try {
-			await databases.sourcesDB.db.close();
+			await databases.articleLocalDB.db.close();
 			log("✅ Sources DB closed successfully");
 		} catch (err: any) {
 			log(`⚠️ Sources DB close warning: ${err.message}`);
@@ -62,9 +62,9 @@ export async function closeDatabases(databases: P2PDatabases) {
 	}
 
 	// --- Analyzed DB ---
-	if (databases.analyzedDB?.db) {
+	if (databases.articleAnalyzedDB?.db) {
 		try {
-			await databases.analyzedDB.db.close();
+			await databases.articleAnalyzedDB.db.close();
 			log("✅ Analyzed DB closed successfully");
 		} catch (err: any) {
 			log(`⚠️ Analyzed DB close warning: ${err.message}`);
@@ -74,7 +74,7 @@ export async function closeDatabases(databases: P2PDatabases) {
 	}
 
 	// --- Federated DB ---
-	if (databases.federatedDB) {
+	if (databases.articleFederatedDB) {
 		log("ℹ️  Federated DB is in-memory; no close required");
 	}
 }
@@ -94,15 +94,21 @@ export async function closeDatabases(databases: P2PDatabases) {
 export async function shutdownP2PNode() {
 	if (!runningInstance) return;
 
-	const { libp2p, helia, orbitdb, debugDB, sourcesDB, analyzedDB, federatedDB } = runningInstance;
+	const { libp2p, helia, orbitdb, debugDB, articleLocalDB, articleAnalyzedDB, articleFederatedDB } =
+		runningInstance;
 
 	log("🔻 Starting P2P node shutdown...");
 
 	// Close all databases
 	log("🔹 Closing individual databases before stopping OrbitDB...");
-	if (debugDB || sourcesDB || analyzedDB || federatedDB) {
+	if (debugDB || articleLocalDB || articleAnalyzedDB || articleFederatedDB) {
 		try {
-			const databases = { debugDB, sourcesDB, analyzedDB, federatedDB } as P2PDatabases;
+			const databases = {
+				debugDB,
+				articleLocalDB,
+				articleAnalyzedDB,
+				articleFederatedDB,
+			} as P2PDatabases;
 			await closeDatabases(databases);
 		} catch (err: any) {
 			log(`❌ Error closing databases: ${err.message}`);

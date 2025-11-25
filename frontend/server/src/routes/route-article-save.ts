@@ -3,6 +3,7 @@ import type { Article, RouteHandler } from "@/types";
 import { handleError } from "./helpers";
 
 /**
+ * @deprecated Use saveLocalArticleRoute etc.
  * POST /save
  * Saves a new article to the P2P node.
  *
@@ -10,7 +11,7 @@ import { handleError } from "./helpers";
  */
 export const saveArticleRoute: RouteHandler = {
 	method: "POST",
-	path: "/save",
+	path: "/articles/save",
 	handler: async ({ res, saveArticle, body }) => {
 		if (!saveArticle) {
 			await handleError(res, "saveArticle function not provided", 500, "error");

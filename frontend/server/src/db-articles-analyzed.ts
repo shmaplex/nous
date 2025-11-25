@@ -1,4 +1,4 @@
-// frontend/src/p2p/db-analyzed.ts
+// frontend/src/p2p/db-articles-analyzed.ts
 /**
  * @file OrbitDB setup and DB operations for Nous P2P Node (Analyzed DB)
  * @description
@@ -13,7 +13,7 @@ import type { ArticleAnalyzed } from "@/types";
 /**
  * Interface for the Analyzed DB instance and its helpers
  */
-export interface AnalyzedDB {
+export interface ArticleAnalyzedDB {
 	db: any; // OrbitDB instance
 	saveArticle: (doc: ArticleAnalyzed) => Promise<void>;
 	deleteArticle: (id: string) => Promise<void>;
@@ -23,7 +23,7 @@ export interface AnalyzedDB {
 }
 
 // Singleton instance
-let analyzedDBInstance: AnalyzedDB | null = null;
+let articleAnalyzedDBInstance: ArticleAnalyzedDB | null = null;
 
 /**
  * Sets up the analyzed articles DB in OrbitDB using an existing OrbitDB instance.
@@ -35,10 +35,10 @@ let analyzedDBInstance: AnalyzedDB | null = null;
  * @param orbitdb - Existing OrbitDB instance
  * @returns Analyzed DB instance with helper methods
  */
-export async function setupAnalyzedDB(orbitdb: OrbitDB): Promise<AnalyzedDB> {
-	if (analyzedDBInstance) {
+export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleAnalyzedDB> {
+	if (articleAnalyzedDBInstance) {
 		log("🟢 Analyzed DB already initialized, skipping setup");
-		return analyzedDBInstance;
+		return articleAnalyzedDBInstance;
 	}
 
 	const db = (await orbitdb.open("nous.analyzed.feed", {
@@ -59,7 +59,7 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB): Promise<AnalyzedDB> {
 	});
 
 	/** Save an analyzed article */
-	async function saveArticle(doc: ArticleAnalyzed) {
+	async function saveAnalyzedArticle(doc: ArticleAnalyzed) {
 		await db.put(doc);
 		const msg = `Saved analyzed article: ${doc.id}`;
 		log(msg);
@@ -67,7 +67,7 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB): Promise<AnalyzedDB> {
 	}
 
 	/** Delete an analyzed article by ID */
-	async function deleteArticle(id: string) {
+	async function deleteAnalyzedArticle(id: string) {
 		await db.del(id);
 		const msg = `Deleted analyzed article: ${id}`;
 		log(msg);
@@ -75,30 +75,32 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB): Promise<AnalyzedDB> {
 	}
 
 	/** Get all analyzed articles */
-	async function getAllArticles(): Promise<ArticleAnalyzed[]> {
+	async function getAllAnalyzedArticles(): Promise<ArticleAnalyzed[]> {
 		return (await db.query(() => true)) ?? [];
 	}
 
 	/** Get a single analyzed article by ID */
-	async function getArticle(id: string): Promise<ArticleAnalyzed | null> {
+	async function getAnalyzedArticle(id: string): Promise<ArticleAnalyzed | null> {
 		return (await db.get(id)) ?? null;
 	}
 
 	/** Query analyzed articles using a predicate function */
-	async function queryArticles(fn: (doc: ArticleAnalyzed) => boolean): Promise<ArticleAnalyzed[]> {
+	async function queryAnalyzedArticles(
+		fn: (doc: ArticleAnalyzed) => boolean,
+	): Promise<ArticleAnalyzed[]> {
 		return await db.query(fn);
 	}
 
 	// Save singleton
-	analyzedDBInstance = {
+	articleAnalyzedDBInstance = {
 		db,
-		saveArticle,
-		deleteArticle,
-		getAllArticles,
-		getArticle,
-		queryArticles,
+		saveArticle: saveAnalyzedArticle,
+		deleteArticle: deleteAnalyzedArticle,
+		getAllArticles: getAllAnalyzedArticles,
+		getArticle: getAnalyzedArticle,
+		queryArticles: queryAnalyzedArticles,
 	};
-	log(`✅ Analyzed DB setup complete with ${db.address?.toString()}`);
+	log(`✅ Analyzed Article DB setup complete with ${db.address?.toString()}`);
 
-	return analyzedDBInstance;
+	return articleAnalyzedDBInstance;
 }

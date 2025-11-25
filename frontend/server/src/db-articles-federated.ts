@@ -1,4 +1,4 @@
-// frontend/src/p2p/db-federated.ts
+// frontend/src/p2p/db-articles-federated.ts
 /**
  * @file In-memory DB for Federated Articles
  * @description
@@ -12,17 +12,17 @@ import type { FederatedArticlePointer } from "@/types";
 /**
  * Interface for the Federated DB instance
  */
-export interface FederatedDB {
+export interface ArticleFederatedDB {
 	db: FederatedArticlePointer[];
-	saveFederatedArticle: (ptr: FederatedArticlePointer) => Promise<void>;
-	getFederatedArticles: () => Promise<FederatedArticlePointer[]>;
-	queryFederatedArticles: (
+	saveArticle: (ptr: FederatedArticlePointer) => Promise<void>;
+	getArticles: () => Promise<FederatedArticlePointer[]>;
+	queryArticles: (
 		fn: (ptr: FederatedArticlePointer) => boolean,
 	) => Promise<FederatedArticlePointer[]>;
 }
 
 // Singleton instance
-let federatedDBInstance: FederatedDB | null = null;
+let articleFederatedDBInstance: ArticleFederatedDB | null = null;
 
 /**
  * Sets up the federated articles DB.
@@ -30,10 +30,10 @@ let federatedDBInstance: FederatedDB | null = null;
  *
  * @returns Singleton instance with DB + helper functions
  */
-export async function setupFederatedDB(): Promise<FederatedDB> {
-	if (federatedDBInstance) {
-		log("🟢 Federated DB already initialized, skipping setup");
-		return federatedDBInstance;
+export async function setupArticleFederatedDB(): Promise<ArticleFederatedDB> {
+	if (articleFederatedDBInstance) {
+		log("🟢 Federated Article DB already initialized, skipping setup");
+		return articleFederatedDBInstance;
 	}
 
 	// Internal in-memory DB
@@ -68,14 +68,14 @@ export async function setupFederatedDB(): Promise<FederatedDB> {
 		return db.filter(fn);
 	}
 
-	federatedDBInstance = {
+	articleFederatedDBInstance = {
 		db,
-		saveFederatedArticle,
-		getFederatedArticles,
-		queryFederatedArticles,
+		saveArticle: saveFederatedArticle,
+		getArticles: getFederatedArticles,
+		queryArticles: queryFederatedArticles,
 	};
 
-	log("✅ Federated DB setup complete");
+	log("✅ Federated Article DB setup complete");
 
-	return federatedDBInstance;
+	return articleFederatedDBInstance;
 }

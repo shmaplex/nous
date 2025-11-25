@@ -6,6 +6,7 @@ import { type Article, ArticleSchema } from "@/types";
 const rssParser = new Parser();
 
 /**
+ * @deprecated these are handled via the parsers / normalizers
  * Fetch articles from a standard RSS feed.
  *
  * @param url - URL of the RSS feed
@@ -36,6 +37,7 @@ export const fetchRssFeed = async (url: string): Promise<Article[]> => {
 };
 
 /**
+ * @deprecated these are handled via the parsers / normalizers
  * Fetch articles from a JSON API.
  *
  * @param url - API endpoint returning JSON containing `articles` array
@@ -75,6 +77,7 @@ export const fetchApiFeed = async (url: string, apiKey?: string): Promise<Articl
 };
 
 /**
+ * @deprecated these are handled via the parsers / normalizers
  * Fetch multiple RSS feeds concurrently.
  *
  * @param urls - Array of RSS feed URLs
@@ -86,6 +89,7 @@ export const fetchMultipleRssFeeds = async (urls: string[]): Promise<Article[]> 
 };
 
 /**
+ * @deprecated these are handled via the parsers / normalizers
  * Fetch multiple API feeds concurrently.
  *
  * @param feeds - Array of objects { url, apiKey }
@@ -99,6 +103,7 @@ export const fetchMultipleApiFeeds = async (
 };
 
 /**
+ * @deprecated these are handled via the parsers / normalizers
  * Normalize a raw article object from an unknown source.
  * Ensures required fields exist and sets defaults for optional fields.
  *

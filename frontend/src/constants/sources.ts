@@ -10,6 +10,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: true,
 		category: "news",
 		authType: "apiKey",
+		parser: "json",
+		normalizer: "json",
 	},
 	{
 		name: "The Guardian Open Platform",
@@ -20,6 +22,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: true,
 		category: "news",
 		authType: "apiKey",
+		parser: "json",
+		normalizer: "json",
 	},
 	{
 		name: "New York Times Top Stories",
@@ -30,6 +34,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: true,
 		category: "news",
 		authType: "apiKey",
+		parser: "json",
+		normalizer: "json",
 	},
 
 	// Free / no API key required sources
@@ -42,6 +48,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "news",
 		authType: "none",
+		parser: "json",
+		normalizer: "gdelt",
 	},
 	{
 		name: "Reddit /r/news JSON",
@@ -52,6 +60,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "social",
 		authType: "none",
+		parser: "json",
+		normalizer: "reddit",
 	},
 	{
 		name: "BBC News RSS",
@@ -61,6 +71,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "CNN RSS",
@@ -70,6 +82,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "Financial Times RSS",
@@ -79,6 +93,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "Al Jazeera All News RSS",
@@ -88,6 +104,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "Reuters Top News RSS",
@@ -97,6 +115,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "Associated Press RSS",
@@ -106,6 +126,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "NPR News RSS",
@@ -115,6 +137,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "The Verge RSS",
@@ -124,6 +148,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "TechCrunch RSS",
@@ -133,6 +159,8 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "rss",
 		authType: "none",
+		parser: "rss",
+		normalizer: "rss",
 	},
 	{
 		name: "Hacker News JSON",
@@ -143,5 +171,7 @@ export const DEFAULT_SOURCES: Source[] = [
 		requiresApiKey: false,
 		category: "tech",
 		authType: "none",
+		parser: "json",
+		normalizer: "hn",
 	},
 ];

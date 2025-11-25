@@ -4,16 +4,18 @@ import type { NodeStatus, RouteHandler } from "@/types";
 // external routes (see /routes)
 import * as deleteRoutes from "./routes/route-article-delete";
 import * as saveRoutes from "./routes/route-article-save";
-import * as federatedRoutes from "./routes/route-articles-federated";
-import * as sourcesRoutes from "./routes/route-articles-sources";
+// import * as articleAnalyzedRoutes from "./routes/route-articles-analyzed";
+import * as articleFederatedRoutes from "./routes/route-articles-federated";
+import * as articleLocalRoutes from "./routes/route-articles-local";
 import * as logRoutes from "./routes/route-log";
 import * as statusRoutes from "./routes/route-status";
 
 export const BASE_URL = "http://localhost";
 
 export const routes: RouteHandler[] = [
-	...federatedRoutes.routes,
-	...sourcesRoutes.routes,
+	...articleLocalRoutes.routes,
+	...articleFederatedRoutes.routes,
+	// ...articleAnalyzedRoutes.routes,
 	...deleteRoutes.routes,
 	...statusRoutes.routes,
 	...saveRoutes.routes,
