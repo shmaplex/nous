@@ -31,8 +31,6 @@ export async function setupDebugDB(orbitdb: OrbitDB) {
 		meta: { indexBy: "timestamp" },
 	})) as any;
 
-	console.log("debugDB -> ", db);
-
 	// Log updates from peers
 	db.events.on("update", async (entry: any) => {
 		log(`🔄 Debug update from peer: ${JSON.stringify(entry)}`);

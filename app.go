@@ -25,6 +25,8 @@ var libp2pPortBase int = 4001
 var keystorePath string = ORBITDB_KEYSTORE_PATH
 var dbPath string = ORBITDB_DB_PATH
 
+var BASE_API_URL string = "http://localhost"
+
 // NewApp creates a new App instance
 func NewApp() *App {
 	if idStr := os.Getenv("INSTANCE_ID"); idStr != "" {
@@ -102,5 +104,5 @@ func (a *App) GetLocation() string {
 
 // Base URL for talking to the internal P2P HTTP API
 func GetNodeBaseUrl() string {
-	return fmt.Sprintf("http://127.0.0.1:%d", instanceHTTPPort())
+	return fmt.Sprintf("%s:%d", BASE_API_URL, instanceHTTPPort())
 }

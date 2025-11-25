@@ -58,8 +58,7 @@ func (a *App) LoadSources() ([]Source, error) {
 // FetchArticlesBySources calls the P2P node to fetch articles from the provided sources
 // and returns them as a slice of Article objects.
 func (a *App) FetchArticlesBySources(sources []Source) ([]Article, error) {
-	url := GetNodeBaseUrl() + "/articles/sources/fetch"
-
+	url := fmt.Sprintf("%s/articles/sources/fetch", GetNodeBaseUrl())
 	body := map[string]interface{}{
 		"sources": sources,
 	}
@@ -85,10 +84,10 @@ func (a *App) FetchArticlesBySources(sources []Source) ([]Article, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var articles []Article
-	if err := json.Unmarshal(respBody, &articles); err != nil {
+	var respObj ArticlesResponse
+	if err := json.Unmarshal(respBody, &respObj); err != nil {
 		return nil, fmt.Errorf("failed to parse articles JSON: %w", err)
 	}
 
-	return articles, nil
+	return respObj.Articles, nil
 }

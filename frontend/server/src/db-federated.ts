@@ -75,5 +75,7 @@ export async function setupFederatedDB(): Promise<FederatedDB> {
 		queryFederatedArticles,
 	};
 
+	log("✅ Federated DB setup complete");
+
 	return federatedDBInstance;
 }

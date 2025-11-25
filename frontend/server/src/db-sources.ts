@@ -38,8 +38,6 @@ export async function setupSourcesDB(orbitdb: OrbitDB): Promise<SourceDB> {
 		meta: { indexBy: "url" },
 	})) as any;
 
-	console.log("sourceDB ->", db);
-
 	// Listen for peer updates
 	db.events.on("update", async (entry: any) => {
 		const msg = `🔄 Update from peer: ${JSON.stringify(entry)}`;
@@ -145,6 +143,8 @@ export async function setupSourcesDB(orbitdb: OrbitDB): Promise<SourceDB> {
 		addUniqueArticles,
 		fetchAllSources,
 	};
+
+	log(`✅ Sources DB setup complete with ${db.address?.toString()}`);
 
 	return sourceDBInstance;
 }

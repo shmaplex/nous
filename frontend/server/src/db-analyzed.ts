@@ -46,8 +46,6 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB): Promise<AnalyzedDB> {
 		meta: { indexBy: "id" },
 	})) as any;
 
-	console.log("analyzedDB ->", db);
-
 	// Listen for updates from peers
 	db.events.on("update", async (entry: any) => {
 		const msg = `🔄 Update from peer (analyzed): ${JSON.stringify(entry)}`;
@@ -100,6 +98,7 @@ export async function setupAnalyzedDB(orbitdb: OrbitDB): Promise<AnalyzedDB> {
 		getArticle,
 		queryArticles,
 	};
+	log(`✅ Analyzed DB setup complete with ${db.address?.toString()}`);
 
 	return analyzedDBInstance;
 }

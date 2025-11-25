@@ -9,7 +9,7 @@ import * as sourcesRoutes from "./routes/route-articles-sources";
 import * as logRoutes from "./routes/route-log";
 import * as statusRoutes from "./routes/route-status";
 
-export const BASE_URL = "http://127.0.0.1";
+export const BASE_URL = "http://localhost";
 
 export const routes: RouteHandler[] = [
 	...federatedRoutes.routes,

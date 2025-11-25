@@ -46,7 +46,7 @@ export async function closeDatabases(databases: P2PDatabases) {
 			log(`⚠️ Debug DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️ Debug DB not initialized or already null");
+		log("ℹ️  Debug DB not initialized or already null");
 	}
 
 	// --- Sources DB ---
@@ -58,7 +58,7 @@ export async function closeDatabases(databases: P2PDatabases) {
 			log(`⚠️ Sources DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️ Sources DB not initialized or already null");
+		log("ℹ️  Sources DB not initialized or already null");
 	}
 
 	// --- Analyzed DB ---
@@ -70,12 +70,12 @@ export async function closeDatabases(databases: P2PDatabases) {
 			log(`⚠️ Analyzed DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️ Analyzed DB not initialized or already null");
+		log("ℹ️  Analyzed DB not initialized or already null");
 	}
 
 	// --- Federated DB ---
 	if (databases.federatedDB) {
-		log("ℹ️ Federated DB is in-memory; no close required");
+		log("ℹ️  Federated DB is in-memory; no close required");
 	}
 }
 

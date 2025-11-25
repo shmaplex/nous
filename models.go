@@ -117,3 +117,23 @@ type ArticleAnalyzed struct {
 	Confidence        *float64        `json:"confidence,omitempty"`        // Confidence of analysis (0-1)
 	AnalysisTimestamp *string         `json:"analysisTimestamp,omitempty"` // When analysis was performed
 }
+
+// ArticlesResponse represents the standard response from the P2P HTTP API
+// when fetching multiple articles from sources.
+//
+// The response wraps the list of articles in a success envelope to indicate
+// whether the operation was successful, along with the actual articles array.
+//
+// Example JSON:
+//
+//	{
+//	  "success": true,
+//	  "articles": [
+//	    { "id": "123", "title": "Example Article", "url": "https://example.com" },
+//	    ...
+//	  ]
+//	}
+type ArticlesResponse struct {
+	Success  bool      `json:"success"`  // True if the fetch operation succeeded
+	Articles []Article `json:"articles"` // Array of Article objects retrieved
+}

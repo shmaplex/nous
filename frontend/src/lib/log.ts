@@ -3,6 +3,8 @@
 import { v4 as uuidv4 } from "uuid";
 import type { DebugLogEntry } from "@/types";
 
+const BASE_URL = "http://localhost:9001";
+
 /**
  * Console log helper
  */
@@ -45,7 +47,7 @@ export async function addDebugLog(entry: {
 	}
 
 	try {
-		await fetch("http://127.0.0.1:9001/debug/log", {
+		await fetch(`${BASE_URL}/debug/log`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(logEntry),
@@ -60,7 +62,7 @@ export async function addDebugLog(entry: {
  */
 export async function getDebugLogs(): Promise<DebugLogEntry[]> {
 	try {
-		const res = await fetch("http://127.0.0.1:9001/debug/logs");
+		const res = await fetch(`${BASE_URL}/debug/logs`);
 		if (!res.ok) {
 			console.error("Failed to fetch debug logs:", res.statusText);
 			return [];

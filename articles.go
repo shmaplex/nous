@@ -7,7 +7,8 @@ import (
 
 // FetchArticles retrieves all articles from the HTTP service
 func (a *App) FetchArticles() string {
-	body, err := get(fmt.Sprintf("http://127.0.0.1:%d/articles/sources", instanceHTTPPort()))
+	url := fmt.Sprintf("%s/articles/sources", GetNodeBaseUrl())
+	body, err := get(url)
 	if err != nil {
 		log.Printf("Error fetching articles: %v", err)
 		return fmt.Sprintf("Error fetching articles: %v", err)
@@ -17,7 +18,8 @@ func (a *App) FetchArticles() string {
 
 // FetchLocalArticles retrieves only local articles
 func (a *App) FetchLocalArticles() string {
-	body, err := get(fmt.Sprintf("http://127.0.0.1:%d/articles/local", instanceHTTPPort()))
+	url := fmt.Sprintf("%s/articles/local", GetNodeBaseUrl())
+	body, err := get(url)
 	if err != nil {
 		log.Printf("Error fetching local articles: %v", err)
 		return fmt.Sprintf("Error fetching local articles: %v", err)
@@ -27,7 +29,8 @@ func (a *App) FetchLocalArticles() string {
 
 // FetchAnalyzedArticles retrieves only AI-analyzed articles
 func (a *App) FetchAnalyzedArticles() string {
-	body, err := get(fmt.Sprintf("http://127.0.0.1:%d/articles/analyzed", instanceHTTPPort()))
+	url := fmt.Sprintf("%s/articles/analyzed", GetNodeBaseUrl())
+	body, err := get(url)
 	if err != nil {
 		log.Printf("Error fetching analyzed articles: %v", err)
 		return fmt.Sprintf("Error fetching analyzed articles: %v", err)
@@ -37,7 +40,8 @@ func (a *App) FetchAnalyzedArticles() string {
 
 // FetchFederatedArticles retrieves only federated articles
 func (a *App) FetchFederatedArticles() string {
-	body, err := get(fmt.Sprintf("http://127.0.0.1:%d/articles/federated", instanceHTTPPort()))
+	url := fmt.Sprintf("%s/articles/federated", GetNodeBaseUrl())
+	body, err := get(url)
 	if err != nil {
 		log.Printf("Error fetching federated articles: %v", err)
 		return fmt.Sprintf("Error fetching federated articles: %v", err)
@@ -55,8 +59,8 @@ func (a *App) SaveArticle(title, url, content, edition string) string {
 	if edition != "" {
 		data["edition"] = edition
 	}
-
-	body, err := post(fmt.Sprintf("http://127.0.0.1:%d/save", instanceHTTPPort()), data)
+	baseUrl := fmt.Sprintf("%s/articles/save", GetNodeBaseUrl())
+	body, err := post(baseUrl, data)
 	if err != nil {
 		log.Printf("Error saving article: %v", err)
 		return fmt.Sprintf("Error saving article: %v", err)
@@ -66,7 +70,8 @@ func (a *App) SaveArticle(title, url, content, edition string) string {
 
 // DeleteArticle removes an article by ID
 func (a *App) DeleteArticle(id string) string {
-	body, err := get(fmt.Sprintf("http://127.0.0.1:%d/delete/%s", instanceHTTPPort(), id))
+	baseUrl := fmt.Sprintf("%s/articles/delete/%s", GetNodeBaseUrl(), id)
+	body, err := get(baseUrl)
 	if err != nil {
 		log.Printf("Error deleting article: %v", err)
 		return fmt.Sprintf("Error deleting article: %v", err)
