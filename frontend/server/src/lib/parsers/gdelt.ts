@@ -1,5 +1,6 @@
 // frontend/src/lib/parsers/gdelt.ts
-import type { Article, ParserFn, Source, SourceMeta } from "@/types";
+import { type Article, ArticleSchema, type ParserFn, type Source, type SourceMeta } from "@/types";
+import { mapCountryToEdition, safeDate, safeUrl } from ".";
 
 /**
  * GDELT parser.
@@ -11,8 +12,9 @@ import type { Article, ParserFn, Source, SourceMeta } from "@/types";
  *   articles: [
  *     {
  *       url: string,
+ *       url_mobile: string,
  *       title: string,
- *       seendate: string,
+ *       summary: string,
  *       socialimage: string,
  *       domain: string,
  *       language: string,
@@ -24,23 +26,31 @@ import type { Article, ParserFn, Source, SourceMeta } from "@/types";
 export const gdeltParser: ParserFn = (raw: any, source: Source): Article[] => {
 	if (!raw || !Array.isArray(raw.articles)) return [];
 
-	return raw.articles.map((a: any) => ({
-		id: a.url ?? crypto.randomUUID(),
-		title: a.title ?? "Untitled",
-		url: a.url,
-		content: a.summary ?? "", // fallback empty
-		summary: a.summary ?? "",
-		categories: a.categories ?? [],
-		tags: a.tags ?? [],
-		language: a.language ?? "unknown",
-		author: a.domain ?? source.name,
-		publishedAt: a.seendate ?? undefined, // keep as string
-		edition: "other",
-		analyzed: false,
-		raw: a,
-		sourceMeta: {
-			name: source.name,
-			bias: "center",
-		} satisfies SourceMeta,
-	}));
+	return raw.articles.map((a: any) => {
+		const article: Article = {
+			id: a.url ?? crypto.randomUUID(),
+			title: a.title ?? "Untitled",
+			url: a.url,
+			mobileUrl: safeUrl(a.url_mobile),
+			content: a.summary ?? null,
+			summary: a.summary ?? null,
+			categories: a.categories ?? [],
+			tags: a.tags ?? [],
+			language: a.language ?? null,
+			author: a.domain ?? source.name,
+			publishedAt: safeDate(a.seendate) ?? null,
+			edition: mapCountryToEdition(a.sourcecountry),
+			image: safeUrl(a.socialimage),
+			analyzed: false,
+			raw: a,
+			sourceMeta: {
+				name: source.name,
+				bias: "center",
+			} satisfies SourceMeta,
+			fetchedAt: new Date().toISOString(),
+		};
+
+		// Validate safely
+		return ArticleSchema.parse(article);
+	});
 };

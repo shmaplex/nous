@@ -1,40 +1,37 @@
-// frontend/src/lib/normalizers/gdelt.ts
-import type { Article, NormalizerFn } from "@/types";
+import type { Article, NormalizerFn, SourceMeta } from "@/types";
 
 /**
  * Normalizer for GDELT API entries.
  *
- * Maps GDELT article fields to our Article type.
+ * Converts parsed GDELT articles into the normalized Article type,
+ * filling as many fields as possible.
  */
-function normalizeGdeltArticle(a: any): Article {
+export const normalizeGdelt: NormalizerFn = (a: Article): Article => {
 	return {
-		id: crypto.randomUUID(),
+		id: a.id ?? crypto.randomUUID(),
 		url: a.url,
 		title: a.title ?? "Untitled",
-		source: a.domain ?? undefined,
-		sourceDomain: a.domain ?? undefined,
+		source: a.source ?? a.author ?? null,
+		sourceDomain: a.sourceDomain ?? a.author ?? null,
 		sourceType: "gdelt",
 
-		// Map socialimage → image if present
-		image: a.socialimage || undefined,
+		image: a.image ?? null,
+		mobileUrl: a.mobileUrl ?? null,
+		sourceCountry: a.sourceCountry ?? null,
+		language: a.language ?? null,
+		publishedAt: a.publishedAt ? new Date(a.publishedAt).toISOString() : null,
 
-		// Extra GDELT fields
-		mobileUrl: a.url_mobile || undefined,
-		sourceCountry: a.sourcecountry || undefined,
+		summary: a.summary ?? "",
+		content: a.content ?? "",
+		categories: a.categories ?? [],
+		tags: a.tags ?? [],
 
-		language: a.language || undefined,
-		publishedAt: a.seendate ? new Date(a.seendate).toISOString() : undefined,
+		edition: a.edition ?? "international",
+		analyzed: a.analyzed ?? false,
+		confidence: a.confidence ?? 0.8,
 
-		summary: undefined,
-		content: undefined,
-		categories: undefined,
-		tags: undefined,
-
-		edition: "international",
-		analyzed: false,
-		confidence: 0.8,
-
-		raw: a,
-		fetchedAt: new Date().toISOString(),
+		raw: a.raw ?? a,
+		sourceMeta: a.sourceMeta ?? ({ name: a.source ?? "GDELT", bias: "center" } as SourceMeta),
+		fetchedAt: a.fetchedAt ?? new Date().toISOString(),
 	};
-}
+};

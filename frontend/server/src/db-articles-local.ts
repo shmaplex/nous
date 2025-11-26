@@ -3,7 +3,7 @@ import { Documents, type OrbitDB } from "@orbitdb/core";
 import { smartFetch } from "@/lib/fetch.server";
 import { addDebugLog, log } from "@/lib/log.server";
 import { getNormalizer, normalizePublishedAt } from "@/lib/normalizers";
-import { getParser } from "@/lib/parsers";
+import { cleanArticlesForDB, getParser } from "@/lib/parsers";
 import type { Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
 
@@ -140,7 +140,6 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 				}
 
 				const rawData = await response.json();
-				log(`rawData ${JSON.stringify(rawData)}`);
 
 				// Get parser and normalizer for this source
 				const parserFn = getParser(source);
@@ -163,8 +162,13 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 					return n;
 				});
 
+				// Clean undefined values before storing in OrbitDB
+				const cleanArticles = cleanArticlesForDB(normalizedArticles);
+
+				console.log("cleanArticles", JSON.stringify(cleanArticles, null, 2));
+
 				// Validate normalized articles
-				for (const article of normalizedArticles) {
+				for (const article of cleanArticles) {
 					try {
 						ArticleSchema.parse(article);
 						allArticles.push(article);
@@ -175,7 +179,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 					}
 				}
 
-				log(`Fetched ${normalizedArticles.length} articles from ${source.endpoint}`);
+				log(`Fetched ${cleanArticles.length} articles from ${source.endpoint}`);
 			} catch (err) {
 				const msg = (err as Error).message;
 				log(`Error fetching from ${source.endpoint}: ${msg}`, "error");
