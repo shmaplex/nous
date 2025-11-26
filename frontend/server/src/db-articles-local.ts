@@ -1,5 +1,6 @@
 // frontend/src/p2p/db-articles-local.ts
 import { Documents, type OrbitDB } from "@orbitdb/core";
+import { smartFetch } from "@/lib/fetch.server";
 import { addDebugLog, log } from "@/lib/log.server";
 import { getNormalizer, normalizePublishedAt } from "@/lib/normalizers";
 import { getParser } from "@/lib/parsers";
@@ -129,7 +130,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 		for (const source of enabledSources) {
 			try {
 				log(`Fetching articles from source: ${source.endpoint}`);
-				const response = await fetch(source.endpoint);
+				const response = await smartFetch(source.endpoint);
 
 				if (!response.ok) {
 					const msg = `Failed to fetch from ${source.endpoint}: HTTP ${response.status}`;

@@ -6,21 +6,35 @@ import type { Article, NormalizerFn } from "@/types";
  *
  * Maps GDELT article fields to our Article type.
  */
-export const normalizeGdelt: NormalizerFn = (a, source): Article => {
+function normalizeGdeltArticle(a: any): Article {
 	return {
-		id: a.url ?? crypto.randomUUID(),
-		title: a.title ?? "Untitled",
+		id: crypto.randomUUID(),
 		url: a.url,
-		content: a.summary ?? "", // GDELT v2 may not provide summary
-		summary: a.summary ?? "",
-		categories: a.categories ?? [], // default empty
-		tags: a.tags ?? [], // default empty
-		language: a.language ?? "unknown",
-		author: a.domain ?? source.name, // use domain as author if available
-		publishedAt: a.seendate ?? undefined, // keep as string
-		edition: "other",
+		title: a.title ?? "Untitled",
+		source: a.domain ?? undefined,
+		sourceDomain: a.domain ?? undefined,
+		sourceType: "gdelt",
+
+		// Map socialimage → image if present
+		image: a.socialimage || undefined,
+
+		// Extra GDELT fields
+		mobileUrl: a.url_mobile || undefined,
+		sourceCountry: a.sourcecountry || undefined,
+
+		language: a.language || undefined,
+		publishedAt: a.seendate ? new Date(a.seendate).toISOString() : undefined,
+
+		summary: undefined,
+		content: undefined,
+		categories: undefined,
+		tags: undefined,
+
+		edition: "international",
 		analyzed: false,
+		confidence: 0.8,
+
 		raw: a,
-		sourceMeta: { name: source.name, bias: "center" },
+		fetchedAt: new Date().toISOString(),
 	};
-};
+}

@@ -114,7 +114,7 @@ export const fetchLocalArticlesRoute: RouteHandler = {
 						timestamp: new Date().toISOString(),
 						message: `Background fetch completed: ${addedCount} new articles`,
 						level: "info",
-						meta: { sources: sources.map((s) => s.name) },
+						meta: { sources: sources.map((s) => s.name) ?? 0 },
 					});
 				}
 			} catch (err) {
@@ -150,10 +150,15 @@ export const getAllLocalArticlesRoute: RouteHandler = {
 	method: "GET",
 	path: "/articles/local",
 	handler: async ({
+		add: addDebugLog,
 		getAllArticles,
 		res,
 		req,
 	}: {
+		/**
+		 * Optional function to log debug entries asynchronously.
+		 */
+		add?: (entry: DebugLogEntry) => Promise<void>;
 		getAllArticles?: () => Promise<Article[]>;
 		res: ServerResponse<any>;
 		req: IncomingMessage;
@@ -189,10 +194,14 @@ export const getAllLocalArticlesRoute: RouteHandler = {
 				availableEndpoints.has(article.source || ""),
 			);
 
-			await addDebugLog({
-				message: `Fetched ${filtered.length} articles for ${clientIP}`,
-				level: "info",
-			});
+			if (addDebugLog) {
+				await addDebugLog({
+					_id: crypto.randomUUID(),
+					timestamp: new Date().toISOString(),
+					message: `Fetched ${filtered.length} articles for ${clientIP}`,
+					level: "info",
+				});
+			}
 
 			res.end(JSON.stringify(filtered));
 		} catch (err) {

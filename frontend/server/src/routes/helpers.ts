@@ -1,6 +1,7 @@
 // frontend/server/src/routes/helpers.ts
 import type { ServerResponse } from "node:http";
 import { addDebugLog } from "@/lib/log.server";
+import { getP2PNode } from "@/node";
 
 /**
  * Handles an HTTP error response in a standardized way.
@@ -28,13 +29,24 @@ export async function handleError(
 	code = 500,
 	level: "info" | "warn" | "error" = "error",
 ) {
+	const { debugDB } = await getP2PNode();
 	// Ensure the response will be JSON
 	res.setHeader("Content-Type", "application/json");
 	res.statusCode = code;
 
 	try {
-		// Log the error asynchronously; failures are silently ignored
-		await addDebugLog({ message, level });
+		// Log the error to the debug db
+		if (debugDB) {
+			await debugDB.add({
+				_id: crypto.randomUUID(),
+				timestamp: new Date().toISOString(),
+				message,
+				level,
+			});
+		} else {
+			// Log the error asynchronously; failures are silently ignored
+			await addDebugLog({ message, level });
+		}
 	} catch {}
 
 	// End the HTTP response with JSON payload

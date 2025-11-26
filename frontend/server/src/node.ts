@@ -26,7 +26,7 @@ const ORBITDB_KEYSTORE_PATH =
 	process.env.KEYSTORE_PATH || path.join(process.cwd(), "orbitdb-keystore");
 const ORBITDB_DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "orbitdb-databases");
 
-let runningInstance: {
+export type NodeInstance = {
 	keystore: KeyStoreType;
 	identity: Identity;
 	identities: IdentitiesType;
@@ -38,12 +38,14 @@ let runningInstance: {
 	articleLocalDB: ArticleLocalDB;
 	articleAnalyzedDB: ArticleAnalyzedDB;
 	articleFederatedDB: ArticleFederatedDB;
-} | null = null;
+};
+
+let runningInstance: NodeInstance | null = null;
 
 /**
  * Start or return the running P2P node instances
  */
-export async function getP2PNode(config?: NodeConfig) {
+export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 	if (runningInstance) {
 		log("🟢 P2P node already running, returning existing instance");
 		return runningInstance;
