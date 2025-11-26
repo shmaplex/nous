@@ -1,7 +1,7 @@
 // frontend/src/p2p/node.ts
 import fs from "node:fs";
 import path from "node:path";
-import { createOrbitDB, type OrbitDB } from "@orbitdb/core";
+import { createOrbitDB, type KeyStoreType, type OrbitDB } from "@orbitdb/core";
 import type { Helia } from "helia";
 import { createHelia } from "helia";
 import type { Libp2p } from "libp2p";
@@ -21,6 +21,7 @@ const ORBITDB_KEYSTORE_PATH =
 const ORBITDB_DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "orbitdb-databases");
 
 let runningInstance: {
+	keystore: KeyStoreType;
 	libp2p: Libp2p;
 	helia: Helia;
 	orbitdb: OrbitDB;
@@ -30,39 +31,6 @@ let runningInstance: {
 	articleAnalyzedDB: ArticleAnalyzedDB;
 	articleFederatedDB: ArticleFederatedDB;
 } | null = null;
-
-/**
- * Generic fallback creator for any DB interface.
- * Functions get async stubs, other properties get default values.
- */
-function createFallbackDB<T extends Record<string, any>>(defaults?: Partial<T>): T {
-	const fallback: Record<string, any> = {};
-
-	for (const key in defaults) {
-		const value = defaults[key];
-		if (typeof value === "function") {
-			fallback[key] = async (..._args: any[]) => value(..._args);
-		} else {
-			fallback[key] = value;
-		}
-	}
-
-	return new Proxy(fallback, {
-		get(target, prop: string) {
-			if (!(prop in target)) {
-				// Auto-generate sensible defaults
-				return async (..._args: any[]) => {
-					// If prop name suggests array return
-					if (/^(get|fetch|query)/.test(prop)) return [];
-					// If prop name suggests void operation
-					if (/^(save|add|delete)/.test(prop)) return undefined;
-					return undefined;
-				};
-			}
-			return target[prop];
-		},
-	}) as T;
-}
 
 /**
  * Start or return the running P2P node instances
@@ -102,7 +70,7 @@ export async function getP2PNode(config?: NodeConfig) {
 	const helia = await createHelia({ libp2p });
 
 	// --- OrbitDB ---
-	const { identity, identities } = await getOrbitDBIdentity();
+	const { identity, identities, keystore } = await getOrbitDBIdentity();
 	const orbitdb = await createOrbitDB({
 		ipfs: helia,
 		identity,
@@ -130,6 +98,7 @@ export async function getP2PNode(config?: NodeConfig) {
 	}
 
 	runningInstance = {
+		keystore,
 		libp2p,
 		helia,
 		orbitdb,

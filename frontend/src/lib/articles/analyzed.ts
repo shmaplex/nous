@@ -1,124 +1,126 @@
-// frontend/src/lib/articles/local.ts
-import { type Article, ArticleSchema } from "@/types";
+import { type ArticleAnalyzed, ArticleAnalyzedSchema } from "@/types";
 import {
-	DeleteLocalArticle,
-	FetchLocalArticles,
-	SaveLocalArticle,
+	DeleteAnalyzedArticle,
+	FetchAnalyzedArticles,
+	SaveAnalyzedArticle,
 } from "../../../wailsjs/go/main/App";
 
 /**
- * Load all local articles from the backend (OrbitDB / Go bridge)
+ * Load all analyzed articles from the backend (OrbitDB / Go bridge)
  *
- * @returns Array of validated Article objects
+ * @returns Array of validated ArticleAnalyzed objects
  */
-export const loadLocalArticles = async (): Promise<Article[]> => {
+export const loadAnalyzedArticles = async (): Promise<ArticleAnalyzed[]> => {
 	try {
-		const result = await FetchLocalArticles();
+		const result = await FetchAnalyzedArticles();
 		if (!result) return [];
 
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse(result);
 		} catch {
-			console.warn("FetchLocalArticles returned invalid JSON:", result);
+			console.warn("FetchAnalyzedArticles returned invalid JSON:", result);
 			return [];
 		}
 
 		const validArticles = (Array.isArray(parsed) ? parsed : [])
 			.map((a: unknown) => {
 				try {
-					const article = ArticleSchema.parse(a);
+					const article = ArticleAnalyzedSchema.parse(a);
 					return { ...article, id: article.id ?? crypto.randomUUID() };
 				} catch {
 					return null;
 				}
 			})
-			.filter(Boolean) as Article[];
+			.filter(Boolean) as ArticleAnalyzed[];
 
 		return validArticles;
 	} catch (err) {
-		console.error("Failed to load local articles:", err);
+		console.error("Failed to load analyzed articles:", err);
 		return [];
 	}
 };
 
 /**
- * Save a single local article to the backend.
+ * Save a single analyzed article to the backend.
  *
- * @param article - Partial article object to save
+ * @param article - Partial ArticleAnalyzed object to save
  * @returns `true` if saved successfully, `false` otherwise
  */
-export const saveLocalArticle = async (article: Partial<Article>): Promise<boolean> => {
+export const saveAnalyzedArticle = async (article: Partial<ArticleAnalyzed>): Promise<boolean> => {
 	try {
-		// Validate the article against the schema
-		const validArticle = ArticleSchema.parse({
+		const validArticle = ArticleAnalyzedSchema.parse({
 			...article,
 			id: article.id ?? crypto.randomUUID(),
-			analyzed: false,
+			analyzed: true,
 			fetchedAt: article.fetchedAt ?? new Date().toISOString(),
 		});
 
-		await SaveLocalArticle(validArticle);
+		await SaveAnalyzedArticle(validArticle);
 		return true;
 	} catch (err) {
-		console.error("Failed to save local article:", err);
+		console.error("Failed to save analyzed article:", err);
 		return false;
 	}
 };
 
 /**
- * Delete a local article by ID.
+ * Delete an analyzed article by ID.
  *
  * @param id - ID of the article to delete
  * @returns `true` if deleted successfully, `false` otherwise
  */
-export const deleteLocalArticle = async (id: string): Promise<boolean> => {
+export const deleteAnalyzedArticle = async (id: string): Promise<boolean> => {
 	try {
-		await DeleteLocalArticle(id);
+		await DeleteAnalyzedArticle(id);
 		return true;
 	} catch (err) {
-		console.error("Failed to delete local article:", err);
+		console.error("Failed to delete analyzed article:", err);
 		return false;
 	}
 };
 
 /**
- * Save multiple local articles in a batch.
+ * Save multiple analyzed articles in a batch.
  *
- * @param articles - Array of partial Article objects
+ * @param articles - Array of partial ArticleAnalyzed objects
  * @returns Array of booleans indicating success for each article
  */
-export const saveLocalArticlesBatch = async (articles: Partial<Article>[]): Promise<boolean[]> => {
-	return Promise.all(articles.map(saveLocalArticle));
+export const saveAnalyzedArticlesBatch = async (
+	articles: Partial<ArticleAnalyzed>[],
+): Promise<boolean[]> => {
+	return Promise.all(articles.map(saveAnalyzedArticle));
 };
 
 /**
- * Filter local articles by optional criteria:
- * political bias, edition, date range, tags, source/domain, or sourceType.
+ * Filter analyzed articles by optional criteria:
+ * political bias, edition, date range, cognitive bias, sentiment, tags, source/domain, or sourceType.
  *
- * Note: Cognitive biases and sentiment are **not available** for local articles.
- *
- * @param articles - Array of Article objects to filter
+ * @param articles - Array of ArticleAnalyzed objects to filter
  * @param options - Filtering options
- * @returns Filtered array of Article objects
+ * @returns Filtered array of ArticleAnalyzed objects
  */
-export const filterLocalArticles = (
-	articles: Article[],
+export const filterAnalyzedArticles = (
+	articles: ArticleAnalyzed[],
 	options?: {
 		biasFilter?: "left" | "center" | "right" | "all";
 		editionFilter?: string;
 		startDate?: string;
 		endDate?: string;
+		cognitiveBiasFilter?: string;
+		sentimentFilter?: string;
 		tagFilter?: string;
 		sourceFilter?: string;
 		sourceTypeFilter?: string;
 	},
-): Article[] => {
+): ArticleAnalyzed[] => {
 	const {
 		biasFilter = "all",
 		editionFilter,
 		startDate,
 		endDate,
+		cognitiveBiasFilter,
+		sentimentFilter,
 		tagFilter,
 		sourceFilter,
 		sourceTypeFilter,
@@ -133,6 +135,16 @@ export const filterLocalArticles = (
 		const date = a.publishedAt ? new Date(a.publishedAt) : null;
 		const startMatches = startDate ? date && date >= new Date(startDate) : true;
 		const endMatches = endDate ? date && date <= new Date(endDate) : true;
+
+		const cognitiveMatches = cognitiveBiasFilter
+			? a.cognitiveBiases?.some((cb) =>
+					cb.bias.toLowerCase().includes(cognitiveBiasFilter.toLowerCase()),
+				)
+			: true;
+
+		const sentimentMatches = sentimentFilter
+			? a.sentiment?.toLowerCase() === sentimentFilter.toLowerCase()
+			: true;
 
 		const tagMatches = tagFilter
 			? a.tags?.some((t) => t.toLowerCase() === tagFilter.toLowerCase())
@@ -151,6 +163,8 @@ export const filterLocalArticles = (
 			editionMatches &&
 			startMatches &&
 			endMatches &&
+			cognitiveMatches &&
+			sentimentMatches &&
 			tagMatches &&
 			sourceMatches &&
 			sourceTypeMatches

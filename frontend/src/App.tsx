@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { loadLocalArticles, saveLocalArticlesBatch } from "@/lib/articles/local";
 import { addDebugLog } from "@/lib/log";
 import {
 	type ArticleAnalyzed,
@@ -79,37 +80,68 @@ const App = () => {
 
 	/**
 	 * Wait until P2P node, connection, and OrbitDB are ready,
-	 * then fetch articles **once**.
+	 * then fetch articles **once**, save them locally, and finally
+	 * reload from the canonical local DB.
 	 */
 	useEffect(() => {
 		const waitForReady = async () => {
 			if (fetchedRef.current) return; // Prevent double fetch
+
+			// Still waiting for services to become ready
 			if (!status.running || !status.connected || !status.orbitConnected) {
-				// Still waiting for services
 				setLoadingStatus("Waiting for P2P node and databases…");
 				setProgress(10);
 				return;
 			}
 
 			fetchedRef.current = true; // Mark as fetched
+
 			setLoadingStatus("Fetching articles from sources…");
 			setProgress(40);
 
 			try {
-				const data = await fetchArticlesBySources();
-				setArticles(data);
+				/** --------------------------------------------------
+				 * 1. Fetch from external sources
+				 * -------------------------------------------------- */
+				const fetched = await fetchArticlesBySources();
+
+				setLoadingStatus("Saving articles locally…");
+				setProgress(70);
+
+				/** --------------------------------------------------
+				 * 2. Save into Local DB (validated + deduped backend)
+				 * -------------------------------------------------- */
+				await saveLocalArticlesBatch(
+					fetched.map((a) => ({
+						...a,
+						fetchedAt: a.fetchedAt ?? new Date().toISOString(),
+						analyzed: false,
+					})),
+				);
+
+				setLoadingStatus("Loading local database…");
+				setProgress(85);
+
+				/** --------------------------------------------------
+				 * 3. Load canonical local DB (source of truth)
+				 * -------------------------------------------------- */
+				const local = await loadLocalArticles();
+				setArticles(local);
+
 				setProgress(100);
 				setLoading(false);
 
 				await addDebugLog({
-					message: `Loaded ${data.length} articles from sources`,
+					message: `Fetched and saved ${fetched.length} articles`,
 					level: "info",
 					meta: { type: "fetch" },
 				});
 			} catch (err) {
 				console.error(err);
+
 				setLoadingStatus("Failed to fetch articles. Is node running?");
 				setProgress(0);
+
 				await addDebugLog({
 					message: `Failed to fetch articles: ${(err as Error).message}`,
 					level: "error",
@@ -119,7 +151,7 @@ const App = () => {
 		};
 
 		waitForReady();
-	}, [status]); // Re-run only until `fetched = true`
+	}, [status]); // Re-run until first successful fetch
 
 	/** -----------------------------------------
 	 * 🔄 Wails Event - Open Settings
@@ -177,7 +209,8 @@ const App = () => {
 					open={debugOpen}
 					onClose={() => setDebugOpen(false)}
 					defaultTab={debugTab}
-					status={debugStatus}
+					status={status}
+					debugStatus={debugStatus}
 				/>
 
 				{/* StatusBar */}

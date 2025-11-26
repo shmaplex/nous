@@ -75,7 +75,7 @@ export const SourceSchema = z.object({
 	name: z.string(),
 
 	/** API or RSS endpoint URL (without any keys included) */
-	endpoint: z.url(),
+	endpoint: z.string().url(),
 
 	/** Optional API key provided by the user for accessing the source */
 	apiKey: z.string().optional(),
@@ -84,7 +84,7 @@ export const SourceSchema = z.object({
 	instructions: z.string().optional(),
 
 	/** Optional URL pointing to API documentation for the source */
-	apiLink: z.url().optional(),
+	apiLink: z.string().url().optional(),
 
 	/** Optional flag indicating if this source is active/enabled */
 	enabled: z.boolean().optional(),
@@ -92,7 +92,7 @@ export const SourceSchema = z.object({
 	/** Optional flag: does this source require an API key for access? */
 	requiresApiKey: z.boolean().optional(),
 
-	/** Optional source category */
+	/** Optional source category (e.g., "news", "social", "blog") */
 	category: z.enum(SourceCategories).optional(),
 
 	/** Optional array of tags associated with this source */
@@ -122,7 +122,7 @@ export const SourceSchema = z.object({
 	/**
 	 * Parser used to interpret the raw data returned by the source.
 	 *
-	 * The parser determines *how the raw payload is read* (RSS, JSON, GDELT, HTML, etc.)
+	 * Determines *how the raw payload is read* (RSS, JSON, GDELT, HTML, etc.)
 	 * **before** normalization.
 	 *
 	 * Examples:
@@ -139,7 +139,7 @@ export const SourceSchema = z.object({
 	/**
 	 * Normalizer used to convert parsed items into the unified `Article` shape.
 	 *
-	 * A normalizer transforms *parsed* items (RSS item, JSON entry, GDELT article, HN story ID)
+	 * Transforms *parsed* items (RSS item, JSON entry, GDELT article, HN story ID)
 	 * into your internal application-wide `Article` format.
 	 *
 	 * Examples:
@@ -152,6 +152,12 @@ export const SourceSchema = z.object({
 	 * Defaults to `"json"` because it's the most common structure.
 	 */
 	normalizer: SourceNormalizerSchema.default("json"),
+
+	/**
+	 * ISO timestamp of the last successful fetch.
+	 * Useful for incremental fetching strategies, e.g., "fetch articles since yesterday".
+	 */
+	lastFetched: z.string().optional(),
 });
 
 /** TypeScript type inferred from `SourceSchema` */

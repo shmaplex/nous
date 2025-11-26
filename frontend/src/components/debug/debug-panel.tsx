@@ -5,16 +5,23 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDebugLogs } from "@/lib/log";
-import type { DebugLogEntry, NodeStatus } from "@/types";
+import type { DebugLogEntry, DebugStatus, NodeStatus } from "@/types";
 
 interface DebugPanelProps {
 	open: boolean;
 	onClose: () => void;
 	defaultTab?: string;
 	status: NodeStatus;
+	debugStatus: DebugStatus;
 }
 
-export function DebugPanel({ open, onClose, defaultTab = "node", status }: DebugPanelProps) {
+export function DebugPanel({
+	open,
+	onClose,
+	defaultTab = "node",
+	status,
+	debugStatus,
+}: DebugPanelProps) {
 	const [logs, setLogs] = useState<DebugLogEntry[]>([]);
 
 	// Fetch logs whenever the panel opens
@@ -22,9 +29,11 @@ export function DebugPanel({ open, onClose, defaultTab = "node", status }: Debug
 		if (!open) return;
 		const fetchLogs = async () => {
 			const allLogs = await getDebugLogs();
-			setLogs(allLogs.slice(-100)); // show last 100 logs
+			setLogs(allLogs.slice(-100));
 		};
 		fetchLogs();
+		const interval = setInterval(fetchLogs, 2000); // refresh every 2s
+		return () => clearInterval(interval);
 	}, [open]);
 
 	if (!open) return null;

@@ -35,6 +35,7 @@ export async function startP2PNode(config: NodeConfig) {
 
 	// Get or create running instance
 	const {
+		keystore,
 		libp2p,
 		helia,
 		orbitdb,
@@ -58,10 +59,11 @@ export async function startP2PNode(config: NodeConfig) {
 		...articleFederatedDB,
 	};
 
-	const server = createHttpServer(config.httpPort, httpContext);
+	const { server, shutdown: shutdownHttpServer } = createHttpServer(config.httpPort, httpContext);
 
 	// --- Graceful shutdown ---
 	const runningInstance = {
+		keystore,
 		libp2p,
 		helia,
 		orbitdb,
@@ -69,6 +71,7 @@ export async function startP2PNode(config: NodeConfig) {
 		articleLocalDB,
 		articleAnalyzedDB,
 		articleFederatedDB,
+		shutdownHttpServer,
 	};
 	setRunningInstance(runningInstance);
 

@@ -103,6 +103,9 @@ export const ArticleAnalyzedSchema = z.object({
 
 	/** Metadata about the source itself, including political bias and confidence */
 	sourceMeta: SourceMetaSchema.optional(),
+
+	/** ISO timestamp when the article was fetched into the system */
+	fetchedAt: z.string().optional(),
 });
 
 export type ArticleAnalyzed = z.infer<typeof ArticleAnalyzedSchema>;

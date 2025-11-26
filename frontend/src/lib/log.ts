@@ -1,24 +1,22 @@
 // frontend/src/lib/log.ts
-
 import { v4 as uuidv4 } from "uuid";
 import type { DebugLogEntry } from "@/types";
-
-const BASE_URL = "http://localhost:9001";
+import { AddDebugLog, FetchDebugLogs } from "../../wailsjs/go/main/App";
 
 /**
  * Console log helper
+ * @param message Message to log
+ * @param save Whether to also persist via backend/Wails
  */
 export function log(message: string, save = false) {
 	console.log(`[P2P NODE] ${new Date().toISOString()} - ${message}`);
 	if (save) {
-		addDebugLog({
-			message: `[P2P NODE] ${new Date().toISOString()} - ${message}`,
-		});
+		addDebugLog({ message });
 	}
 }
 
 /**
- * Add debug entry
+ * Add a debug entry via Wails backend
  */
 export async function addDebugLog(entry: {
 	message: string;
@@ -47,30 +45,31 @@ export async function addDebugLog(entry: {
 	}
 
 	try {
-		await fetch(`${BASE_URL}/debug/log`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(logEntry),
-		});
+		// Use Wails Go backend function
+		if (AddDebugLog) {
+			await AddDebugLog(logEntry.message, logEntry.level, logEntry.meta || {});
+		} else {
+			console.warn("Wails AddDebugLog not available, skipping backend save");
+		}
 	} catch (err) {
-		console.error("Failed to persist debug log:", err);
+		console.error("Failed to persist debug log via backend:", err);
 	}
 }
 
 /**
- * Fetch all debug logs from backend /debug/logs route
+ * Fetch all debug logs via Wails backend
  */
 export async function getDebugLogs(): Promise<DebugLogEntry[]> {
 	try {
-		const res = await fetch(`${BASE_URL}/debug/logs`);
-		if (!res.ok) {
-			console.error("Failed to fetch debug logs:", res.statusText);
-			return [];
+		if (FetchDebugLogs) {
+			const res = await FetchDebugLogs();
+			const logs: DebugLogEntry[] = JSON.parse(res || "[]");
+			return logs;
 		}
-		const data: DebugLogEntry[] = await res.json();
-		return data;
+		console.warn("Wails FetchDebugLogs not available, returning empty array");
+		return [];
 	} catch (err) {
-		console.error("Error fetching debug logs:", err);
+		console.error("Error fetching debug logs via backend:", err);
 		return [];
 	}
 }

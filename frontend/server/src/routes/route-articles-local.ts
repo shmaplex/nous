@@ -13,54 +13,68 @@ const TIME_WINDOW = 1000 * 10; // 10 seconds
 
 /**
  * POST /articles/local/fetch
- * Fetch articles from a list of enabled sources.
  *
- * Expects `body.sources` to be an array of source objects, each containing:
- * - `endpoint`: string — the URL to fetch articles from
- * - `enabled`: boolean — whether this source should be used
+ * Fetch new articles from a list of enabled sources, optionally filtered by a
+ * "since" timestamp to avoid re-fetching old articles. Saves only unique articles
+ * to the local DB to prevent duplicates.
  *
- * The route will call the provided `fetchAllSources` function, passing the
- * sources from the request body. It returns the flattened array of all fetched articles.
+ * Request body may include:
+ * - `sources`: array of Source objects to fetch from (default: empty array)
+ * - `since`: ISO date string — only fetch articles published after this date
  *
  * Example request body:
  * ```json
  * {
  *   "sources": [
  *     { "endpoint": "https://news.example.com/api", "enabled": true },
- *     { "endpoint": "https://other.example.com/api", "enabled": false }
- *   ]
+ *     { "endpoint": "https://other.example.com/api", "enabled": true }
+ *   ],
+ *   "since": "2025-11-23T00:00:00Z"
  * }
  * ```
+ *
+ * Response:
+ * - `success`: boolean
+ * - `added`: number of new articles saved
+ * - `errors`: array of per-source errors encountered during fetch
  */
 export const fetchLocalArticlesRoute: RouteHandler = {
 	method: "POST",
 	path: "/articles/local/fetch",
 	handler: async ({
 		fetchAllSources,
+		addUniqueArticles,
 		res,
 		body,
 	}: {
-		fetchAllSources?: (sources: Source[]) => Promise<Article[]>;
+		fetchAllSources?: (
+			sources: Source[],
+			since?: Date,
+		) => Promise<{ articles: Article[]; errors: { endpoint: string; error: string }[] }>;
+		addUniqueArticles?: (articles: Article[]) => Promise<number>;
 		res: ServerResponse;
-		body?: { sources: Source[] };
+		body?: { sources?: Source[]; since?: string };
 	}) => {
 		res.setHeader("Content-Type", "application/json");
 
-		if (!body || !Array.isArray(body.sources)) {
-			await handleError(res, "Missing or invalid 'sources' array in body", 400, "warn");
+		if (!fetchAllSources || !addUniqueArticles) {
+			await handleError(res, "Required DB functions not provided", 500, "error");
 			return;
 		}
 
-		if (!fetchAllSources) {
-			await handleError(res, "fetchAllSources function not provided", 500, "error");
-			return;
-		}
+		const sources = Array.isArray(body?.sources) ? body.sources : [];
+		const since = body?.since ? new Date(body.since) : undefined;
 
 		try {
-			const fetchedArticles = await fetchAllSources(body.sources);
-			res.end(JSON.stringify({ success: true, articles: fetchedArticles }));
+			// Fetch articles from provided sources with optional "since" filtering
+			const { articles, errors } = await fetchAllSources(sources, since);
+
+			// Save only unique articles to local DB
+			const addedCount = await addUniqueArticles(articles);
+
+			res.end(JSON.stringify({ success: true, added: addedCount, errors }));
 		} catch (err) {
-			const message = (err as Error).message;
+			const message = (err as Error).message || "Unknown error fetching articles";
 			log(`Error in fetchLocalArticlesRoute: ${message}`, "error");
 			await handleError(res, message, 500, "error");
 		}

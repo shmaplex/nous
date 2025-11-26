@@ -6,7 +6,6 @@ import {
 	type AuthType,
 	type Edition,
 	editions,
-	type ParserFn,
 	type PoliticalBias,
 	PoliticalBiasValues,
 	type Source,
@@ -15,8 +14,8 @@ import {
 	type SourceWithHidden,
 } from "@/types";
 import { FetchArticlesBySources, LoadSources, SaveSources } from "../../wailsjs/go/main/App";
-import { getNormalizer, normalizers } from "./normalizers";
-import { getParser, parsers } from "./parsers";
+import { getNormalizer } from "./normalizers";
+import { getParser } from "./parsers";
 
 /**
  * Normalize raw source data into a valid Source object.

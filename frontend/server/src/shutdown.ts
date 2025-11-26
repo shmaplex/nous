@@ -1,4 +1,4 @@
-import type { OrbitDB } from "@orbitdb/core";
+import type { KeyStoreType, OrbitDB } from "@orbitdb/core";
 import type { Helia } from "helia";
 import { log } from "@/lib/log.server";
 import { deleteStatus } from "@/lib/status.server";
@@ -10,6 +10,7 @@ import type { P2PDatabases } from "./setup";
  * Stores libp2p, helia, OrbitDB, and all database instances.
  */
 let runningInstance: {
+	keystore: KeyStoreType;
 	libp2p: any;
 	helia: Helia;
 	orbitdb: OrbitDB;
@@ -17,7 +18,14 @@ let runningInstance: {
 	articleLocalDB?: P2PDatabases["articleLocalDB"];
 	articleAnalyzedDB?: P2PDatabases["articleAnalyzedDB"];
 	articleFederatedDB?: P2PDatabases["articleFederatedDB"];
+	shutdownHttpServer: () => Promise<void>;
 } | null = null;
+
+let shuttingDown = false;
+
+function sleep(ms: number) {
+	return new Promise((r) => setTimeout(r, ms));
+}
 
 /**
  * Sets the currently running P2P node instance.
@@ -92,10 +100,29 @@ export async function closeDatabases(databases: P2PDatabases) {
  * 7. Logs the result and exits process
  */
 export async function shutdownP2PNode() {
-	if (!runningInstance) return;
+	if (shuttingDown) {
+		log("🔁 Shutdown already in progress, ignoring duplicate request");
+		return;
+	}
+	shuttingDown = true;
 
-	const { libp2p, helia, orbitdb, debugDB, articleLocalDB, articleAnalyzedDB, articleFederatedDB } =
-		runningInstance;
+	if (!runningInstance) {
+		log("ℹ️ No running instance to shut down");
+		process.exit(0);
+		return;
+	}
+
+	const {
+		keystore,
+		libp2p,
+		helia,
+		orbitdb,
+		debugDB,
+		articleLocalDB,
+		articleAnalyzedDB,
+		articleFederatedDB,
+		shutdownHttpServer,
+	} = runningInstance;
 
 	log("🔻 Starting P2P node shutdown...");
 
@@ -110,9 +137,25 @@ export async function shutdownP2PNode() {
 				articleFederatedDB,
 			} as P2PDatabases;
 			await closeDatabases(databases);
+			// small pause to allow underlying writes to flush
+			await sleep(150);
 		} catch (err: any) {
 			log(`❌ Error closing databases: ${err.message}`);
 		}
+	}
+
+	// Close OrbitDB identities / keystore safely
+	try {
+		// if (identities?.close) {
+		// 	await identities.close();
+		// 	log("✅ OrbitDB identities closed");
+		// }
+		if (keystore?.close) {
+			await keystore.close();
+			log("✅ Keystore closed");
+		}
+	} catch (err: any) {
+		log(`⚠️ Error closing identity/keystore: ${err.message}`);
 	}
 
 	// Stop OrbitDB
@@ -156,7 +199,17 @@ export async function shutdownP2PNode() {
 		log(`❌ Error deleting status: ${err.message}`);
 	}
 
-	log("✅ P2P node shutdown complete");
+	// Stop HTTP server first
+	if (shutdownHttpServer) {
+		try {
+			await shutdownHttpServer();
+			log("✅ Server shutdown complete");
+		} catch (err: any) {
+			log(`❌ Error shutting down HTTP server: ${err.message}`);
+		}
+	}
+
+	log("✅ Graceful shutdown complete");
 	runningInstance = null;
 	process.exit(0);
 }

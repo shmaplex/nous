@@ -1,9 +1,10 @@
 // frontend/src/p2p/httpServer.ts
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { NodeStatus, RouteHandler } from "@/types";
+import { log } from "./lib/log.server";
 // external routes (see /routes)
-import * as deleteRoutes from "./routes/route-article-delete";
-import * as saveRoutes from "./routes/route-article-save";
+// import * as deleteRoutes from "./routes/route-article-delete";
+// import * as saveRoutes from "./routes/route-article-save";
 // import * as articleAnalyzedRoutes from "./routes/route-articles-analyzed";
 import * as articleFederatedRoutes from "./routes/route-articles-federated";
 import * as articleLocalRoutes from "./routes/route-articles-local";
@@ -13,13 +14,13 @@ import * as statusRoutes from "./routes/route-status";
 export const BASE_URL = "http://localhost";
 
 export const routes: RouteHandler[] = [
+	...logRoutes.routes,
+	...statusRoutes.routes,
 	...articleLocalRoutes.routes,
 	...articleFederatedRoutes.routes,
 	// ...articleAnalyzedRoutes.routes,
-	...deleteRoutes.routes,
-	...statusRoutes.routes,
-	...saveRoutes.routes,
-	...logRoutes.routes,
+	// ...deleteRoutes.routes,
+	// ...saveRoutes.routes,
 ];
 
 /**
@@ -44,7 +45,10 @@ export interface HttpServerContext {
  * @param context - Server context with DB functions and status
  * @returns HTTP Server instance
  */
-export function createHttpServer(httpPort: number, context: HttpServerContext): Server {
+export function createHttpServer(
+	httpPort: number,
+	context: HttpServerContext,
+): { server: Server; shutdown: () => Promise<void> } {
 	const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
 		// ----------------------
 		// Add CORS headers
@@ -109,9 +113,22 @@ export function createHttpServer(httpPort: number, context: HttpServerContext): 
 		}
 	});
 
+	async function shutdown() {
+		return new Promise<void>((resolve, reject) => {
+			server.close((err) => {
+				if (err) {
+					log(`❌ Error closing HTTP server: ${err.message}`);
+					return reject(err);
+				}
+				log("✅ HTTP server closed");
+				resolve();
+			});
+		});
+	}
+
 	server.listen(httpPort, () => {
 		console.log(`P2P node HTTP API running on ${BASE_URL}:${httpPort}`);
 	});
 
-	return server;
+	return { server, shutdown };
 }
