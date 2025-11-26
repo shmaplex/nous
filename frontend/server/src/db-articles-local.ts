@@ -11,43 +11,43 @@ import { type Article, ArticleSchema } from "@/types/article";
  * Explicit type for the local articles DB instance
  */
 export interface ArticleLocalDB {
-	db: any; // OrbitDB instance (type-safe document DB typing is difficult)
+	articleLocalDB: any; // OrbitDB instance (type-safe document DB typing is difficult)
 
 	/**
 	 * Save a single article to the DB if it does not already exist
 	 */
-	saveArticle: (doc: Article) => Promise<void>;
+	saveLocalArticle: (doc: Article) => Promise<void>;
 
 	/**
 	 * Delete a single article by URL
 	 */
-	deleteArticle: (url: string) => Promise<void>;
+	deleteLocalArticle: (url: string) => Promise<void>;
 
 	/**
 	 * Get all articles. Optionally filter by enabled sources.
 	 */
-	getAllArticles: (sources?: Source[]) => Promise<Article[]>;
+	getAllLocalArticles: (sources?: Source[]) => Promise<Article[]>;
 
 	/**
 	 * Get a single article by URL
 	 */
-	getArticle: (url: string) => Promise<Article | null>;
+	getLocalArticle: (url: string) => Promise<Article | null>;
 
 	/**
 	 * Query articles using a custom predicate
 	 */
-	queryArticles: (fn: (doc: Article) => boolean) => Promise<Article[]>;
+	queryLocalArticles: (fn: (doc: Article) => boolean) => Promise<Article[]>;
 
 	/**
 	 * Add multiple articles, skipping duplicates
 	 */
-	addUniqueArticles: (articles: Article[]) => Promise<number>;
+	addUniqueLocalArticles: (articles: Article[]) => Promise<number>;
 
 	/**
 	 * Fetch articles from external sources.
 	 * Returns both fetched articles and per-source errors.
 	 */
-	fetchAllSources: (sources: Source[]) => Promise<{
+	fetchAllLocalSources: (sources: Source[]) => Promise<{
 		articles: Article[];
 		errors: { endpoint: string; error: string }[];
 	}>;
@@ -65,7 +65,7 @@ let articleLocalDBInstance: ArticleLocalDB | null = null;
  */
 export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLocalDB> {
 	if (articleLocalDBInstance) {
-		log("🟢 Article Source DB already initialized, skipping setup");
+		log("🟢 Article Local DB already initialized, skipping setup");
 		return articleLocalDBInstance;
 	}
 
@@ -76,13 +76,13 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 
 	// Listen for peer updates
 	db.events.on("update", async (entry: any) => {
-		const msg = `🔄 Update from peer: ${JSON.stringify(entry)}`;
-		log(msg);
+		const msg = `🔄 Article Local Update from peer: ${JSON.stringify(entry)}`;
+		// log(JSON.stringify(msg, null, 2));
 		await addDebugLog({ message: msg, level: "info" });
 
 		const all = await db.query(() => true);
 		const countMsg = `📦 Articles in sources DB: ${all.length}`;
-		log(countMsg);
+		// log(countMsg);
 		await addDebugLog({ message: countMsg, level: "info" });
 	});
 
@@ -93,11 +93,11 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 	async function saveLocalArticle(doc: Article) {
 		const exists = await db.get(doc.url);
 		if (exists) {
-			log(`Skipping duplicate article: ${doc.url}`);
+			log(`Skipping duplicate article: ${doc.id} / ${doc.url}`);
 			return;
 		}
 		await db.put(doc);
-		const msg = `Saved to sources DB: ${doc.url}`;
+		const msg = `Saved to local DB: ${doc.id} / ${doc.url}`;
 		log(msg);
 		await addDebugLog({ message: msg, level: "info" });
 	}
@@ -165,8 +165,6 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 				// Clean undefined values before storing in OrbitDB
 				const cleanArticles = cleanArticlesForDB(normalizedArticles);
 
-				console.log("cleanArticles", JSON.stringify(cleanArticles, null, 2));
-
 				// Validate normalized articles
 				for (const article of cleanArticles) {
 					try {
@@ -197,6 +195,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 	 */
 	async function getAllLocalArticles(sources?: Source[]): Promise<Article[]> {
 		let articles = (await db.query(() => true)) ?? [];
+		log(`getAllLocalArticles: ${JSON.stringify(articles, null, 2)}`);
 		if (sources && sources.length > 0) {
 			const enabledEndpoints = new Set(sources.filter((s) => s.enabled).map((s) => s.endpoint));
 			articles = articles.filter((a: Article) => enabledEndpoints.has(a.source || ""));
@@ -240,14 +239,14 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 
 	// Save singleton
 	articleLocalDBInstance = {
-		db,
-		saveArticle: saveLocalArticle,
-		deleteArticle: deleteLocalArticle,
-		getAllArticles: getAllLocalArticles,
-		getArticle: getLocalArticle,
-		queryArticles: queryLocalArticles,
-		addUniqueArticles: addUniqueLocalArticles,
-		fetchAllSources: fetchAllLocalSources,
+		articleLocalDB: db,
+		saveLocalArticle,
+		deleteLocalArticle,
+		getAllLocalArticles,
+		getLocalArticle,
+		queryLocalArticles,
+		addUniqueLocalArticles,
+		fetchAllLocalSources,
 	};
 
 	log(`✅ Local Article DB setup complete with ${db.address?.toString()}`);

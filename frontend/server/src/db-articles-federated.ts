@@ -13,10 +13,10 @@ import type { FederatedArticlePointer } from "@/types";
  * Interface for the Federated DB instance
  */
 export interface ArticleFederatedDB {
-	db: FederatedArticlePointer[];
-	saveArticle: (ptr: FederatedArticlePointer) => Promise<void>;
-	getArticles: () => Promise<FederatedArticlePointer[]>;
-	queryArticles: (
+	articleFederatedDB: FederatedArticlePointer[];
+	saveFederatedArticle: (ptr: FederatedArticlePointer) => Promise<void>;
+	getFederatedArticles: () => Promise<FederatedArticlePointer[]>;
+	queryFederatedArticles: (
 		fn: (ptr: FederatedArticlePointer) => boolean,
 	) => Promise<FederatedArticlePointer[]>;
 }
@@ -69,10 +69,10 @@ export async function setupArticleFederatedDB(): Promise<ArticleFederatedDB> {
 	}
 
 	articleFederatedDBInstance = {
-		db,
-		saveArticle: saveFederatedArticle,
-		getArticles: getFederatedArticles,
-		queryArticles: queryFederatedArticles,
+		articleFederatedDB: db,
+		saveFederatedArticle,
+		getFederatedArticles,
+		queryFederatedArticles,
 	};
 
 	log("✅ Federated Article DB setup complete");

@@ -46,8 +46,8 @@ export const fetchLocalArticlesRoute: RouteHandler = {
 	path: "/articles/local/fetch",
 	handler: async ({
 		add: addDebugLog,
-		fetchAllSources,
-		addUniqueArticles,
+		fetchAllLocalSources,
+		addUniqueLocalArticles,
 		res,
 		body,
 	}: {
@@ -60,7 +60,7 @@ export const fetchLocalArticlesRoute: RouteHandler = {
 		 * Function that fetches articles from the provided sources.
 		 * Should return a list of articles and any per-source errors.
 		 */
-		fetchAllSources?: (
+		fetchAllLocalSources?: (
 			sources: Source[],
 			since?: Date,
 		) => Promise<{ articles: Article[]; errors: { endpoint: string; error: string }[] }>;
@@ -69,7 +69,7 @@ export const fetchLocalArticlesRoute: RouteHandler = {
 		 * Function to add multiple unique articles to the local DB.
 		 * Returns the number of articles successfully added.
 		 */
-		addUniqueArticles?: (articles: Article[]) => Promise<number>;
+		addUniqueLocalArticles?: (articles: Article[]) => Promise<number>;
 
 		/** Node.js HTTP response object */
 		res: ServerResponse;
@@ -79,7 +79,7 @@ export const fetchLocalArticlesRoute: RouteHandler = {
 	}) => {
 		res.setHeader("Content-Type", "application/json");
 
-		if (!fetchAllSources || !addUniqueArticles) {
+		if (!fetchAllLocalSources || !addUniqueLocalArticles) {
 			await handleError(res, "Required DB functions not provided", 500, "error");
 			return;
 		}
@@ -90,10 +90,10 @@ export const fetchLocalArticlesRoute: RouteHandler = {
 		// Fire-and-forget background fetch
 		(async () => {
 			try {
-				const { articles, errors } = await fetchAllSources(sources, since);
+				const { articles, errors } = await fetchAllLocalSources(sources, since);
 
 				// Save only unique articles
-				const addedCount = await addUniqueArticles(articles);
+				const addedCount = await addUniqueLocalArticles(articles);
 
 				// Log any fetch errors
 				if (errors && addDebugLog) {
@@ -151,7 +151,7 @@ export const getAllLocalArticlesRoute: RouteHandler = {
 	path: "/articles/local",
 	handler: async ({
 		add: addDebugLog,
-		getAllArticles,
+		getAllLocalArticles,
 		res,
 		req,
 	}: {
@@ -159,7 +159,7 @@ export const getAllLocalArticlesRoute: RouteHandler = {
 		 * Optional function to log debug entries asynchronously.
 		 */
 		add?: (entry: DebugLogEntry) => Promise<void>;
-		getAllArticles?: () => Promise<Article[]>;
+		getAllLocalArticles?: (sources?: Source[]) => Promise<Article[]>;
 		res: ServerResponse<any>;
 		req: IncomingMessage;
 	}) => {
@@ -180,30 +180,26 @@ export const getAllLocalArticlesRoute: RouteHandler = {
 			return;
 		}
 
-		if (!getAllArticles) {
-			await handleError(res, "getAllArticles function not provided", 500, "error");
+		if (!getAllLocalArticles) {
+			await handleError(res, "getAllLocalArticles function not provided", 500, "error");
 			return;
 		}
 
 		try {
-			const allArticles = await getAllArticles();
-			const availableSources: { endpoint: string }[] = []; // TODO: replace with real sources
-			const availableEndpoints = new Set(availableSources.map((s) => s.endpoint));
+			const allArticles = await getAllLocalArticles();
 
-			const filtered = allArticles.filter((article) =>
-				availableEndpoints.has(article.source || ""),
-			);
+			console.log("allArticles", JSON.stringify(allArticles, null, 2));
 
 			if (addDebugLog) {
 				await addDebugLog({
 					_id: crypto.randomUUID(),
 					timestamp: new Date().toISOString(),
-					message: `Fetched ${filtered.length} articles for ${clientIP}`,
+					message: `Fetched ${allArticles.length} articles for ${clientIP}`,
 					level: "info",
 				});
 			}
 
-			res.end(JSON.stringify(filtered));
+			res.end(JSON.stringify(allArticles));
 		} catch (err) {
 			const message = (err as Error).message || "Unknown error fetching articles";
 			await handleError(res, `Error fetching articles for ${clientIP}: ${message}`, 500, "error");
@@ -219,18 +215,18 @@ export const getLocalArticleByUrlRoute: RouteHandler = {
 	method: "GET",
 	path: "/articles/local/",
 	handler: async ({
-		getArticle,
+		getLocalArticle,
 		res,
 		url,
 	}: {
-		getArticle?: (url: string) => Promise<Article | null>;
+		getLocalArticle?: (url: string) => Promise<Article | null>;
 		res: ServerResponse<any>;
 		url?: string;
 	}) => {
 		res.setHeader("Content-Type", "application/json");
 
-		if (!getArticle) {
-			await handleError(res, "getArticle not provided", 500, "error");
+		if (!getLocalArticle) {
+			await handleError(res, "getLocalArticle not provided", 500, "error");
 			return;
 		}
 
@@ -242,7 +238,7 @@ export const getLocalArticleByUrlRoute: RouteHandler = {
 				return;
 			}
 
-			const article = await getArticle(articleUrl);
+			const article = await getLocalArticle(articleUrl);
 			if (!article) {
 				await handleError(res, `Article not found: ${articleUrl}`, 404, "warn");
 				return;
@@ -264,18 +260,18 @@ export const saveLocalArticleRoute: RouteHandler = {
 	method: "POST",
 	path: "/articles/local/save",
 	handler: async ({
-		saveArticle,
+		saveLocalArticle,
 		res,
 		body,
 	}: {
-		saveArticle?: (doc: Article) => Promise<void>;
+		saveLocalArticle?: (doc: Article) => Promise<void>;
 		res: ServerResponse<any>;
 		body?: any;
 	}) => {
 		res.setHeader("Content-Type", "application/json");
 
-		if (!saveArticle) {
-			await handleError(res, "saveArticle not provided", 500, "error");
+		if (!saveLocalArticle) {
+			await handleError(res, "saveLocalArticle not provided", 500, "error");
 			return;
 		}
 		if (!body || !body.url || !body.title || !body.content) {
@@ -284,7 +280,7 @@ export const saveLocalArticleRoute: RouteHandler = {
 		}
 
 		try {
-			await saveArticle(body);
+			await saveLocalArticle(body);
 			await addDebugLog({ message: `Saved article: ${body.url}`, level: "info" });
 			res.end(JSON.stringify({ success: true, url: body.url }));
 		} catch (err) {
@@ -302,18 +298,18 @@ export const refetchLocalArticlesRoute: RouteHandler = {
 	method: "POST",
 	path: "/articles/local/refetch",
 	handler: async ({
-		addUniqueArticles,
+		addUniqueLocalArticles,
 		res,
 		body,
 	}: {
-		addUniqueArticles?: (articles: Article[]) => Promise<number>;
+		addUniqueLocalArticles?: (articles: Article[]) => Promise<number>;
 		res: ServerResponse<any>;
 		body?: any;
 	}) => {
 		res.setHeader("Content-Type", "application/json");
 
-		if (!addUniqueArticles) {
-			await handleError(res, "addUniqueArticles not provided", 500, "error");
+		if (!addUniqueLocalArticles) {
+			await handleError(res, "addUniqueLocalArticles not provided", 500, "error");
 			return;
 		}
 		if (!body || !Array.isArray(body)) {
@@ -322,7 +318,7 @@ export const refetchLocalArticlesRoute: RouteHandler = {
 		}
 
 		try {
-			const addedCount = await addUniqueArticles(body);
+			const addedCount = await addUniqueLocalArticles(body);
 			await addDebugLog({ message: `Refetched ${addedCount} unique articles`, level: "info" });
 			res.end(JSON.stringify({ success: true, added: addedCount }));
 		} catch (err) {
@@ -340,18 +336,18 @@ export const deleteLocalArticleRoute: RouteHandler = {
 	method: "DELETE",
 	path: "/articles/local/delete/",
 	handler: async ({
-		deleteArticle,
+		deleteLocalArticle,
 		res,
 		url,
 	}: {
-		deleteArticle?: (url: string) => Promise<void>;
+		deleteLocalArticle?: (url: string) => Promise<void>;
 		res: ServerResponse<any>;
 		url?: string;
 	}) => {
 		res.setHeader("Content-Type", "application/json");
 
-		if (!deleteArticle) {
-			await handleError(res, "deleteArticle not provided", 500, "error");
+		if (!deleteLocalArticle) {
+			await handleError(res, "deleteLocalArticle not provided", 500, "error");
 			return;
 		}
 
@@ -363,7 +359,7 @@ export const deleteLocalArticleRoute: RouteHandler = {
 				return;
 			}
 
-			await deleteArticle(articleUrl);
+			await deleteLocalArticle(articleUrl);
 			await addDebugLog({ message: `Deleted article: ${articleUrl}`, level: "info" });
 			res.end(JSON.stringify({ success: true, url: articleUrl }));
 		} catch (err) {

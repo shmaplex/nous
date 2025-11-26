@@ -31,21 +31,21 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 				await addDebugLog({
 					message: `Peer status: ${peer.peerId} — ${peer.connected ? "Connected" : "Disconnected"}`,
 					level: "info",
-					// meta: { ...peer, type: "peers" }, // <-- include peerId here
+					meta: { ...peer, type: "peers" }, // <-- include peerId here
 				});
 			}
 
 			// Optional: log overall network summary
-			await addDebugLog({
-				message: `Network summary: ${peers.length} peers, syncing=${status.syncing}`,
-				level: "info",
-				// meta: {
-				// 	peerCount: peers.length,
-				// 	connected: peers.length > 0,
-				// 	syncing: status.syncing,
-				// 	type: "network",
-				// },
-			});
+			// await addDebugLog({
+			// 	message: `Network summary: ${peers.length} peers, syncing=${status.syncing}`,
+			// 	level: "info",
+			// 	meta: {
+			// 		peerCount: peers.length,
+			// 		connected: peers.length > 0,
+			// 		syncing: status.syncing,
+			// 		type: "network",
+			// 	},
+			// });
 		} catch (err) {
 			const msg = (err as Error).message;
 
@@ -59,7 +59,7 @@ export function startNetworkStatusPoll(helia: Helia, status: NodeStatus, interva
 			await addDebugLog({
 				message: `Network status error: ${(err as Error).message}`,
 				level: "error",
-				// meta: { error: msg, type: "peers" },
+				meta: { error: msg, type: "peers" },
 			});
 			status.peers = [];
 		}

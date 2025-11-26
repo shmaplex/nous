@@ -50,8 +50,8 @@ export async function setupDebugDB(orbitdb: OrbitDB) {
 	// Listen for updates from peers
 	db.events.on("update", async (entry: any) => {
 		log(`🔄 Debug update from peer: ${JSON.stringify(entry)}`);
-		const entries = await db.query(() => true);
-		log(`📦 Debug DB entries: ${entries.length}`);
+		// const entries = await db.query(() => true);
+		// log(`📦 Debug DB entries: ${entries.length}`);
 	});
 
 	// Add a new debug entry

@@ -14,12 +14,12 @@ import type { ArticleAnalyzed } from "@/types";
  * Interface for the Analyzed DB instance and its helpers
  */
 export interface ArticleAnalyzedDB {
-	db: any; // OrbitDB instance
-	saveArticle: (doc: ArticleAnalyzed) => Promise<void>;
-	deleteArticle: (id: string) => Promise<void>;
-	getAllArticles: () => Promise<ArticleAnalyzed[]>;
-	getArticle: (id: string) => Promise<ArticleAnalyzed | null>;
-	queryArticles: (fn: (doc: ArticleAnalyzed) => boolean) => Promise<ArticleAnalyzed[]>;
+	articleAnalyzedDB: any; // OrbitDB instance
+	saveAnalyzedArticle: (doc: ArticleAnalyzed) => Promise<void>;
+	deleteAnalyzedArticle: (id: string) => Promise<void>;
+	getAllAnalyzedArticles: () => Promise<ArticleAnalyzed[]>;
+	getAnalyzedArticle: (id: string) => Promise<ArticleAnalyzed | null>;
+	queryAnalyzedArticles: (fn: (doc: ArticleAnalyzed) => boolean) => Promise<ArticleAnalyzed[]>;
 }
 
 // Singleton instance
@@ -48,8 +48,8 @@ export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleA
 
 	// Listen for updates from peers
 	db.events.on("update", async (entry: any) => {
-		const msg = `🔄 Update from peer (analyzed): ${JSON.stringify(entry)}`;
-		log(msg);
+		const msg = `🔄 Analyzed DB Update from peer (analyzed): ${JSON.stringify(entry)}`;
+		log(JSON.stringify(msg, null, 2));
 		await addDebugLog({ message: msg, level: "info" });
 
 		const all = await db.query(() => true);
@@ -93,12 +93,12 @@ export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleA
 
 	// Save singleton
 	articleAnalyzedDBInstance = {
-		db,
-		saveArticle: saveAnalyzedArticle,
-		deleteArticle: deleteAnalyzedArticle,
-		getAllArticles: getAllAnalyzedArticles,
-		getArticle: getAnalyzedArticle,
-		queryArticles: queryAnalyzedArticles,
+		articleAnalyzedDB: db,
+		saveAnalyzedArticle,
+		deleteAnalyzedArticle,
+		getAllAnalyzedArticles,
+		getAnalyzedArticle,
+		queryAnalyzedArticles,
 	};
 	log(`✅ Analyzed Article DB setup complete with ${db.address?.toString()}`);
 
