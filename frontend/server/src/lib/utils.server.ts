@@ -34,21 +34,30 @@ import path from "node:path";
  * ```
  */
 export async function cleanLockFiles(dir: string): Promise<void> {
-	if (!fs.existsSync(dir)) return;
+	if (!fs.existsSync(dir)) {
+		console.log("cleanLockFiles: Unable to find the directory", dir);
+		return;
+	}
 
-	for (const file of fs.readdirSync(dir)) {
-		const fullPath = path.join(dir, file);
-		const stat = fs.statSync(fullPath);
+	const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-		if (stat.isDirectory()) {
-			// Dive into subdirectories recursively
-			await cleanLockFiles(fullPath);
-		} else if (file === "LOCK") {
-			// OrbitDB / LevelDB lock file — safe to remove if leftover
+	for (const entry of entries) {
+		const fullPath = path.resolve(path.join(dir, entry.name));
+
+		if (entry.isDirectory()) {
+			// Only dive into relevant subdirectories
+			if (
+				["_heads", "_index"].includes(entry.name) ||
+				(entry.name !== "_heads" && entry.name !== "_index")
+			) {
+				await cleanLockFiles(fullPath);
+			}
+		} else if (entry.name === "LOCK") {
 			try {
 				fs.unlinkSync(fullPath);
-			} catch {
-				// Silently fail — better to continue than crash
+				console.log(`Removed lock file: ${fullPath}`);
+			} catch (err) {
+				console.warn(`Failed to remove lock file: ${fullPath}`, err);
 			}
 		}
 	}

@@ -8,7 +8,7 @@ import type { NodeStatus } from "@/types";
  * Absolute file path used for persisting node status between server restarts.
  * A simple JSON file is used instead of a database to keep the Node P2P layer portable.
  */
-const STATUS_PATH = path.join(process.cwd(), STATUS_FILE_PATH);
+const STATUS_PATH = path.resolve(process.cwd(), STATUS_FILE_PATH);
 
 /**
  * The in-memory representation of the node's current status.

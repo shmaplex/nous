@@ -184,15 +184,6 @@ export async function shutdownP2PNode() {
 		log(`❌ Error stopping Libp2p: ${err.message}`);
 	}
 
-	// Clean lock files
-	// try {
-	// 	cleanLockFiles(process.env.KEYSTORE_PATH || "orbitdb-keystore");
-	// 	cleanLockFiles(process.env.DB_PATH || "orbitdb-databases");
-	// 	log("✅ Lock files cleaned");
-	// } catch (err: any) {
-	// 	log(`❌ Error cleaning lock files: ${err.message}`);
-	// }
-
 	// Delete persisted status
 	try {
 		deleteStatus();
@@ -209,6 +200,15 @@ export async function shutdownP2PNode() {
 		} catch (err: any) {
 			log(`❌ Error shutting down HTTP server: ${err.message}`);
 		}
+	}
+
+	// Clean lock files
+	try {
+		await cleanLockFiles(process.env.KEYSTORE_PATH || "orbitdb-keystore");
+		await cleanLockFiles(process.env.DB_PATH || "orbitdb-databases");
+		log("✅ Lock files cleaned");
+	} catch (err: any) {
+		log(`❌ Error cleaning lock files: ${err.message}`);
 	}
 
 	log("✅ Graceful shutdown complete");

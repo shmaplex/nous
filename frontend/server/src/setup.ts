@@ -12,10 +12,8 @@ import { startNetworkStatusPoll } from "./networkStatus";
 import { getP2PNode } from "./node";
 import { registerShutdownHandlers, setRunningInstance, shutdownP2PNode } from "./shutdown";
 
-const ORBITDB_KEYSTORE_PATH =
-	process.env.KEYSTORE_PATH || path.join(process.cwd(), "frontend/orbitdb-keystore");
-const ORBITDB_DB_PATH =
-	process.env.DB_PATH || path.join(process.cwd(), "frontend/orbitdb-databases");
+const ORBITDB_KEYSTORE_PATH = path.resolve(process.env.KEYSTORE_PATH ?? "orbitdb-keystore");
+const ORBITDB_DB_PATH = path.resolve(process.env.DB_PATH ?? "orbitdb-databases");
 
 // Ensure directories exist
 [ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {

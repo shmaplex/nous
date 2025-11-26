@@ -1,7 +1,13 @@
 // frontend/src/p2p/node.ts
 import fs from "node:fs";
 import path from "node:path";
-import { createOrbitDB, type KeyStoreType, type OrbitDB } from "@orbitdb/core";
+import {
+	createOrbitDB,
+	type IdentitiesType,
+	type Identity,
+	type KeyStoreType,
+	type OrbitDB,
+} from "@orbitdb/core";
 import type { Helia } from "helia";
 import { createHelia } from "helia";
 import type { Libp2p } from "libp2p";
@@ -22,6 +28,8 @@ const ORBITDB_DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "orbitdb
 
 let runningInstance: {
 	keystore: KeyStoreType;
+	identity: Identity;
+	identities: IdentitiesType;
 	libp2p: Libp2p;
 	helia: Helia;
 	orbitdb: OrbitDB;
@@ -73,9 +81,9 @@ export async function getP2PNode(config?: NodeConfig) {
 	const { identity, identities, keystore } = await getOrbitDBIdentity();
 	const orbitdb = await createOrbitDB({
 		ipfs: helia,
-		identity,
-		identities,
-		directory: ORBITDB_DB_PATH,
+		// identity,
+		// identities,
+		// directory: ORBITDB_DB_PATH,
 	});
 
 	let debugDB: DebugDB;
@@ -108,6 +116,8 @@ export async function getP2PNode(config?: NodeConfig) {
 
 	runningInstance = {
 		keystore,
+		identity,
+		identities,
 		libp2p,
 		helia,
 		orbitdb,
