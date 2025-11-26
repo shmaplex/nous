@@ -1,5 +1,25 @@
 export namespace main {
 	
+	export class DebugLogEntry {
+	    _id: string;
+	    timestamp: string;
+	    message: string;
+	    level: string;
+	    meta?: Record<string, any>;
+	
+	    static createFrom(source: any = {}) {
+	        return new DebugLogEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this._id = source["_id"];
+	        this.timestamp = source["timestamp"];
+	        this.message = source["message"];
+	        this.level = source["level"];
+	        this.meta = source["meta"];
+	    }
+	}
 	export class Source {
 	    name: string;
 	    endpoint: string;

@@ -37,10 +37,8 @@ export function setRunningInstance(instance: typeof runningInstance) {
 }
 
 /**
- * Closes all database instances safely.
- * Each DB close is wrapped in try/catch to prevent blocking other closures.
- *
- * @param databases - Object containing optional DB instances
+ * Closes all OrbitDB stores safely, with a small async delay
+ * between each close to prevent LevelDB race conditions.
  */
 export async function closeDatabases(databases: P2PDatabases) {
 	if (!databases) return;
@@ -54,8 +52,10 @@ export async function closeDatabases(databases: P2PDatabases) {
 			log(`⚠️ Debug DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️  Debug DB not initialized or already null");
+		log("ℹ️ Debug DB not initialized or already null");
 	}
+
+	await sleep(10);
 
 	// --- Sources DB ---
 	if (databases.articleLocalDB?.db) {
@@ -66,8 +66,10 @@ export async function closeDatabases(databases: P2PDatabases) {
 			log(`⚠️ Sources DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️  Sources DB not initialized or already null");
+		log("ℹ️ Sources DB not initialized or already null");
 	}
+
+	await sleep(10);
 
 	// --- Analyzed DB ---
 	if (databases.articleAnalyzedDB?.db) {
@@ -78,13 +80,13 @@ export async function closeDatabases(databases: P2PDatabases) {
 			log(`⚠️ Analyzed DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️  Analyzed DB not initialized or already null");
+		log("ℹ️ Analyzed DB not initialized or already null");
 	}
 
-	// --- Federated DB ---
-	if (databases.articleFederatedDB) {
-		log("ℹ️  Federated DB is in-memory; no close required");
-	}
+	await sleep(10);
+
+	// --- Federated DB (in-memory) ---
+	log("ℹ️ Federated DB is in-memory; no close required");
 }
 
 /**
@@ -183,13 +185,13 @@ export async function shutdownP2PNode() {
 	}
 
 	// Clean lock files
-	try {
-		cleanLockFiles(process.env.KEYSTORE_PATH || "orbitdb-keystore");
-		cleanLockFiles(process.env.DB_PATH || "orbitdb-databases");
-		log("✅ Lock files cleaned");
-	} catch (err: any) {
-		log(`❌ Error cleaning lock files: ${err.message}`);
-	}
+	// try {
+	// 	cleanLockFiles(process.env.KEYSTORE_PATH || "orbitdb-keystore");
+	// 	cleanLockFiles(process.env.DB_PATH || "orbitdb-databases");
+	// 	log("✅ Lock files cleaned");
+	// } catch (err: any) {
+	// 	log(`❌ Error cleaning lock files: ${err.message}`);
+	// }
 
 	// Delete persisted status
 	try {

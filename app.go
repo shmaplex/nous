@@ -42,8 +42,6 @@ func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	log.Println("Nous App started")
 
-	CleanOrbitDBLocks()
-
 	// HTTP port per instance
 	if portStr := os.Getenv("HTTP_PORT"); portStr != "" {
 		if p, err := strconv.Atoi(portStr); err == nil {
@@ -83,9 +81,8 @@ func (a *App) Startup(ctx context.Context) {
 
 // Fired before the application is closed
 func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
-	a.StopP2PNode()     // stop P2P node cleanly
-	CleanOrbitDBLocks() // remove leftover LOCK files
-	return false        // false = allow close
+	a.StopP2PNode() // stop P2P node cleanly
+	return false    // false = allow close
 }
 
 // SetLocation stores user location locally

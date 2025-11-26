@@ -2,8 +2,7 @@ import { dagCbor } from "@helia/dag-cbor";
 import { Documents } from "@orbitdb/core";
 import { MemoryDatastore } from "datastore-core/memory";
 import { createHelia, type Helia } from "helia";
-import { v4 as uuidv4 } from "uuid";
-import type { ArticleStored, FederatedArticlePointer, FeedType } from "../types";
+import type { ArticleStored, FederatedArticlePointer, FeedType } from "@/types";
 
 /**
  * Initialize a Helia IPFS node and an OrbitDB document store for a given feed.
@@ -59,7 +58,7 @@ export async function saveArticle(article: ArticleStored, feed: FeedType = "loca
 	const { ipfs, store } = await getDB(feed);
 
 	// Ensure UUID
-	if (!article.id) article.id = uuidv4();
+	if (!article.id) article.id = crypto.randomUUID();
 
 	// Store full content in IPFS
 	const cid = await storeArticleContent(ipfs, article);

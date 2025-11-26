@@ -1,5 +1,5 @@
 // frontend/src/lib/db-debug.ts
-import type { OrbitDB } from "@orbitdb/core";
+import { Documents, type OrbitDB } from "@orbitdb/core";
 import { log } from "@/lib/log.server";
 import type { DebugLogEntry } from "@/types/log";
 
@@ -14,7 +14,7 @@ export interface DebugDB {
 let debugDBInstance: DebugDB | null = null;
 
 /**
- * Sets up a debug logs DB in OrbitDB.
+ * Sets up a debug logs DB in OrbitDB with error handling.
  * Safe to call multiple times; will return existing instance.
  *
  * @param orbitdb - Existing OrbitDB instance.
@@ -26,40 +26,71 @@ export async function setupDebugDB(orbitdb: OrbitDB) {
 		return debugDBInstance;
 	}
 
-	const db = (await orbitdb.open("nous.debug.logs", {
-		type: "documents",
-		meta: { indexBy: "timestamp" },
-	})) as any;
+	let db: any;
+	try {
+		// Pass the generator function, not the result
+		db = await orbitdb.open("nous.debug.logs", {
+			Database: Documents({ indexBy: "timestamp" }) as any, // cast to satisfy TS
+			meta: { indexBy: "timestamp" },
+		});
+		log(`✅ Debug DB opened with address: ${db.address?.toString()}`);
+	} catch (err) {
+		const message = (err as Error).message || "Unknown error opening debug DB";
+		log(`❌ Failed to open Debug DB: ${message}`, "error");
 
-	// Log updates from peers
+		// Optional: fallback to an in-memory DB
+		db = await orbitdb.open("nous.debug.logs.inmemory", {
+			Database: Documents({ indexBy: "timestamp" }) as any,
+			meta: { indexBy: "timestamp" },
+			// Or other flag for in-memory depending on OrbitDB config
+		});
+		log("⚠️ Fallback to in-memory Debug DB");
+	}
+
+	// Listen for updates from peers
 	db.events.on("update", async (entry: any) => {
 		log(`🔄 Debug update from peer: ${JSON.stringify(entry)}`);
-		const all = await db.query(() => true);
-		log(`📦 Debug DB entries: ${all.length}`);
+		const entries = await db.query(() => true);
+		log(`📦 Debug DB entries: ${entries.length}`);
 	});
 
 	// Add a new debug entry
 	async function add(entry: DebugLogEntry) {
-		await db.put(entry);
-		log(`📝 Debug log added: ${entry.timestamp} - ${entry.message}`);
+		try {
+			await db.put(entry);
+			log(`📝 Debug log added: ${entry.timestamp} - ${entry.message}`);
+		} catch (err) {
+			log(`❌ Failed to add debug log: ${(err as Error).message}`, "error");
+		}
 	}
 
 	// Retrieve all debug entries
 	async function getAll(): Promise<DebugLogEntry[]> {
-		return db.query(() => true) ?? [];
+		try {
+			return (await db.query(() => true)) ?? [];
+		} catch (err) {
+			log(`❌ Failed to query debug DB: ${(err as Error).message}`, "error");
+			return [];
+		}
 	}
 
 	debugDBInstance = { db, add, getAll };
-	log(`✅ Debug DB setup complete with ${db.address?.toString()}`);
 
-	// Optionally, write initial node status as first log
-	await add({
-		_id: `startup-${Date.now()}`,
-		timestamp: new Date().toISOString(),
-		message: "Node debug DB initialized",
-		level: "info",
-		meta: { port: process.env.HTTP_PORT },
-	});
+	// Write initial startup log only if DB empty
+	try {
+		const existingEntries = await db.query(() => true);
+		if (existingEntries.length === 0) {
+			await add({
+				_id: crypto.randomUUID(),
+				timestamp: new Date().toISOString(),
+				message: "Node debug DB initialized",
+				level: "info",
+				meta: { port: process.env.HTTP_PORT || "unknown" },
+			});
+		}
+	} catch (err) {
+		log(`❌ Failed to initialize debug DB entries: ${(err as Error).message}`, "error");
+	}
 
 	return debugDBInstance;
 }

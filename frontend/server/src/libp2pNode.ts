@@ -44,24 +44,26 @@ export async function createLibp2pNode(
 	});
 
 	// Connect to relays
-	for (const addr of relayAddresses) {
-		try {
-			await libp2p.dial(multiaddr(addr));
-			log(`Connected to relay ${addr.toString()}`);
-			addDebugLog({
-				message: `Connected to relay ${addr.toString()}`,
-				level: "info",
-				// meta: { address: addr.toString() },
-				// type: "p2p",
-			});
-		} catch (err) {
-			log(`Failed to connect to relay ${addr}: ${(err as Error).message}`);
-			addDebugLog({
-				message: `Failed to connect to relay ${addr}: ${(err as Error).message}`,
-				level: "info",
-				// meta: { address: addr.toString(), error: (err as Error).message },
-				// type: "p2p",
-			});
+	if (relayAddresses?.length) {
+		for (const addr of relayAddresses) {
+			try {
+				await libp2p.dial(multiaddr(addr));
+				log(`Connected to relay ${addr.toString()}`);
+				addDebugLog({
+					message: `Connected to relay ${addr.toString()}`,
+					level: "info",
+					// meta: { address: addr.toString() },
+					// type: "p2p",
+				});
+			} catch (err) {
+				log(`Failed to connect to relay ${addr}: ${(err as Error).message}`);
+				addDebugLog({
+					message: `Failed to connect to relay ${addr}: ${(err as Error).message}`,
+					level: "info",
+					// meta: { address: addr.toString(), error: (err as Error).message },
+					// type: "p2p",
+				});
+			}
 		}
 	}
 

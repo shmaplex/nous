@@ -20,6 +20,8 @@ var assets embed.FS
 func main() {
 	app := NewApp()
 
+	registerDevModeShutdown(app)
+
 	AppMenu := menu.NewMenu()
 
 	if runtime.GOOS == "darwin" {

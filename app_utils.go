@@ -89,17 +89,23 @@ func get(url string) (string, error) {
 
 // HTTP POST helper
 func post(url string, data interface{}) (string, error) {
+	// Marshal payload to JSON
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return "", err
 	}
 
+	// Log the payload
+	log.Printf("POST %s\nPayload: %s\n", url, string(payload))
+
+	// Send the POST request
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
+	// Read response body
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err

@@ -42,7 +42,9 @@ const DialogContent = React.forwardRef<
 >(({ className, children, showCloseButton = true, ...props }, ref) => {
 	return (
 		<DialogPrimitive.Portal>
-			<DialogPrimitive.Overlay className={cn("fixed inset-0 bg-black/50", className)} />
+			<DialogPrimitive.Overlay
+				className={cn("fixed inset-0 w-screen h-screen bg-black/50", className)}
+			/>
 			<DialogPrimitive.Content
 				ref={ref}
 				className={cn(

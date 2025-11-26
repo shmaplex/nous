@@ -65,18 +65,58 @@ const App = () => {
 	const fetchedRef = useRef(false);
 
 	/** -----------------------------------------
-	 * 🔄 Initialize OrbitDB Debug DB
+	 * 🔄 Initialize Debug DB only when P2P node is ready
 	 * ----------------------------------------- */
 	useEffect(() => {
 		const initDebug = async () => {
+			if (!status.running || !status.orbitConnected) {
+				// Not ready yet, skip
+				return;
+			}
+
 			try {
-				await addDebugLog({ message: "Debug DB initialized", level: "info" });
+				await addDebugLog({ message: "App logger initialized", level: "info" });
 			} catch (err) {
-				console.error("Failed to initialize debug DB", err);
+				console.error("Failed to initialize application logger", err);
 			}
 		};
+
 		initDebug();
-	}, []);
+	}, [status.running, status.orbitConnected]);
+
+	// useEffect(() => {
+	// 	const fetchAndLoad = async () => {
+	// 		setLoading(true);
+	// 		setLoadingStatus("Fetching articles…");
+
+	// 		try {
+	// 			// Kick off background fetch
+	// 			await fetchArticlesBySources(); // calls Wails → backend route
+	// 			setLoadingStatus("Loading local database…");
+
+	// 			// Poll local articles until at least one exists
+	// 			let attempts = 0;
+	// 			const maxAttempts = 20;
+	// 			let local: ArticleStored[] = [];
+	// 			while (attempts < maxAttempts) {
+	// 				local = await loadLocalArticles();
+	// 				if (local.length > 0) break;
+
+	// 				attempts++;
+	// 				await new Promise((r) => setTimeout(r, 500)); // wait 0.5s
+	// 			}
+
+	// 			setArticles(local);
+	// 			setLoading(false);
+	// 		} catch (err) {
+	// 			console.error(err);
+	// 			setLoadingStatus("Failed to fetch articles.");
+	// 			setLoading(false);
+	// 		}
+	// 	};
+
+	// 	fetchAndLoad();
+	// }, []);
 
 	/**
 	 * Wait until P2P node, connection, and OrbitDB are ready,
@@ -111,13 +151,13 @@ const App = () => {
 				/** --------------------------------------------------
 				 * 2. Save into Local DB (validated + deduped backend)
 				 * -------------------------------------------------- */
-				await saveLocalArticlesBatch(
-					fetched.map((a) => ({
-						...a,
-						fetchedAt: a.fetchedAt ?? new Date().toISOString(),
-						analyzed: false,
-					})),
-				);
+				// await saveLocalArticlesBatch(
+				// 	fetched.map((a) => ({
+				// 		...a,
+				// 		fetchedAt: a.fetchedAt ?? new Date().toISOString(),
+				// 		analyzed: false,
+				// 	})),
+				// );
 
 				setLoadingStatus("Loading local database…");
 				setProgress(85);
@@ -125,8 +165,8 @@ const App = () => {
 				/** --------------------------------------------------
 				 * 3. Load canonical local DB (source of truth)
 				 * -------------------------------------------------- */
-				const local = await loadLocalArticles();
-				setArticles(local);
+				// const local = await loadLocalArticles();
+				// setArticles(local);
 
 				setProgress(100);
 				setLoading(false);
@@ -178,7 +218,7 @@ const App = () => {
 				<HeaderTop selectedLocation={location} onLocationChange={setLocationState} />
 
 				{/* Filters */}
-				<div className="sticky top-0 z-30 bg-background px-6 py-3 border-b shadow-sm border-border">
+				<div className="sticky top-0 z-20 bg-background px-6 py-3 border-b shadow-sm border-border">
 					<FiltersPanel filter={filter} setFilter={setFilter} />
 				</div>
 

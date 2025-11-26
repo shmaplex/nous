@@ -1,6 +1,8 @@
 // frontend/src/p2p/db-articles-local.ts
-import type { OrbitDB } from "@orbitdb/core";
+import { Documents, type OrbitDB } from "@orbitdb/core";
 import { addDebugLog, log } from "@/lib/log.server";
+import { getNormalizer, normalizePublishedAt } from "@/lib/normalizers";
+import { getParser } from "@/lib/parsers";
 import type { Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
 
@@ -67,7 +69,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 	}
 
 	const db = (await orbitdb.open("nous.articles.feed", {
-		type: "documents",
+		Database: Documents({ indexBy: "url" }) as any, // cast to satisfy TS
 		meta: { indexBy: "url" },
 	})) as any;
 
@@ -111,11 +113,15 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 	}
 
 	/**
-	 * Fetch articles from enabled sources with validation and error collection
-	 * @param availableSources - Array of Source objects
-	 * @returns Object containing articles and per-source errors
+	 * Fetch articles from enabled sources, parse and normalize them,
+	 * validate against the Article schema, and collect any per-source errors.
+	 *
+	 * @param availableSources - Array of sources to fetch from
+	 * @returns Object containing normalized articles and an array of per-source errors
 	 */
-	async function fetchAllLocalSources(availableSources: Source[]) {
+	async function fetchAllLocalSources(
+		availableSources: Source[],
+	): Promise<{ articles: Article[]; errors: { endpoint: string; error: string }[] }> {
 		const enabledSources = availableSources.filter((s) => s.enabled);
 		const allArticles: Article[] = [];
 		const errors: { endpoint: string; error: string }[] = [];
@@ -127,32 +133,48 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 
 				if (!response.ok) {
 					const msg = `Failed to fetch from ${source.endpoint}: HTTP ${response.status}`;
-					log(msg, "info");
-					errors.push({ endpoint: source.endpoint, error: msg });
-					continue;
-				}
-
-				const rawArticles = await response.json();
-				if (!Array.isArray(rawArticles)) {
-					const msg = `Invalid response format from ${source.endpoint}`;
 					log(msg, "warn");
 					errors.push({ endpoint: source.endpoint, error: msg });
 					continue;
 				}
 
-				// Validate each article against ArticleSchema
-				for (const a of rawArticles) {
+				const rawData = await response.json();
+				log(`rawData ${JSON.stringify(rawData)}`);
+
+				// Get parser and normalizer for this source
+				const parserFn = getParser(source);
+				const normalizerFn = getNormalizer(source);
+
+				// Parse raw data into intermediate articles
+				const parsedArticles = parserFn(rawData, source);
+
+				if (!Array.isArray(parsedArticles)) {
+					const msg = `Parser did not return an array of articles for ${source.endpoint}`;
+					log(msg, "warn");
+					errors.push({ endpoint: source.endpoint, error: msg });
+					continue;
+				}
+
+				// Normalize parsed articles
+				const normalizedArticles: Article[] = parsedArticles.map((a) => {
+					const n = normalizerFn(a, source);
+					n.publishedAt = normalizePublishedAt(n.publishedAt);
+					return n;
+				});
+
+				// Validate normalized articles
+				for (const article of normalizedArticles) {
 					try {
-						const validated = ArticleSchema.parse(a);
-						allArticles.push(validated);
+						ArticleSchema.parse(article);
+						allArticles.push(article);
 					} catch (err) {
-						const msg = `Invalid article structure from ${source.endpoint}`;
+						const msg = `Invalid article structure from ${source.endpoint}: ${(err as Error).message}`;
 						log(msg, "warn");
-						errors.push({ endpoint: source.endpoint, error: `${msg}: ${(err as Error).message}` });
+						errors.push({ endpoint: source.endpoint, error: msg });
 					}
 				}
 
-				log(`Fetched ${allArticles.length} valid articles from ${source.endpoint}`, "info");
+				log(`Fetched ${normalizedArticles.length} articles from ${source.endpoint}`);
 			} catch (err) {
 				const msg = (err as Error).message;
 				log(`Error fetching from ${source.endpoint}: ${msg}`, "error");
@@ -160,7 +182,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 			}
 		}
 
-		log(`Total articles fetched from all sources: ${allArticles.length}`, "info");
+		log(`Total articles fetched from all sources: ${allArticles.length}`);
 		return { articles: allArticles, errors };
 	}
 

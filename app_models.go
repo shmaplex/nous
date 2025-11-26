@@ -2,6 +2,55 @@
 package main
 
 // ----------------------
+// API Response Wrapper
+// ----------------------
+
+// APIResponse is a standard wrapper for all responses sent by the backend API.
+//
+// It ensures every response indicates success/failure and optionally carries
+// either an error message or the requested data payload.
+//
+// Example JSON:
+//
+//	{
+//	  "success": true,
+//	  "error": "",
+//	  "data": {...}
+//	}
+type APIResponse struct {
+	Success bool        `json:"success"`         // True if the operation succeeded, false otherwise
+	Error   string      `json:"error,omitempty"` // Optional error message when Success is false
+	Data    interface{} `json:"data,omitempty"`  // Optional payload for successful responses
+}
+
+// ----------------------
+// Debug Log Entry
+// ----------------------
+
+// DebugLogEntry represents a single log entry in the P2P debug log database.
+//
+// Each entry includes a unique ID, timestamp, message, log level, and optional metadata.
+// These entries are stored in OrbitDB (or similar) and are intended for debugging
+// and operational tracing of the P2P node.
+//
+// Example JSON:
+//
+//	{
+//	  "_id": "uuid",
+//	  "timestamp": "2025-11-26T09:36:11.340Z",
+//	  "message": "Node debug DB initialized",
+//	  "level": "info",
+//	  "meta": { "port": "9001" }
+//	}
+type DebugLogEntry struct {
+	ID        string                 `json:"_id"`            // Unique identifier for the log entry (UUID recommended)
+	Timestamp string                 `json:"timestamp"`      // ISO 8601 timestamp of when the entry was created
+	Message   string                 `json:"message"`        // Human-readable log message
+	Level     string                 `json:"level"`          // Log level: "info", "warn", or "error"
+	Meta      map[string]interface{} `json:"meta,omitempty"` // Optional metadata, e.g., port number, type, or context info
+}
+
+// ----------------------
 // Source Metadata
 // ----------------------
 

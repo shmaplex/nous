@@ -1,7 +1,7 @@
 // frontend/src/p2p/routes/route-article-local.ts
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { addDebugLog, log } from "@/lib/log.server";
-import type { Article, RouteHandler, Source } from "@/types";
+import type { Article, DebugLogEntry, RouteHandler, Source } from "@/types";
 import { handleError } from "./helpers";
 
 /**
@@ -14,9 +14,9 @@ const TIME_WINDOW = 1000 * 10; // 10 seconds
 /**
  * POST /articles/local/fetch
  *
- * Fetch new articles from a list of enabled sources, optionally filtered by a
- * "since" timestamp to avoid re-fetching old articles. Saves only unique articles
- * to the local DB to prevent duplicates.
+ * Starts a **background fetch** of articles from provided sources.
+ * The route immediately responds with success, while the actual fetching,
+ * parsing, normalizing, and saving happens asynchronously in the background.
  *
  * Request body may include:
  * - `sources`: array of Source objects to fetch from (default: empty array)
@@ -33,26 +33,48 @@ const TIME_WINDOW = 1000 * 10; // 10 seconds
  * }
  * ```
  *
- * Response:
- * - `success`: boolean
- * - `added`: number of new articles saved
- * - `errors`: array of per-source errors encountered during fetch
+ * Response (immediate):
+ * - `success`: boolean — always true if the fetch was triggered
+ * - `message`: string — status message
+ *
+ * Notes:
+ * - Errors during the actual fetch process are logged via the optional `addDebugLog` function.
+ * - Articles are saved only if they are unique in the local DB.
  */
 export const fetchLocalArticlesRoute: RouteHandler = {
 	method: "POST",
 	path: "/articles/local/fetch",
 	handler: async ({
+		add: addDebugLog,
 		fetchAllSources,
 		addUniqueArticles,
 		res,
 		body,
 	}: {
+		/**
+		 * Optional function to log debug entries asynchronously.
+		 */
+		add?: (entry: DebugLogEntry) => Promise<void>;
+
+		/**
+		 * Function that fetches articles from the provided sources.
+		 * Should return a list of articles and any per-source errors.
+		 */
 		fetchAllSources?: (
 			sources: Source[],
 			since?: Date,
 		) => Promise<{ articles: Article[]; errors: { endpoint: string; error: string }[] }>;
+
+		/**
+		 * Function to add multiple unique articles to the local DB.
+		 * Returns the number of articles successfully added.
+		 */
 		addUniqueArticles?: (articles: Article[]) => Promise<number>;
+
+		/** Node.js HTTP response object */
 		res: ServerResponse;
+
+		/** Request body */
 		body?: { sources?: Source[]; since?: string };
 	}) => {
 		res.setHeader("Content-Type", "application/json");
@@ -65,19 +87,53 @@ export const fetchLocalArticlesRoute: RouteHandler = {
 		const sources = Array.isArray(body?.sources) ? body.sources : [];
 		const since = body?.since ? new Date(body.since) : undefined;
 
-		try {
-			// Fetch articles from provided sources with optional "since" filtering
-			const { articles, errors } = await fetchAllSources(sources, since);
+		// Fire-and-forget background fetch
+		(async () => {
+			try {
+				const { articles, errors } = await fetchAllSources(sources, since);
 
-			// Save only unique articles to local DB
-			const addedCount = await addUniqueArticles(articles);
+				// Save only unique articles
+				const addedCount = await addUniqueArticles(articles);
 
-			res.end(JSON.stringify({ success: true, added: addedCount, errors }));
-		} catch (err) {
-			const message = (err as Error).message || "Unknown error fetching articles";
-			log(`Error in fetchLocalArticlesRoute: ${message}`, "error");
-			await handleError(res, message, 500, "error");
-		}
+				// Log any fetch errors
+				if (errors && addDebugLog) {
+					log(`fetchAllSources errors: ${JSON.stringify(errors)}`, "error");
+					await addDebugLog({
+						_id: crypto.randomUUID(),
+						timestamp: new Date().toISOString(),
+						message: "fetchAllSources encountered errors",
+						level: "error",
+						meta: { errors },
+					});
+				}
+
+				// Log successful fetch
+				if (addDebugLog) {
+					await addDebugLog({
+						_id: crypto.randomUUID(),
+						timestamp: new Date().toISOString(),
+						message: `Background fetch completed: ${addedCount} new articles`,
+						level: "info",
+						meta: { sources: sources.map((s) => s.name) },
+					});
+				}
+			} catch (err) {
+				const message = (err as Error).message || "Unknown error fetching articles";
+				log(`Background fetch error: ${message}`, "error");
+
+				if (addDebugLog) {
+					await addDebugLog({
+						_id: crypto.randomUUID(),
+						timestamp: new Date().toISOString(),
+						message: `Background fetch failed: ${message}`,
+						level: "error",
+					});
+				}
+			}
+		})();
+
+		// Immediately respond so frontend can show a loader
+		res.end(JSON.stringify({ success: true, message: "Article fetch started" }));
 	},
 };
 

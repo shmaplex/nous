@@ -57,8 +57,8 @@ export async function getP2PNode(config?: NodeConfig) {
 	log("Starting P2P node...");
 
 	// --- Clean leftover locks ---
-	await cleanLockFiles(ORBITDB_KEYSTORE_PATH);
-	await cleanLockFiles(ORBITDB_DB_PATH);
+	// await cleanLockFiles(ORBITDB_KEYSTORE_PATH);
+	// await cleanLockFiles(ORBITDB_DB_PATH);
 
 	// --- Libp2p ---
 	const libp2p = await createLibp2pNode(nodeConfig.libp2pListenAddr, nodeConfig.relayAddresses);
@@ -85,8 +85,17 @@ export async function getP2PNode(config?: NodeConfig) {
 	try {
 		// --- Setup DBs ---
 		debugDB = await setupDebugDB(orbitdb);
+
+		await new Promise((res) => setTimeout(res, 10));
+
 		articleLocalDB = await setupArticleLocalDB(orbitdb);
+
+		await new Promise((res) => setTimeout(res, 10));
+
 		articleAnalyzedDB = await setupArticleAnalyzedDB(orbitdb);
+
+		await new Promise((res) => setTimeout(res, 10));
+
 		articleFederatedDB = await setupArticleFederatedDB();
 
 		status.orbitConnected = true;

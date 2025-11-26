@@ -13,8 +13,9 @@ import { getP2PNode } from "./node";
 import { registerShutdownHandlers, setRunningInstance, shutdownP2PNode } from "./shutdown";
 
 const ORBITDB_KEYSTORE_PATH =
-	process.env.KEYSTORE_PATH || path.join(process.cwd(), "orbitdb-keystore");
-const ORBITDB_DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "orbitdb-databases");
+	process.env.KEYSTORE_PATH || path.join(process.cwd(), "frontend/orbitdb-keystore");
+const ORBITDB_DB_PATH =
+	process.env.DB_PATH || path.join(process.cwd(), "frontend/orbitdb-databases");
 
 // Ensure directories exist
 [ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
@@ -54,6 +55,9 @@ export async function startP2PNode(config: NodeConfig) {
 		status: nodeStatus,
 		orbitdbConnected: Boolean(orbitdb),
 		httpPort: config.httpPort,
+
+		// Pass custom database methods
+		...debugDB,
 		...articleLocalDB,
 		...articleAnalyzedDB,
 		...articleFederatedDB,

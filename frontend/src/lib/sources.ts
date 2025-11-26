@@ -2,20 +2,13 @@
 import { DEFAULT_SOURCES } from "@/constants/sources";
 import {
 	type Article,
-	type ArticlesBySource,
 	type AuthType,
-	type Edition,
-	editions,
-	type PoliticalBias,
-	PoliticalBiasValues,
 	type Source,
 	type SourceCategory,
 	SourcesSchema,
 	type SourceWithHidden,
 } from "@/types";
-import { FetchArticlesBySources, LoadSources, SaveSources } from "../../wailsjs/go/main/App";
-import { getNormalizer } from "./normalizers";
-import { getParser } from "./parsers";
+import { FetchLocalArticles, LoadSources, SaveSources } from "../../wailsjs/go/main/App";
 
 /**
  * Normalize raw source data into a valid Source object.
@@ -161,85 +154,63 @@ export const getAvailableSources = async (): Promise<Source[]> => {
 };
 
 /**
- * Fetch articles from all available sources.
+ * Fetch articles from the local Node/OrbitDB store.
+ * Uses the Wails backend `FetchLocalArticles` endpoint.
+ * Optionally polls every `pollInterval` ms for new articles.
  *
- * This function:
- * 1. Gets all currently available sources (free or with an API key applied)
- * 2. Calls the Wails backend `FetchArticlesBySources` to fetch raw feed data
- *    (JSON, RSS/XML, HTML, etc.) for each source
- * 3. Parses and normalizes each source’s raw data using its configured parser
- *    and normalizer into the unified `Article` type
- * 4. Returns a flattened array of valid articles
- *
- * @returns Array of fully parsed and normalized articles
+ * Returns a live array of articles with a `.stop()` method to cancel polling.
  */
-export const fetchArticlesBySources = async (): Promise<Article[]> => {
-	try {
-		const availableSources = await getAvailableSources();
-		if (availableSources.length === 0) return [];
+export const fetchArticlesBySources = async (
+	pollInterval = 5000,
+): Promise<Article[] & { stop: () => void }> => {
+	const seenUrls = new Set<string>();
+	const collected: Article[] = [];
 
-		console.log("availableSources", availableSources);
+	// Correct NodeJS typing for interval
+	let intervalId: NodeJS.Timeout | null = null;
 
-		// Fetch raw feed data from backend (returns ArticlesBySource: { [sourceName]: rawData })
-		const backendResult: ArticlesBySource = await FetchArticlesBySources(availableSources);
+	const fetchOnce = async () => {
+		try {
+			const backendResult: Article[] = JSON.parse(await FetchLocalArticles());
 
-		if (typeof backendResult !== "object" || backendResult === null) {
-			console.error("Invalid backend response: expected object keyed by source.");
-			return [];
-		}
-
-		const allNormalized: Article[] = [];
-
-		// Process each source individually
-		for (const source of availableSources) {
-			const rawForSource = backendResult[source.name];
-
-			if (!rawForSource) {
-				console.warn(`No raw data returned for source: ${source.name}`);
-				continue;
+			if (!Array.isArray(backendResult)) {
+				console.warn("Invalid backend response: expected array of Articles.");
+				return;
 			}
 
-			// Get the parser/normalizer functions from the registry
-			const parser = getParser(source);
-			const normalizer = getNormalizer(source);
+			for (const article of backendResult) {
+				if (!seenUrls.has(article.url)) {
+					collected.push(article);
+					seenUrls.add(article.url);
+				}
+			}
 
-			// Parse raw feed data (JSON, RSS/XML, HTML, etc.)
-			const parsedItems = parser(rawForSource, source) ?? [];
-
-			// Normalize parsed items into standard Article shape
-			const normalizedItems = parsedItems.map((item) => normalizer(item, source));
-
-			allNormalized.push(...normalizedItems);
+			console.log(
+				`Fetched ${backendResult.length} articles. Total unique collected: ${collected.length}`,
+			);
+		} catch (err) {
+			console.error("Error fetching local articles:", err);
 		}
+	};
 
-		// Final validation & cleanup: only keep items with title and URL
-		const validArticles: Article[] = allNormalized
-			.filter((a) => a?.url && a?.title)
-			.map((a) => {
-				const edition: Edition = editions.includes(a.edition as Edition)
-					? (a.edition as Edition)
-					: "other";
+	// Initial fetch
+	await fetchOnce();
 
-				const bias: PoliticalBias =
-					a.sourceMeta?.bias && PoliticalBiasValues.includes(a.sourceMeta.bias)
-						? (a.sourceMeta.bias as PoliticalBias)
-						: "center";
+	// Start polling
+	intervalId = setInterval(fetchOnce, pollInterval);
 
-				return {
-					...a,
-					analyzed: false as const,
-					edition,
-					sourceMeta: a.sourceMeta ? { ...a.sourceMeta, bias } : undefined,
+	// Return array with stop() to cancel polling
+	return new Proxy(collected, {
+		get(target, prop) {
+			if (prop === "stop") {
+				return () => {
+					if (intervalId) {
+						clearInterval(intervalId); // NodeJS.Timeout works with clearInterval
+						intervalId = null;
+					}
 				};
-			});
-
-		console.log(
-			`Fetched + normalized ${validArticles.length} total articles from ${availableSources.length} sources.`,
-		);
-
-		return validArticles;
-	} catch (err) {
-		console.error("Failed to fetch articles by sources:", err);
-		return [];
-	}
+			}
+			return Reflect.get(target, prop);
+		},
+	}) as Article[] & { stop: () => void };
 };

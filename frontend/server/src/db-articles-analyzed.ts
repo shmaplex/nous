@@ -6,7 +6,7 @@
  * functions for saving, deleting, querying, and retrieving AI-analyzed articles.
  */
 
-import type { OrbitDB } from "@orbitdb/core";
+import { Documents, type OrbitDB } from "@orbitdb/core";
 import { addDebugLog, log } from "@/lib/log.server";
 import type { ArticleAnalyzed } from "@/types";
 
@@ -42,7 +42,7 @@ export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleA
 	}
 
 	const db = (await orbitdb.open("nous.analyzed.feed", {
-		type: "documents",
+		Database: Documents({ indexBy: "id" }) as any, // cast to satisfy TS
 		meta: { indexBy: "id" },
 	})) as any;
 

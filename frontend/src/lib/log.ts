@@ -1,18 +1,16 @@
-// frontend/src/lib/log.ts
-import { v4 as uuidv4 } from "uuid";
-import type { DebugLogEntry } from "@/types";
+import { z } from "zod";
+import { type DebugLogEntry, DebugLogEntrySchema } from "@/types";
+import { parseApiResponse } from "@/types/api";
 import { AddDebugLog, FetchDebugLogs } from "../../wailsjs/go/main/App";
 
 /**
  * Console log helper
  * @param message Message to log
- * @param save Whether to also persist via backend/Wails
+ * @param save Whether to persist via backend/Wails
  */
 export function log(message: string, save = false) {
 	console.log(`[P2P NODE] ${new Date().toISOString()} - ${message}`);
-	if (save) {
-		addDebugLog({ message });
-	}
+	if (save) addDebugLog({ message });
 }
 
 /**
@@ -25,29 +23,22 @@ export async function addDebugLog(entry: {
 	type?: string;
 }) {
 	const logEntry: DebugLogEntry = {
-		_id: uuidv4(),
+		_id: crypto.randomUUID(),
 		timestamp: new Date().toISOString(),
 		message: entry.message,
 		level: entry.level ?? "info",
 		meta: { ...entry.meta, type: entry.type },
 	};
 
-	// console output
-	switch (logEntry.level) {
-		case "warn":
-			console.warn(`[DEBUG] ${logEntry.timestamp} - ${logEntry.message}`);
-			break;
-		case "error":
-			console.error(`[DEBUG] ${logEntry.timestamp} - ${logEntry.message}`);
-			break;
-		default:
-			console.log(`[DEBUG] ${logEntry.timestamp} - ${logEntry.message}`);
-	}
+	// local console output
+	const prefix = `[DEBUG] ${logEntry.timestamp} - ${logEntry.message}`;
+	if (logEntry.level === "warn") console.warn(prefix);
+	else if (logEntry.level === "error") console.error(prefix);
+	else console.log(prefix);
 
 	try {
-		// Use Wails Go backend function
 		if (AddDebugLog) {
-			await AddDebugLog(logEntry.message, logEntry.level, logEntry.meta || {});
+			await AddDebugLog(logEntry);
 		} else {
 			console.warn("Wails AddDebugLog not available, skipping backend save");
 		}
@@ -57,19 +48,23 @@ export async function addDebugLog(entry: {
 }
 
 /**
- * Fetch all debug logs via Wails backend
+ * Fetch all debug logs using the APIResponse<T> schema
  */
 export async function getDebugLogs(): Promise<DebugLogEntry[]> {
 	try {
-		if (FetchDebugLogs) {
-			const res = await FetchDebugLogs();
-			const logs: DebugLogEntry[] = JSON.parse(res || "[]");
-			return logs;
+		const raw = await FetchDebugLogs(); // returns JSON string from backend
+
+		// Parse response using generic helper, specifying an array of DebugLogEntry
+		const response = parseApiResponse(JSON.parse(raw), z.array(DebugLogEntrySchema));
+
+		if (!response.success) {
+			console.warn("Debug logs fetch error:", response.error);
+			return [];
 		}
-		console.warn("Wails FetchDebugLogs not available, returning empty array");
-		return [];
+
+		return response.data ?? [];
 	} catch (err) {
-		console.error("Error fetching debug logs via backend:", err);
+		console.error("Failed to fetch debug logs:", err);
 		return [];
 	}
 }

@@ -115,6 +115,9 @@ func (a *App) StopP2PNode() string {
 		a.p2pCmd = nil
 	}
 
+	// remove leftover LOCK files
+	CleanOrbitDBLocks()
+
 	// Kill any leftover Node processes
 	KillLingeringNode()
 	return "P2P node stopped"

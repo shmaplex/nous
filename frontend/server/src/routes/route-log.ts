@@ -53,17 +53,17 @@ export const postDebugLogRoute: RouteHandler = {
 		res: ServerResponse;
 		body?: {
 			_id?: string;
+			timestamp?: string;
 			message: string;
 			level?: "info" | "warn" | "error";
 			meta?: Record<string, any>;
 		};
 	}) => {
-		res.setHeader("Content-Type", "application/json");
-
 		if (!add) {
 			await handleError(res, "Debug DB add() not provided", 500, "error");
 			return;
 		}
+		console.log("body", body);
 
 		if (!body || !body.message) {
 			await handleError(res, "Missing log message", 400, "warn");
@@ -73,10 +73,10 @@ export const postDebugLogRoute: RouteHandler = {
 		try {
 			const entry: DebugLogEntry = {
 				_id: body._id || crypto.randomUUID(),
-				timestamp: new Date().toISOString(),
+				timestamp: body.timestamp || new Date().toISOString(),
 				message: body.message,
 				level: body.level ?? "info",
-				meta: body.meta,
+				meta: body.meta ?? {},
 			};
 
 			await add(entry);

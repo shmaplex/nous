@@ -32,7 +32,10 @@ export function LoadingOverlay({ open, status, progress }: LoadingOverlayProps) 
 
 	return (
 		<Dialog open={open}>
-			<DialogContent className="max-w-md border-none bg-background/60 backdrop-blur-xl shadow-xl">
+			<DialogContent
+				className="border-none bg-background/60 backdrop-blur-xl shadow-xl z-50"
+				showCloseButton={false}
+			>
 				<div className="text-center flex flex-col items-center space-y-6 py-8 px-4">
 					{/* Title */}
 					<h2 className="text-2xl font-semibold">Loading your news intelligence...</h2>

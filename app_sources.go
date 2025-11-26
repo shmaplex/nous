@@ -57,7 +57,7 @@ func (a *App) LoadSources() ([]Source, error) {
 
 // FetchArticlesBySources fetches raw data from all sources and returns a map keyed by source name
 func (a *App) FetchArticlesBySources(sources []Source) (ArticlesBySource, error) {
-	url := fmt.Sprintf("%s/articles/sources/fetch", GetNodeBaseUrl())
+	url := fmt.Sprintf("%s/articles/local/fetch", GetNodeBaseUrl())
 	body := map[string]interface{}{"sources": sources}
 
 	bodyJSON, err := json.Marshal(body)
