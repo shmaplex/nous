@@ -9,7 +9,8 @@ frontend/package.json.md5
 # ---------------------------
 # Build output
 # ---------------------------
-build/
+build/*
+!build/appicon.png
 *.exe
 *.dll
 *.so
