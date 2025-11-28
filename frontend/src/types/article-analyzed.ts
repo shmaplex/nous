@@ -50,11 +50,45 @@ export const ArticleAnalyzedSchema = z.object({
 	/** Overall sentiment, e.g., positive/negative/neutral, optional */
 	sentiment: z.string().optional(),
 
+		/** Sentiment valence score (-1 to 1) */
+	sentimentValence: z.number().min(-1).max(1).optional(),
+
 	/** Tags or keywords extracted from the article */
 	tags: z.array(z.string()).optional(),
 
 	/** Array of detected cognitive biases (AI-driven analysis) */
 	cognitiveBiases: z.array(CognitiveBiasSchema).optional(),
+
+	/** Level of clickbait in the article (low, medium, high) */
+	clickbaitLevel: z.enum(["low", "medium", "high", "unknown"]).optional(),
+
+	/** Credibility of the article (low, medium, high) */
+	credibilityLevel: z.enum(["low", "medium", "high", "unknown"]).optional(),
+
+	/** Emotional content of the article */
+	emotionalPalette: z
+		.object({
+			/** Dominant emotion */
+			dominant: z.string(),
+			/** Secondary emotion */
+			secondary: z.string().optional(),
+		})
+		.optional(),
+
+	/** Readability metrics */
+	readability: z
+		.object({
+			fleschEase: z.number().optional(),
+			fleschGrade: z.number().optional(),
+			readingLevel: z.string().optional(),
+		})
+		.optional(),
+
+	/** Subjectivity level (low, medium, high) */
+	subjectivityLevel: z.enum(["low", "medium", "high", "unknown"]).optional(),
+
+	/** Trustworthiness score (numeric, e.g., 1-5) */
+	trustworthiness: z.number().min(1).max(5).optional(),
 
 	// ----------------------
 	// Metadata
