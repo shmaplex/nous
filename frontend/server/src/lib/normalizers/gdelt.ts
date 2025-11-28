@@ -30,7 +30,7 @@ export const normalizeGdelt: NormalizerFn = (a: Article): Article => {
 		analyzed: a.analyzed ?? false,
 		confidence: a.confidence ?? 0.8,
 
-		raw: a.raw ?? a,
+		// raw: a.raw,
 		sourceMeta: a.sourceMeta ?? ({ name: a.source ?? "GDELT", bias: "center" } as SourceMeta),
 		fetchedAt: a.fetchedAt ?? new Date().toISOString(),
 	};

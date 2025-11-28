@@ -8,7 +8,7 @@ import {
 	SourcesSchema,
 	type SourceWithHidden,
 } from "@/types";
-import { FetchLocalArticles, LoadSources, SaveSources } from "../../wailsjs/go/main/App";
+import { FetchArticlesBySources, LoadSources, SaveSources } from "../../wailsjs/go/main/App";
 
 /**
  * Normalize raw source data into a valid Source object.
@@ -154,63 +154,30 @@ export const getAvailableSources = async (): Promise<Source[]> => {
 };
 
 /**
- * Fetch articles from the local Node/OrbitDB store.
- * Uses the Wails backend `FetchLocalArticles` endpoint.
- * Optionally polls every `pollInterval` ms for new articles.
- *
- * Returns a live array of articles with a `.stop()` method to cancel polling.
+ * Fetch articles from the backend using the provided sources.
+ * Passes full source objects to Wails → Go → Node.
+ * ONE-SHOT function — no internal polling.
  */
-export const fetchArticlesBySources = async (
-	pollInterval = 5000,
-): Promise<Article[] & { stop: () => void }> => {
-	const seenUrls = new Set<string>();
-	const collected: Article[] = [];
-
-	// Correct NodeJS typing for interval
-	let intervalId: NodeJS.Timeout | null = null;
-
-	const fetchOnce = async () => {
-		try {
-			const backendResult: Article[] = JSON.parse(await FetchLocalArticles());
-
-			if (!Array.isArray(backendResult)) {
-				console.warn("Invalid backend response: expected array of Articles.");
-				return;
-			}
-
-			for (const article of backendResult) {
-				if (!seenUrls.has(article.url)) {
-					collected.push(article);
-					seenUrls.add(article.url);
-				}
-			}
-
-			console.log(
-				`Fetched ${backendResult.length} articles. Total unique collected: ${collected.length}`,
-			);
-		} catch (err) {
-			console.error("Error fetching local articles:", err);
+export const fetchArticlesBySources = async (sources: Source[]): Promise<Article[]> => {
+	try {
+		if (!Array.isArray(sources)) {
+			console.warn("fetchArticlesBySources: invalid sources array");
+			return [];
 		}
-	};
 
-	// Initial fetch
-	await fetchOnce();
+		// Send actual sources to backend
+		const raw = await FetchArticlesBySources(sources);
 
-	// Start polling
-	intervalId = setInterval(fetchOnce, pollInterval);
+		const parsed: Article[] = JSON.parse(raw);
 
-	// Return array with stop() to cancel polling
-	return new Proxy(collected, {
-		get(target, prop) {
-			if (prop === "stop") {
-				return () => {
-					if (intervalId) {
-						clearInterval(intervalId); // NodeJS.Timeout works with clearInterval
-						intervalId = null;
-					}
-				};
-			}
-			return Reflect.get(target, prop);
-		},
-	}) as Article[] & { stop: () => void };
+		if (!Array.isArray(parsed)) {
+			console.warn("Invalid backend response — expected Article[]");
+			return [];
+		}
+
+		return parsed;
+	} catch (err) {
+		console.error("Error fetching articles from sources:", err);
+		return [];
+	}
 };

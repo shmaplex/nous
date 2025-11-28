@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PoliticalBias, PoliticalBiasValues } from "./article";
 import { SourceNormalizerSchema } from "./normalizer";
 import { SourceParserSchema } from "./parser";
 
@@ -42,6 +43,36 @@ export const SourceCategories = [
 
 export type SourceCategory = (typeof SourceCategories)[number];
 
+/** Static list of ownership types */
+export const OwnershipTypes = [
+  "private",
+  "government",
+  "ngo",
+  "conglomerate",
+  "independent",
+  "unknown",
+] as const;
+
+/** Ownership type literal */
+export type OwnershipType = (typeof OwnershipTypes)[number];
+
+/**
+ * Zod schema describing media ownership info.
+ */
+export const OwnershipSchema = z.object({
+  /** Official company or organization name */
+  companyName: z.string(),
+
+  /** Type of ownership (private, government, NGO, etc.) */
+  type: z.enum(OwnershipTypes),
+
+  /** Optional country code (ISO 3166-1), e.g. "US" or "KR" */
+  country: z.string().length(2).optional(),
+});
+
+/** TypeScript type inferred from OwnershipSchema */
+export type Ownership = z.infer<typeof OwnershipSchema>;
+
 /**
  * List of authentication types that a source may require.
  */
@@ -55,6 +86,15 @@ export const AuthTypes = [
 ] as const;
 
 export type AuthType = (typeof AuthTypes)[number];
+
+/**
+ * Options for the factuality rating of a source.
+ * Used to indicate the credibility or accuracy of the source.
+ */
+export const FactualityOptions = ["high", "medium", "low", "unknown"] as const;
+
+/** TypeScript type for factuality rating */
+export type Factuality = (typeof FactualityOptions)[number];
 
 /**
  * Extends Source with hidden and default flags.
@@ -152,6 +192,29 @@ export const SourceSchema = z.object({
 	 * Defaults to `"json"` because it's the most common structure.
 	 */
 	normalizer: SourceNormalizerSchema.default("json"),
+
+	/**
+	 * Default political bias of the source.
+	 * Useful for initial classification of articles from this source.
+	 */
+	bias: z.enum(PoliticalBiasValues).default("unknown"),
+
+	/**
+   * Factuality rating of the source.
+   * Indicates the credibility of the source (High / Medium / Low)
+   */
+  factuality: z.enum(FactualityOptions).optional(),
+
+	/**
+   * Structured ownership information for the source.
+   */
+  ownership: OwnershipSchema.optional(),
+
+	/**
+	 * Confidence score for the source's bias classification
+	 * Range: 0 (uncertain) to 1 (fully confident)
+	 */
+	confidence: z.number().min(0).max(1).optional().nullable(),
 
 	/**
 	 * ISO timestamp of the last successful fetch.

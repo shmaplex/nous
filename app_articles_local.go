@@ -5,6 +5,17 @@ import (
 	"log"
 )
 
+// Fetch article by ID, CID or URL
+func (a *App) FetchLocalArticle(idOrCIDOrURL string) string {
+	url := fmt.Sprintf("%s/articles/local/full?id=%s", GetNodeBaseUrl(), idOrCIDOrURL)
+	body, err := get(url)
+	if err != nil {
+		log.Printf("Error fetching local article: %v", err)
+		return fmt.Sprintf("Error fetching local article: %v", err)
+	}
+	return body
+}
+
 // FetchLocalArticles retrieves only local articles from the HTTP service
 func (a *App) FetchLocalArticles() string {
 	url := fmt.Sprintf("%s/articles/local", GetNodeBaseUrl())

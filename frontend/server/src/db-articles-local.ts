@@ -1,11 +1,13 @@
 // frontend/src/p2p/db-articles-local.ts
 import { Documents, type OrbitDB } from "@orbitdb/core";
+import type { Helia } from "helia";
 import { smartFetch } from "@/lib/fetch.server";
 import { addDebugLog, log } from "@/lib/log.server";
 import { getNormalizer, normalizePublishedAt } from "@/lib/normalizers";
 import { cleanArticlesForDB, getParser } from "@/lib/parsers";
-import type { Source } from "@/types";
+import type { ArticleAnalyzed, Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
+import { fetchArticleFromIPFS, saveArticleToIPFS, saveJSONToIPFS } from "./lib/ipfs.server";
 
 /**
  * Explicit type for the local articles DB instance
@@ -51,6 +53,11 @@ export interface ArticleLocalDB {
 		articles: Article[];
 		errors: { endpoint: string; error: string }[];
 	}>;
+
+	/**
+	 * Loads the full article content using a 3-tier resolution strategy
+	 */
+	getFullLocalArticle: (article: Article, helia: Helia) => Promise<Article | ArticleAnalyzed>;
 }
 
 // Singleton instance
@@ -76,7 +83,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 
 	// Listen for peer updates
 	db.events.on("update", async (entry: any) => {
-		const msg = `🔄 Article Local Update from peer: ${JSON.stringify(entry)}`;
+		const msg = `🔄 Article Local update from peer: ${JSON.stringify(entry)}`;
 		// log(JSON.stringify(msg, null, 2));
 		await addDebugLog({ message: msg, level: "info" });
 
@@ -86,16 +93,32 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 		await addDebugLog({ message: countMsg, level: "info" });
 	});
 
+	// Listen for peer database replications
+	db.events.on("replicated", (address: string) => {
+		console.log("🔄 Local DB replicated from peer", address);
+	});
+
 	/**
 	 * Save a single article if it does not exist
 	 * @param doc - Article to save
 	 */
-	async function saveLocalArticle(doc: Article) {
+	async function saveLocalArticle(doc: Article, helia?: Helia) {
 		const exists = await db.get(doc.url);
 		if (exists) {
 			log(`Skipping duplicate article: ${doc.id} / ${doc.url}`);
 			return;
 		}
+
+		// Add content to IPFS if Helia provided
+		if (helia && doc.content && !doc.ipfsHash) {
+			try {
+				const cid = await saveArticleToIPFS(helia, doc);
+				if (cid) doc.ipfsHash = cid;
+			} catch (err) {
+				log(`Failed to add content to IPFS for ${doc.url}: ${(err as Error).message}`, "warn");
+			}
+		}
+
 		await db.put(doc);
 		const msg = `Saved to local DB: ${doc.id} / ${doc.url}`;
 		log(msg);
@@ -195,7 +218,6 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 	 */
 	async function getAllLocalArticles(sources?: Source[]): Promise<Article[]> {
 		let articles = (await db.query(() => true)) ?? [];
-		log(`getAllLocalArticles: ${JSON.stringify(articles, null, 2)}`);
 		if (sources && sources.length > 0) {
 			const enabledEndpoints = new Set(sources.filter((s) => s.enabled).map((s) => s.endpoint));
 			articles = articles.filter((a: Article) => enabledEndpoints.has(a.source || ""));
@@ -204,11 +226,20 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 	}
 
 	/**
-	 * Get a single article by URL
-	 * @param url - URL of the article
+	 * Get a single article by URL, ID, or IPFS CID
+	 * @param identifier - The article's URL, internal ID, or IPFS CID
 	 */
-	async function getLocalArticle(url: string): Promise<Article | null> {
-		return (await db.get(url)) ?? null;
+	async function getLocalArticle(identifier: string): Promise<Article | null> {
+		// 1️⃣ Try direct lookup by URL
+		const article = await db.get(identifier);
+		if (article) return article;
+
+		// 2️⃣ Fallback: query by ID or IPFS CID
+		const results: Article[] = await db.query(
+			(doc: Article) => doc.id === identifier || doc.ipfsHash === identifier,
+		);
+
+		return results.length > 0 ? results[0] : null;
 	}
 
 	/**
@@ -237,6 +268,85 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 		return added;
 	}
 
+	/**
+	 * Load full article content using a 3-tier resolution strategy:
+	 *   1. Use content already on the article object
+	 *   2. Load full Article from IPFS via article.ipfsHash
+	 *   3. Fetch from the source endpoint, store raw, content, summary, and save to IPFS + OrbitDB
+	 *
+	 * Cached results are always stored back into OrbitDB.
+	 *
+	 * @async
+	 * @param helia - Active Helia node
+	 * @param article - Article metadata (may or may not include content)
+	 * @param fetchFromSource - Optional function to fetch full content from the source URL
+	 * @param summarizeContent - Optional function to generate a summary from full content
+	 * @param saveLocalArticle - Function to save to OrbitDB
+	 * @returns Article with guaranteed `.content` and `.summary` if retrievable
+	 */
+	async function getFullLocalArticle(
+		article: Article,
+		helia: Helia,
+		fetchFromSource?: (url: string) => Promise<string>,
+		summarizeContent?: (text: string) => Promise<string>,
+		saveLocalArticle?: (article: Article | ArticleAnalyzed, helia?: Helia) => Promise<void>,
+	): Promise<Article | ArticleAnalyzed> {
+		// 1️⃣ Already have content?
+		if (article.content && article.summary) return article;
+
+		// 2️⃣ Try loading full Article from IPFS
+		if (article.ipfsHash) {
+			try {
+				const fetched = await fetchArticleFromIPFS(helia, article.ipfsHash);
+				if (fetched) {
+					if (saveLocalArticle) await saveLocalArticle(fetched, helia);
+					return fetched;
+				}
+			} catch (err) {
+				log(`IPFS load failed for ${article.id}: ${(err as Error).message}`, "warn");
+			}
+		}
+
+		// 3️⃣ Fetch from source URL if missing content
+		if (fetchFromSource && article.url) {
+			try {
+				const rawContent = await fetchFromSource(article.url);
+				if (rawContent) {
+					const updated: Article = {
+						...article,
+						raw: rawContent,
+						content: rawContent, // could add extraction logic if needed
+						summary: summarizeContent ? await summarizeContent(rawContent) : undefined,
+						fetchedAt: new Date().toISOString(),
+					};
+
+					// Save updated Article to IPFS
+					if (helia && updated.content) {
+						try {
+							const cid = await saveArticleToIPFS(helia, updated);
+							updated.ipfsHash = cid;
+						} catch (err) {
+							log(
+								`Failed to save Article to IPFS for ${article.id}: ${(err as Error).message}`,
+								"warn",
+							);
+						}
+					}
+
+					// Save updated Article to OrbitDB
+					if (saveLocalArticle) await saveLocalArticle(updated, helia);
+
+					return updated;
+				}
+			} catch (err) {
+				log(`Network fetch failed for article ${article.id}: ${(err as Error).message}`, "warn");
+			}
+		}
+
+		// 4️⃣ Return original if nothing worked
+		return article;
+	}
+
 	// Save singleton
 	articleLocalDBInstance = {
 		articleLocalDB: db,
@@ -247,6 +357,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 		queryLocalArticles,
 		addUniqueLocalArticles,
 		fetchAllLocalSources,
+		getFullLocalArticle,
 	};
 
 	log(`✅ Local Article DB setup complete with ${db.address?.toString()}`);

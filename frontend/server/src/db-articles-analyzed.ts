@@ -48,7 +48,7 @@ export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleA
 
 	// Listen for updates from peers
 	db.events.on("update", async (entry: any) => {
-		const msg = `🔄 Analyzed DB Update from peer (analyzed): ${JSON.stringify(entry)}`;
+		const msg = `🔄 Analyzed DB update from peer: ${JSON.stringify(entry)}`;
 		log(JSON.stringify(msg, null, 2));
 		await addDebugLog({ message: msg, level: "info" });
 
@@ -56,6 +56,11 @@ export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleA
 		const countMsg = `📦 Analyzed articles in DB: ${all.length}`;
 		log(countMsg);
 		await addDebugLog({ message: countMsg, level: "info" });
+	});
+
+	// Listen for peer database replications
+	db.events.on("replicated", (address: string) => {
+		console.log("🔄 Analyzed DB replicated from peer", address);
 	});
 
 	/** Save an analyzed article */

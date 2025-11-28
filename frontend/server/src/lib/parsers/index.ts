@@ -36,8 +36,7 @@ export function getParser(source: Source): ParserFn {
  * @param u - URL string to validate
  * @returns Valid URL string or undefined
  */
-export const safeUrl = (u: string | undefined): string | undefined =>
-	u && u.trim() !== "" ? u : undefined;
+export const safeUrl = (u: string | undefined): string | null => (u && u.trim() !== "" ? u : null);
 
 /**
  * Safely parses a date-like value into an ISO string.

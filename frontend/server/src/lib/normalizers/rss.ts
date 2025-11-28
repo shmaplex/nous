@@ -5,7 +5,7 @@ import { editions } from "@/types";
 /**
  * Normalizer for standard RSS feed entries.
  */
-export const normalizeRss: NormalizerFn = (item, source): Article => {
+export const normalizeRss: NormalizerFn = (item, source: Source): Article => {
 	return {
 		id: item.link ?? item.guid ?? crypto.randomUUID(),
 		title: item.title ?? "Untitled",
@@ -20,6 +20,6 @@ export const normalizeRss: NormalizerFn = (item, source): Article => {
 		edition: editions.includes(item.edition as Edition) ? (item.edition as Edition) : "other",
 		analyzed: false,
 		raw: item,
-		sourceMeta: { name: source.name, bias: "center" },
+		sourceMeta: { name: source.name, bias: source.bias },
 	};
 };

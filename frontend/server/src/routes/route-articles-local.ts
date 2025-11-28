@@ -1,5 +1,6 @@
 // frontend/src/p2p/routes/route-article-local.ts
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { Helia } from "helia";
 import { addDebugLog, log } from "@/lib/log.server";
 import type { Article, DebugLogEntry, RouteHandler, Source } from "@/types";
 import { handleError } from "./helpers";
@@ -8,8 +9,8 @@ import { handleError } from "./helpers";
  * Simple in-memory throttle map to limit requests per IP
  */
 const throttleMap = new Map<string, { count: number; lastRequest: number }>();
-const THROTTLE_LIMIT = 5; // max requests per TIME_WINDOW
-const TIME_WINDOW = 1000 * 10; // 10 seconds
+const THROTTLE_LIMIT = 15; // max requests per TIME_WINDOW
+const TIME_WINDOW = 1000 * 5; // 5 seconds
 
 /**
  * POST /articles/local/fetch
@@ -208,43 +209,73 @@ export const getAllLocalArticlesRoute: RouteHandler = {
 };
 
 /**
- * GET /articles/local/:url
- * Fetch a single source article by URL
+ * GET /articles/local/full
+ * Fetch a single local article by ID, CID, or URL,
+ * ensure content is fetched from the source if missing,
+ * store summary and full content, and run analysis if needed.
  */
-export const getLocalArticleByUrlRoute: RouteHandler = {
+export const getFullLocalArticleRoute: RouteHandler = {
 	method: "GET",
-	path: "/articles/local/",
+	path: "/articles/local/full",
 	handler: async ({
 		getLocalArticle,
+		getFullLocalArticle,
+		analyzeArticle,
+		helia,
+		req,
 		res,
-		url,
 	}: {
-		getLocalArticle?: (url: string) => Promise<Article | null>;
-		res: ServerResponse<any>;
-		url?: string;
+		getLocalArticle?: (idOrCidOrUrl: string) => Promise<Article | null>;
+		getFullLocalArticle?: (article: Article, helia: Helia) => Promise<Article>;
+		analyzeArticle?: (article: Article) => Promise<Article>;
+		helia?: Helia;
+		req: IncomingMessage;
+		res: ServerResponse;
 	}) => {
 		res.setHeader("Content-Type", "application/json");
 
 		if (!getLocalArticle) {
-			await handleError(res, "getLocalArticle not provided", 500, "error");
+			await handleError(res, "getLocalArticle function not provided", 500, "error");
+			return;
+		}
+		if (!getFullLocalArticle) {
+			await handleError(res, "getFullLocalArticle function not provided", 500, "error");
+			return;
+		}
+		if (!helia) {
+			await handleError(res, "Helia node not provided", 500, "error");
 			return;
 		}
 
 		try {
-			const pathParts = url?.split("/") || [];
-			const articleUrl = decodeURIComponent(pathParts.slice(3).join("/"));
-			if (!articleUrl) {
-				await handleError(res, "No article URL provided", 400, "warn");
+			// Parse query params: id, cid, or url
+			const urlParams = new URLSearchParams(req.url?.split("?")[1] ?? "");
+			const id = urlParams.get("id");
+			const cid = urlParams.get("cid");
+			const url = urlParams.get("url");
+
+			if (!id && !cid && !url) {
+				await handleError(res, "No article ID, CID, or URL provided", 400, "warn");
 				return;
 			}
 
-			const article = await getLocalArticle(articleUrl);
+			const lookupKey = id || cid || url!;
+			const article = await getLocalArticle(lookupKey);
 			if (!article) {
-				await handleError(res, `Article not found: ${articleUrl}`, 404, "warn");
+				await handleError(res, `Article not found for ID/CID/URL: ${lookupKey}`, 404, "warn");
 				return;
 			}
 
-			res.end(JSON.stringify(article));
+			// Load full content from IPFS or source if missing
+			const fullArticle = await getFullLocalArticle(article, helia);
+
+			// Run AI analysis if not already done
+			let analyzedArticle = fullArticle;
+			if (!fullArticle.analyzed && analyzeArticle) {
+				analyzedArticle = await analyzeArticle(fullArticle);
+			}
+
+			res.end(JSON.stringify(analyzedArticle));
 		} catch (err) {
 			const message = (err as Error).message;
 			await handleError(res, `Error fetching article: ${message}`, 500, "error");
@@ -373,7 +404,7 @@ export const deleteLocalArticleRoute: RouteHandler = {
 export const routes: RouteHandler[] = [
 	fetchLocalArticlesRoute,
 	getAllLocalArticlesRoute,
-	getLocalArticleByUrlRoute,
+	getFullLocalArticleRoute,
 	refetchLocalArticlesRoute,
 	saveLocalArticleRoute,
 	deleteLocalArticleRoute,

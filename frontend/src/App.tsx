@@ -1,9 +1,21 @@
+/**
+ * @file App.tsx
+ * @description
+ * Main application entry for the Nous Desktop Client.
+ *
+ * Handles:
+ *  - Startup sequencing and P2P readiness checks
+ *  - Fetching articles from backend (Go → P2P node)
+ *  - Polling local OrbitDB until articles available
+ *  - Rendering UI sections (header, filters, grid, modals, debug, etc)
+ */
+
 import { useEffect, useRef, useState } from "react";
-import { loadLocalArticles, saveLocalArticlesBatch } from "@/lib/articles/local";
+import { loadLocalArticles } from "@/lib/articles/local";
 import { addDebugLog } from "@/lib/log";
 import {
+	type Article,
 	type ArticleAnalyzed,
-	type ArticleStored,
 	createEmptyDebugStatus,
 	type DebugStatus,
 	type FederatedArticlePointer,
@@ -20,9 +32,16 @@ import SettingsPanel from "./components/settings-panel";
 import StatusBar from "./components/status-bar";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useNodeStatus } from "./hooks/useNodeStatus";
-import { fetchArticlesBySources } from "./lib/sources";
+import { fetchArticlesBySources, getAvailableSources } from "./lib/sources";
 import type { FilterOptions } from "./types/filter";
 
+/** Slow polling to avoid OrbitDB "Too many requests" warnings */
+const POLL_INTERVAL = 5000; // was 500ms
+const MAX_POLL_ATTEMPTS = 25; // 25 × 1.5s = ~37.5s total
+
+/**
+ * Main App Component
+ */
 const App = () => {
 	/** -----------------------------
 	 * Debug Panel State
@@ -34,7 +53,7 @@ const App = () => {
 	/** -----------------------------
 	 * Content State
 	 * ----------------------------- */
-	const [articles, setArticles] = useState<ArticleStored[]>([]);
+	const [articles, setArticles] = useState<Article[]>([]);
 	const [federatedArticles, setFederatedArticles] = useState<FederatedArticlePointer[]>([]);
 	const [analyzedArticles, setAnalyzedArticles] = useState<ArticleAnalyzed[]>([]);
 
@@ -52,6 +71,9 @@ const App = () => {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [addArticleOpen, setAddArticleOpen] = useState(false);
 
+	/** -----------------------------
+	 * Node Status
+	 * ----------------------------- */
 	const status = useNodeStatus();
 
 	/** -----------------------------
@@ -61,153 +83,139 @@ const App = () => {
 	const [loadingStatus, setLoadingStatus] = useState("Starting up…");
 	const [progress, setProgress] = useState(5);
 
-	// Persisted flag to avoid refetching on status changes
-	const fetchedRef = useRef(false);
+	/** Prevent running fetch twice EVER */
+	const fetchOnceRef = useRef(false);
 
-	/** -----------------------------------------
-	 * 🔄 Initialize Debug DB only when P2P node is ready
-	 * ----------------------------------------- */
+	/**
+	 * Initialize debug logging only when the P2P node is fully ready.
+	 */
 	useEffect(() => {
 		const initDebug = async () => {
-			if (!status.running || !status.orbitConnected) {
-				// Not ready yet, skip
-				return;
-			}
-
+			if (!status.running || !status.orbitConnected) return;
 			try {
 				await addDebugLog({ message: "App logger initialized", level: "info" });
 			} catch (err) {
 				console.error("Failed to initialize application logger", err);
 			}
 		};
-
 		initDebug();
 	}, [status.running, status.orbitConnected]);
 
-	// useEffect(() => {
-	// 	const fetchAndLoad = async () => {
-	// 		setLoading(true);
-	// 		setLoadingStatus("Fetching articles…");
-
-	// 		try {
-	// 			// Kick off background fetch
-	// 			await fetchArticlesBySources(); // calls Wails → backend route
-	// 			setLoadingStatus("Loading local database…");
-
-	// 			// Poll local articles until at least one exists
-	// 			let attempts = 0;
-	// 			const maxAttempts = 20;
-	// 			let local: ArticleStored[] = [];
-	// 			while (attempts < maxAttempts) {
-	// 				local = await loadLocalArticles();
-	// 				if (local.length > 0) break;
-
-	// 				attempts++;
-	// 				await new Promise((r) => setTimeout(r, 500)); // wait 0.5s
-	// 			}
-
-	// 			setArticles(local);
-	// 			setLoading(false);
-	// 		} catch (err) {
-	// 			console.error(err);
-	// 			setLoadingStatus("Failed to fetch articles.");
-	// 			setLoading(false);
-	// 		}
-	// 	};
-
-	// 	fetchAndLoad();
-	// }, []);
-
 	/**
-	 * Wait until P2P node, connection, and OrbitDB are ready,
-	 * then fetch articles **once**, save them locally, and finally
-	 * reload from the canonical local DB.
+	 * One-shot startup routine:
+	 *
+	 * 1. Wait for P2P + OrbitDB readiness
+	 * 2. Fire fetchArticlesBySources() EXACTLY ONCE
+	 * 3. Slowly poll local DB until articles exist
+	 * 4. Load articles into UI
 	 */
 	useEffect(() => {
-		const waitForReady = async () => {
-			if (fetchedRef.current) return; // Prevent double fetch
-
-			// Still waiting for services to become ready
+		const run = async () => {
+			// Wait until everything is ready
 			if (!status.running || !status.connected || !status.orbitConnected) {
 				setLoadingStatus("Waiting for P2P node and databases…");
 				setProgress(10);
 				return;
 			}
 
-			fetchedRef.current = true; // Mark as fetched
+			// Ensure the fetch happens EXACTLY once — never again
+			if (fetchOnceRef.current) return;
+			fetchOnceRef.current = true;
 
+			// Give OrbitDB 300ms breathing room to stabilize
+			await new Promise((r) => setTimeout(r, 1000));
+
+			/** -----------------------------
+			 * Step 0 — Load available sources
+			 * ----------------------------- */
+			setLoadingStatus("Loading news sources…");
+			setProgress(20);
+
+			const sources = await getAvailableSources();
+			if (!sources || sources.length === 0) {
+				console.warn("No available sources found.");
+			}
+
+			/** -----------------------------
+			 * Step 1 — Fetch external articles
+			 * ----------------------------- */
 			setLoadingStatus("Fetching articles from sources…");
 			setProgress(40);
 
 			try {
-				/** --------------------------------------------------
-				 * 1. Fetch from external sources
-				 * -------------------------------------------------- */
-				const fetched = await fetchArticlesBySources();
+				await fetchArticlesBySources(sources); // <-- FIXED
+			} catch (err) {
+				console.error("Fetch failed:", err);
+				setLoadingStatus("Failed to fetch external sources.");
+				setProgress(0);
+				return;
+			}
 
-				setLoadingStatus("Saving articles locally…");
-				setProgress(70);
+			/** -----------------------------
+			 * Step 2 — Slow poll until articles appear
+			 * ----------------------------- */
+			setLoadingStatus("Waiting for articles to populate…");
+			setProgress(60);
 
-				/** --------------------------------------------------
-				 * 2. Save into Local DB (validated + deduped backend)
-				 * -------------------------------------------------- */
-				// await saveLocalArticlesBatch(
-				// 	fetched.map((a) => ({
-				// 		...a,
-				// 		fetchedAt: a.fetchedAt ?? new Date().toISOString(),
-				// 		analyzed: false,
-				// 	})),
-				// );
+			let attempts = 0;
+			let found: Article[] = [];
 
-				setLoadingStatus("Loading local database…");
-				setProgress(85);
+			while (attempts < MAX_POLL_ATTEMPTS) {
+				const local = await loadLocalArticles();
 
-				/** --------------------------------------------------
-				 * 3. Load canonical local DB (source of truth)
-				 * -------------------------------------------------- */
-				// const local = await loadLocalArticles();
-				// setArticles(local);
+				if (Array.isArray(local) && local.length > 0) {
+					found = local;
+					break;
+				}
 
+				attempts++;
+				await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+			}
+
+			/** -----------------------------
+			 * Step 3 — Timeout case
+			 * ----------------------------- */
+			if (found.length === 0) {
+				setLoadingStatus("No articles found. Try again?");
 				setProgress(100);
 				setLoading(false);
-
-				await addDebugLog({
-					message: `Fetched and saved ${fetched.length} articles`,
-					level: "info",
-					meta: { type: "fetch" },
-				});
-			} catch (err) {
-				console.error(err);
-
-				setLoadingStatus("Failed to fetch articles. Is node running?");
-				setProgress(0);
-
-				await addDebugLog({
-					message: `Failed to fetch articles: ${(err as Error).message}`,
-					level: "error",
-					meta: { type: "fetch" },
-				});
+				return;
 			}
+
+			/** -----------------------------
+			 * Step 4 — Success
+			 * ----------------------------- */
+			setArticles(found);
+			setProgress(100);
+			setLoading(false);
+
+			await addDebugLog({
+				message: `Loaded ${found.length} local articles`,
+				level: "info",
+			});
 		};
 
-		waitForReady();
-	}, [status]); // Re-run until first successful fetch
+		run();
+	}, [status]);
 
-	/** -----------------------------------------
-	 * 🔄 Wails Event - Open Settings
-	 * ----------------------------------------- */
+	/**
+	 * Listen for Wails events (open-settings, etc)
+	 */
 	useEffect(() => {
-		const handle = () => setSettingsOpen(true);
-		if (EventsOn) {
-			EventsOn("open-settings", handle);
-		} else {
-			console.warn("Wails runtime not loaded yet");
-		}
-		return () => EventsOff("open-settings", handle as any);
+		const handler = () => setSettingsOpen(true);
+		if (EventsOn) EventsOn("open-settings", handler);
+
+		return () => EventsOff("open-settings", handler as any);
 	}, []);
 
+	/**
+	 * Merge all article types for rendering
+	 */
 	const mergedArticles = [...articles, ...analyzedArticles, ...federatedArticles];
 
+	/* -----------------------------------------------------------
+	 * Render
+	 * ----------------------------------------------------------- */
 	return (
 		<ThemeProvider>
 			<div className="min-h-screen flex flex-col bg-background text-foreground pb-12">
@@ -225,13 +233,10 @@ const App = () => {
 				{/* Main Content */}
 				<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6 w-full">
 					<div className="flex-1">
-						<ArticlesGrid
-							articles={mergedArticles}
-							onArchive={(id) => console.log("Archive:", id)}
-						/>
+						<ArticlesGrid articles={mergedArticles} />
 					</div>
 
-					<div className="hidden lg:block w-80 shrink-0 sticky top-24">
+					<div className="hidden lg:block w-80 shrink-0 sticky top-20">
 						<InsightsPanel />
 					</div>
 				</div>

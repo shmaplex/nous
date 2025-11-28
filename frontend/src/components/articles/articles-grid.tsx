@@ -1,96 +1,108 @@
-// frontend/src/components/articles/articles-grid.tsx
+/**
+ * @file ArticlesGrid.tsx
+ * @description
+ * Production-ready grid component that displays three article types:
+ *   - Local Articles (raw ingested news)
+ *   - Analyzed Articles (AI-enriched with bias/sentiment/cognitive bias metadata)
+ *   - Federated Articles (distributed pointers via P2P/IPFS)
+ *
+ * Designed with a modern Perplexity-style aesthetic:
+ * clean spacing, 2×2 desktop grid, subtle hover interactions,
+ * and future-friendly placeholders for new UX features.
+ */
+
 import type React from "react";
 import type { Article, ArticleAnalyzed, FederatedArticlePointer } from "../../types";
+
 import ArticleAnalyzedCard from "./article-card-analyzed";
 import ArticleFederatedCard from "./article-card-federated";
 import ArticleLocalCard from "./article-card-local";
 
-interface ArticlesGridProps {
+export interface ArticlesGridProps {
+	/**
+	 * A merged list of articles coming from:
+	 *  - Local DB (`Article`)
+	 *  - Analyzed DB (`ArticleAnalyzed`)
+	 *  - Federated DB (`FederatedArticlePointer`)
+	 *
+	 * Rendering is determined automatically by structural keys.
+	 */
 	articles: (Article | ArticleAnalyzed | FederatedArticlePointer)[];
+
+	/**
+	 * Optional callback to archive a local/analyzed article.
+	 */
 	onArchive?: (id: string) => void;
 }
 
 /**
- * Articles Grid
+ * ArticlesGrid Component
  *
- * - Displays all articles in an optimized responsive grid
- * - Highlights analyzed AI content, federated sources, and local articles
- * - Provides section cues for new users to understand app functionality
+ * Renders a clean, modern, Perplexity-inspired article grid with:
+ *  • Automatic type detection
+ *  • 2×2 max layout for high readability
+ *  • Smooth spacing & airy layout for younger UX preferences
+ *  • Subtle animations & card polish
  */
 const ArticlesGrid: React.FC<ArticlesGridProps> = ({ articles, onArchive }) => {
+	/* ------------------------------
+	 * Empty State
+	 * ------------------------------ */
 	if (!articles.length) {
 		return (
-			<div className="text-center py-12 text-muted-foreground">
-				<h2 className="text-2xl font-semibold mb-2">No articles available</h2>
+			<div className="text-center py-16 text-muted-foreground">
+				<h2 className="text-2xl font-semibold mb-2">No articles yet</h2>
 				<p className="text-sm max-w-md mx-auto">
-					Articles will appear here once processed. The platform ingests news from multiple sources,
-					analyzes bias, sentiment, and cognitive distortions, and federates content across
-					networks.
+					Articles will appear once fetched from your enabled sources.
 				</p>
 			</div>
 		);
 	}
 
+	/* ------------------------------
+	 * Render Grid + Intro
+	 * ------------------------------ */
 	return (
-		<div className="space-y-8">
-			{/* Optional: Section intro for new users */}
+		<div className="space-y-10">
+			{/* Intro section */}
 			<div className="px-4 sm:px-0">
-				<h2 className="text-xl font-bold mb-2">Your News Overview</h2>
-				<p className="text-sm text-muted-foreground max-w-2xl">
-					The platform categorizes articles into three types:
-					<ul className="list-disc ml-5 mt-1">
+				<h2 className="text-xl font-semibold mb-2">Your News Feed</h2>
+
+				{/* <div className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
+					<p>The feed includes several types of articles:</p>
+
+					<ul className="list-disc ml-5 mt-2 space-y-1">
 						<li>
-							<b>Local Articles:</b> Directly ingested content from familiar sources.
+							<b>Local Articles</b> — Directly ingested news content.
 						</li>
 						<li>
-							<b>Analyzed Articles:</b> AI-enriched articles with political bias, sentiment, and
-							detected cognitive biases.
+							<b>Analyzed Articles</b> — AI-enriched insights (sentiment, bias, cognition).
 						</li>
 						<li>
-							<b>Federated Articles:</b> Content pulled from distributed sources (IPFS or federated
-							feeds).
+							<b>Federated Articles</b> — Distributed via P2P or orbit feeds.
 						</li>
 					</ul>
-				</p>
+				</div> */}
 			</div>
 
-			{/* Responsive Grid */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+			{/* 2×2 Perplexity-style grid */}
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-8">
 				{articles.map((article) => {
-					// Decide which card to render based on type
+					// Analyzed → has `cognitiveBiases`
 					if ("cognitiveBiases" in article) {
-						return (
-							<ArticleAnalyzedCard
-								key={article.id ?? Math.random().toString(36).slice(2, 11)}
-								article={article as ArticleAnalyzed}
-								onArchive={onArchive}
-							/>
-						);
+						return <ArticleAnalyzedCard key={article.id} article={article} onArchive={onArchive} />;
 					}
+
+					// Federated → has `cid`
 					if ("cid" in article) {
-						return (
-							<ArticleFederatedCard
-								key={article.cid ?? Math.random().toString(36).slice(2, 11)}
-								article={article as FederatedArticlePointer}
-							/>
-						);
+						return <ArticleFederatedCard key={article.cid} article={article} />;
 					}
+
+					// Local article
 					return (
-						<ArticleLocalCard
-							key={article.id ?? Math.random().toString(36).slice(2, 11)}
-							article={article as Article}
-							onArchive={onArchive}
-						/>
+						<ArticleLocalCard key={article.id} article={article as Article} onArchive={onArchive} />
 					);
 				})}
-			</div>
-
-			{/* Optional: Footer explanation */}
-			<div className="px-4 sm:px-0 text-sm text-muted-foreground text-center max-w-2xl mx-auto mt-4">
-				<p>
-					Articles are dynamically sorted and displayed for maximum clarity. Hover over a card to
-					see more details, including detected biases, antithesis, and AI interpretations.
-				</p>
 			</div>
 		</div>
 	);

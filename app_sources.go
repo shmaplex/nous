@@ -10,9 +10,11 @@ import (
 	"time"
 )
 
+var DATA_PATH = "frontend/data"
+
 // SaveSources persists sources locally (e.g., JSON file)
 func (a *App) SaveSources(sources []Source) error {
-	if err := os.MkdirAll("data", os.ModePerm); err != nil {
+	if err := os.MkdirAll(DATA_PATH, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
@@ -21,16 +23,16 @@ func (a *App) SaveSources(sources []Source) error {
 		return err
 	}
 
-	return os.WriteFile("data/sources.json", data, 0644)
+	return os.WriteFile(fmt.Sprintf("%s/sources.json", DATA_PATH), data, 0644)
 }
 
 // LoadSources loads sources from local file
 func (a *App) LoadSources() ([]Source, error) {
-	if _, err := os.Stat("data"); os.IsNotExist(err) {
+	if _, err := os.Stat(DATA_PATH); os.IsNotExist(err) {
 		return nil, nil
 	}
 
-	data, err := os.ReadFile("data/sources.json")
+	data, err := os.ReadFile(fmt.Sprintf("%s/sources.json", DATA_PATH))
 	if err != nil {
 		return nil, nil
 	}

@@ -66,10 +66,6 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 
 	log("Starting P2P node...");
 
-	// --- Clean leftover locks ---
-	// await cleanLockFiles(ORBITDB_KEYSTORE_PATH);
-	// await cleanLockFiles(ORBITDB_DB_PATH);
-
 	// --- Libp2p ---
 	const libp2p = await createLibp2pNode(nodeConfig.libp2pListenAddr, nodeConfig.relayAddresses);
 
@@ -83,9 +79,9 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 	const { identity, identities, keystore } = await getOrbitDBIdentity();
 	const orbitdb = await createOrbitDB({
 		ipfs: helia,
-		// identity,
-		// identities,
-		// directory: ORBITDB_DB_PATH,
+		identity,
+		identities,
+		directory: ORBITDB_DB_PATH,
 	});
 
 	let debugDB: DebugDB;

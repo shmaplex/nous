@@ -27,13 +27,15 @@ export const gdeltParser: ParserFn = (raw: any, source: Source): Article[] => {
 	if (!raw || !Array.isArray(raw.articles)) return [];
 
 	return raw.articles.map((a: any) => {
+		const summary = a.summary || "No summary";
+		const content = a.content || a.summary || "No content available";
 		const article: Article = {
-			id: a.url ?? crypto.randomUUID(),
+			id: crypto.randomUUID(),
 			title: a.title ?? "Untitled",
 			url: a.url,
 			mobileUrl: safeUrl(a.url_mobile),
-			content: a.summary ?? null,
-			summary: a.summary ?? null,
+			content,
+			summary,
 			categories: a.categories ?? [],
 			tags: a.tags ?? [],
 			language: a.language ?? null,

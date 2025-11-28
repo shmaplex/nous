@@ -1,5 +1,6 @@
 import type { KeyStoreType, OrbitDB } from "@orbitdb/core";
 import type { Helia } from "helia";
+import type { Libp2p } from "libp2p";
 import { log } from "@/lib/log.server";
 import { deleteStatus } from "@/lib/status.server";
 import { cleanLockFiles } from "@/lib/utils.server";
@@ -11,7 +12,7 @@ import type { P2PDatabases } from "./setup";
  */
 let runningInstance: {
 	keystore: KeyStoreType;
-	libp2p: any;
+	libp2p: Libp2p;
 	helia: Helia;
 	orbitdb: OrbitDB;
 	debugDB?: P2PDatabases["debugDB"];
@@ -52,41 +53,41 @@ export async function closeDatabases(databases: P2PDatabases) {
 			log(`⚠️ Debug DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️ Debug DB not initialized or already null");
+		log("ℹ️  Debug DB not initialized or already null");
 	}
 
 	await sleep(10);
 
 	// --- Sources DB ---
-	if (databases.articleLocalDB?.db) {
+	if (databases.articleLocalDB?.articleLocalDB) {
 		try {
-			await databases.articleLocalDB.db.close();
+			await databases.articleLocalDB.articleLocalDB.close();
 			log("✅ Sources DB closed successfully");
 		} catch (err: any) {
 			log(`⚠️ Sources DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️ Sources DB not initialized or already null");
+		log("ℹ️  Local Articles DB not initialized or already null");
 	}
 
 	await sleep(10);
 
 	// --- Analyzed DB ---
-	if (databases.articleAnalyzedDB?.db) {
+	if (databases.articleAnalyzedDB?.articleAnalyzedDB) {
 		try {
-			await databases.articleAnalyzedDB.db.close();
+			await databases.articleAnalyzedDB.articleAnalyzedDB.close();
 			log("✅ Analyzed DB closed successfully");
 		} catch (err: any) {
 			log(`⚠️ Analyzed DB close warning: ${err.message}`);
 		}
 	} else {
-		log("ℹ️ Analyzed DB not initialized or already null");
+		log("ℹ️  Analyzed Articles DB not initialized or already null");
 	}
 
 	await sleep(10);
 
 	// --- Federated DB (in-memory) ---
-	log("ℹ️ Federated DB is in-memory; no close required");
+	log("ℹ️  Federated Articles DB is in-memory; no close required");
 }
 
 /**
@@ -147,25 +148,25 @@ export async function shutdownP2PNode() {
 	}
 
 	// Close OrbitDB identities / keystore safely
+	// Stop OrbitDB
 	try {
-		// if (identities?.close) {
-		// 	await identities.close();
-		// 	log("✅ OrbitDB identities closed");
-		// }
+		if (orbitdb) {
+			await orbitdb.keystore.close();
+			await orbitdb.ipfs.stop();
+			await orbitdb.stop();
+		}
+		log("✅ OrbitDB stopped");
+	} catch (err: any) {
+		log(`❌ Error stopping OrbitDB: ${err.message}`);
+	}
+
+	try {
 		if (keystore?.close) {
 			await keystore.close();
 			log("✅ Keystore closed");
 		}
 	} catch (err: any) {
 		log(`⚠️ Error closing identity/keystore: ${err.message}`);
-	}
-
-	// Stop OrbitDB
-	try {
-		if (orbitdb) await orbitdb.stop();
-		log("✅ OrbitDB stopped");
-	} catch (err: any) {
-		log(`❌ Error stopping OrbitDB: ${err.message}`);
 	}
 
 	// Stop Helia
