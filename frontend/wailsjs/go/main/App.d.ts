@@ -24,6 +24,8 @@ export function FetchDebugLogs():Promise<string>;
 
 export function FetchFederatedArticles():Promise<string>;
 
+export function FetchLocalArticle(arg1:string):Promise<string>;
+
 export function FetchLocalArticles():Promise<string>;
 
 export function GetLocation():Promise<string>;

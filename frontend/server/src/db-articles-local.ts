@@ -8,6 +8,7 @@ import { cleanArticlesForDB, getParser } from "@/lib/parsers";
 import type { ArticleAnalyzed, Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
 import { fetchArticleFromIPFS, saveArticleToIPFS, saveJSONToIPFS } from "./lib/ipfs.server";
+import { loadDBPaths, saveDBPaths } from "./setup";
 
 /**
  * Explicit type for the local articles DB instance
@@ -76,10 +77,16 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 		return articleLocalDBInstance;
 	}
 
-	const db = (await orbitdb.open("nous.articles.feed", {
+	const savedPaths = loadDBPaths();
+	const dbName = savedPaths.articles ?? "nous.articles.feed";
+
+	const db = (await orbitdb.open(dbName, {
 		Database: Documents({ indexBy: "url" }) as any, // cast to satisfy TS
 		meta: { indexBy: "url" },
 	})) as any;
+
+	// Save back path for future loads
+	saveDBPaths({ ...savedPaths, articles: db.address.toString() });
 
 	// Listen for peer updates
 	db.events.on("update", async (entry: any) => {

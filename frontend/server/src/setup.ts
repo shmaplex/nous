@@ -14,6 +14,7 @@ import { registerShutdownHandlers, setRunningInstance, shutdownP2PNode } from ".
 
 const ORBITDB_KEYSTORE_PATH = path.resolve(process.env.KEYSTORE_PATH ?? "orbitdb-keystore");
 const ORBITDB_DB_PATH = path.resolve(process.env.DB_PATH ?? "orbitdb-databases");
+const DB_PATH_FILE = "path.json";
 
 // Ensure directories exist
 [ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
@@ -28,6 +29,40 @@ export type P2PDatabases = {
 	articleAnalyzedDB: ArticleAnalyzedDB;
 	articleFederatedDB: ArticleFederatedDB;
 };
+
+export interface DBPaths {
+	articles?: string; // OrbitDB address
+	analyzed?: string;
+	debug?: string;
+	federated?: string;
+}
+
+/** Load saved DB paths */
+export function loadDBPaths(): DBPaths {
+	try {
+		if (fs.existsSync(ORBITDB_DB_PATH)) {
+			return JSON.parse(
+				fs.readFileSync(path.join(ORBITDB_DB_PATH, DB_PATH_FILE), "utf8"),
+			) as DBPaths;
+		}
+	} catch (err) {
+		console.error("Failed to load DB paths file:", err);
+	}
+	return {};
+}
+
+/** Save DB paths */
+export function saveDBPaths(paths: DBPaths) {
+	try {
+		fs.writeFileSync(
+			path.join(ORBITDB_DB_PATH, DB_PATH_FILE),
+			JSON.stringify(paths, null, 2),
+			"utf8",
+		);
+	} catch (err) {
+		console.error("Failed to save DB paths file:", err);
+	}
+}
 
 export async function startP2PNode(config: NodeConfig) {
 	log("Setting up node...");

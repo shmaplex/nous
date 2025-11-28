@@ -9,6 +9,7 @@
 import { Documents, type OrbitDB } from "@orbitdb/core";
 import { addDebugLog, log } from "@/lib/log.server";
 import type { ArticleAnalyzed } from "@/types";
+import { loadDBPaths, saveDBPaths } from "./setup";
 
 /**
  * Interface for the Analyzed DB instance and its helpers
@@ -41,10 +42,16 @@ export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleA
 		return articleAnalyzedDBInstance;
 	}
 
-	const db = (await orbitdb.open("nous.analyzed.feed", {
+	const savedPaths = loadDBPaths();
+	const dbName = savedPaths.articles ?? "nous.analyzed.feed";
+
+	const db = (await orbitdb.open(dbName, {
 		Database: Documents({ indexBy: "id" }) as any, // cast to satisfy TS
 		meta: { indexBy: "id" },
 	})) as any;
+
+	// Save back path for future loads
+	saveDBPaths({ ...savedPaths, analyzed: db.address.toString() });
 
 	// Listen for updates from peers
 	db.events.on("update", async (entry: any) => {

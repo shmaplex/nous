@@ -3,73 +3,67 @@
  * @description
  * Main application entry for the Nous Desktop Client.
  *
- * Handles:
- *  - Startup sequencing and P2P readiness checks
- *  - Fetching articles from backend (Go → P2P node)
- *  - Polling local OrbitDB until articles available
- *  - Rendering UI sections (header, filters, grid, modals, debug, etc)
+ * Responsibilities:
+ *  - Header
+ *  - View switching between Workbench and Reading
+ *  - Loading overlay management
+ *  - Full article view integration
+ *  - Modals, debug panel, and status bar
+ *  - Wails event listeners for opening settings
  */
 
 import { useEffect, useRef, useState } from "react";
-import { loadLocalArticles } from "@/lib/articles/local";
+import { FetchLocalArticle } from "@/../wailsjs/go/main/App"; // Wails binding
+import AddArticleModal from "@/components/articles/add-article-modal";
+import ArticlesView from "@/components/articles/article-view";
+import DebugPanel from "@/components/debug/debug-panel";
+import HeaderTop from "@/components/header-top";
+import InsightsPanel from "@/components/insights-panel";
+import { LoadingOverlay } from "@/components/loading/loading-overlay";
+import SettingsPanel from "@/components/settings-panel";
+import StatusBar from "@/components/status-bar";
+import { Button } from "@/components/ui/button";
+import ReadingView from "@/components/views/view-reading";
+import ViewSwitcher from "@/components/views/view-switcher";
+import WorkbenchView from "@/components/views/view-workbench";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { addDebugLog } from "@/lib/log";
-import {
-	type Article,
-	type ArticleAnalyzed,
-	createEmptyDebugStatus,
-	type DebugStatus,
-	type FederatedArticlePointer,
-} from "@/types";
+import type { Article, DebugStatus } from "@/types";
+import { createEmptyDebugStatus } from "@/types";
+import type { FilterOptions } from "@/types/filter";
+import type { ViewMode } from "@/types/view";
 import { EventsOff, EventsOn } from "../wailsjs/runtime";
-import AddArticleModal from "./components/articles/add-article-modal";
-import ArticlesGrid from "./components/articles/articles-grid";
-import { DebugPanel } from "./components/debug/debug-panel";
-import FiltersPanel from "./components/filters-panel";
-import HeaderTop from "./components/header-top";
-import InsightsPanel from "./components/insights-panel";
-import { LoadingOverlay } from "./components/loading/loading-overlay";
-import SettingsPanel from "./components/settings-panel";
-import StatusBar from "./components/status-bar";
-import { ThemeProvider } from "./context/ThemeContext";
 import { useNodeStatus } from "./hooks/useNodeStatus";
-import { fetchArticlesBySources, getAvailableSources } from "./lib/sources";
-import type { FilterOptions } from "./types/filter";
 
-/** Slow polling to avoid OrbitDB "Too many requests" warnings */
-const POLL_INTERVAL = 5000; // was 500ms
-const MAX_POLL_ATTEMPTS = 25; // 25 × 1.5s = ~37.5s total
-
-/**
- * Main App Component
- */
 const App = () => {
-	/** -----------------------------
-	 * Debug Panel State
-	 * ----------------------------- */
-	const [debugOpen, setDebugOpen] = useState(false);
-	const [debugTab, setDebugTab] = useState("node");
-	const [debugStatus, setDebugStatus] = useState<DebugStatus>(createEmptyDebugStatus());
-
-	/** -----------------------------
-	 * Content State
-	 * ----------------------------- */
-	const [articles, setArticles] = useState<Article[]>([]);
-	const [federatedArticles, setFederatedArticles] = useState<FederatedArticlePointer[]>([]);
-	const [analyzedArticles, setAnalyzedArticles] = useState<ArticleAnalyzed[]>([]);
-
 	/** -----------------------------
 	 * UI State
 	 * ----------------------------- */
-	const [filter, setFilter] = useState<FilterOptions>({
+	const [mode, setMode] = useState<ViewMode>("workbench");
+	const [location, setLocationState] = useState("international");
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [addArticleOpen, setAddArticleOpen] = useState(false);
+	const [debugOpen, setDebugOpen] = useState(false);
+	const [debugTab, setDebugTab] = useState("node");
+
+	/** -----------------------------
+	 * Filters per view
+	 * ----------------------------- */
+	const [workbenchFilter, setWorkbenchFilter] = useState<FilterOptions>({
 		bias: "all",
 		sentiment: "all",
 		coverage: "all",
 		confidence: "all",
 		edition: "international",
 	});
-	const [location, setLocationState] = useState("international");
-	const [settingsOpen, setSettingsOpen] = useState(false);
-	const [addArticleOpen, setAddArticleOpen] = useState(false);
+
+	const [readingFilter, setReadingFilter] = useState<FilterOptions>({
+		bias: "all",
+		sentiment: "all",
+		coverage: "all",
+		confidence: "all",
+		edition: "international",
+	});
 
 	/** -----------------------------
 	 * Node Status
@@ -77,18 +71,30 @@ const App = () => {
 	const status = useNodeStatus();
 
 	/** -----------------------------
-	 * Loading Overlay
+	 * Loading Overlay (shared across views)
 	 * ----------------------------- */
 	const [loading, setLoading] = useState(true);
 	const [loadingStatus, setLoadingStatus] = useState("Starting up…");
 	const [progress, setProgress] = useState(5);
 
-	/** Prevent running fetch twice EVER */
+	/** -----------------------------
+	 * Debug Status
+	 * ----------------------------- */
+	const [debugStatus, setDebugStatus] = useState<DebugStatus>(createEmptyDebugStatus());
+
+	/** -----------------------------
+	 * Full article view state
+	 * ----------------------------- */
+	const [fullArticle, setFullArticle] = useState<Article | null>(null);
+
+	/** -----------------------------
+	 * Prevent double-fetching (internal)
+	 * ----------------------------- */
 	const fetchOnceRef = useRef(false);
 
-	/**
-	 * Initialize debug logging only when the P2P node is fully ready.
-	 */
+	/** -----------------------------
+	 * Initialize debug logging when node is ready
+	 * ----------------------------- */
 	useEffect(() => {
 		const initDebug = async () => {
 			if (!status.running || !status.orbitConnected) return;
@@ -101,121 +107,71 @@ const App = () => {
 		initDebug();
 	}, [status.running, status.orbitConnected]);
 
-	/**
-	 * One-shot startup routine:
-	 *
-	 * 1. Wait for P2P + OrbitDB readiness
-	 * 2. Fire fetchArticlesBySources() EXACTLY ONCE
-	 * 3. Slowly poll local DB until articles exist
-	 * 4. Load articles into UI
-	 */
-	useEffect(() => {
-		const run = async () => {
-			// Wait until everything is ready
-			if (!status.running || !status.connected || !status.orbitConnected) {
-				setLoadingStatus("Waiting for P2P node and databases…");
-				setProgress(10);
-				return;
-			}
-
-			// Ensure the fetch happens EXACTLY once — never again
-			if (fetchOnceRef.current) return;
-			fetchOnceRef.current = true;
-
-			// Give OrbitDB 300ms breathing room to stabilize
-			await new Promise((r) => setTimeout(r, 1000));
-
-			/** -----------------------------
-			 * Step 0 — Load available sources
-			 * ----------------------------- */
-			setLoadingStatus("Loading news sources…");
-			setProgress(20);
-
-			const sources = await getAvailableSources();
-			if (!sources || sources.length === 0) {
-				console.warn("No available sources found.");
-			}
-
-			/** -----------------------------
-			 * Step 1 — Fetch external articles
-			 * ----------------------------- */
-			setLoadingStatus("Fetching articles from sources…");
-			setProgress(40);
-
-			try {
-				await fetchArticlesBySources(sources); // <-- FIXED
-			} catch (err) {
-				console.error("Fetch failed:", err);
-				setLoadingStatus("Failed to fetch external sources.");
-				setProgress(0);
-				return;
-			}
-
-			/** -----------------------------
-			 * Step 2 — Slow poll until articles appear
-			 * ----------------------------- */
-			setLoadingStatus("Waiting for articles to populate…");
-			setProgress(60);
-
-			let attempts = 0;
-			let found: Article[] = [];
-
-			while (attempts < MAX_POLL_ATTEMPTS) {
-				const local = await loadLocalArticles();
-
-				if (Array.isArray(local) && local.length > 0) {
-					found = local;
-					break;
-				}
-
-				attempts++;
-				await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-			}
-
-			/** -----------------------------
-			 * Step 3 — Timeout case
-			 * ----------------------------- */
-			if (found.length === 0) {
-				setLoadingStatus("No articles found. Try again?");
-				setProgress(100);
-				setLoading(false);
-				return;
-			}
-
-			/** -----------------------------
-			 * Step 4 — Success
-			 * ----------------------------- */
-			setArticles(found);
-			setProgress(100);
-			setLoading(false);
-
-			await addDebugLog({
-				message: `Loaded ${found.length} local articles`,
-				level: "info",
-			});
-		};
-
-		run();
-	}, [status]);
-
-	/**
-	 * Listen for Wails events (open-settings, etc)
-	 */
+	/** -----------------------------
+	 * Listen for Wails events
+	 * ----------------------------- */
 	useEffect(() => {
 		const handler = () => setSettingsOpen(true);
 		if (EventsOn) EventsOn("open-settings", handler);
-
 		return () => EventsOff("open-settings", handler as any);
 	}, []);
 
-	/**
-	 * Merge all article types for rendering
+	/** -----------------------------
+	 * Analysis callback for Workbench
+	 *
+	 * @param article - Article to analyze
 	 */
-	const mergedArticles = [...articles, ...analyzedArticles, ...federatedArticles];
+	const handleAnalyzeArticle = (article: Article) => {
+		console.log("Analyze triggered for:", article.title);
+		// Forward to WorkbenchView / useArticleLoader to process
+	};
 
-	/* -----------------------------------------------------------
+	/** -----------------------------
+	 * Shared callback to control overlay from views
+	 *
+	 * @param isLoading - Whether the view is currently loading
+	 * @param statusMessage - Optional textual status for overlay
+	 * @param percent - Optional progress value for overlay
+	 */
+	const handleViewLoading = (isLoading: boolean, statusMessage?: string, percent?: number) => {
+		setLoading(isLoading);
+		if (statusMessage) setLoadingStatus(statusMessage);
+		if (percent !== undefined) setProgress(percent);
+	};
+
+	/** -----------------------------
+	 * Open full article from any view
+	 *
+	 * Fetches the full article from Wails backend via Go binding
+	 *
+	 * @param article - Article clicked
+	 */
+	const handleOpenArticle = async (article: Article) => {
+		setLoading(true);
+		try {
+			const res = await FetchLocalArticle(article.id);
+			const full = JSON.parse(res);
+			setFullArticle(full);
+		} catch (err) {
+			console.error("Failed to fetch full article via Wails:", err);
+			setFullArticle(article); // fallback
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	/** -----------------------------
+	 * Back button to exit full article view
+	 * ----------------------------- */
+	const handleCloseFullArticle = () => {
+		setFullArticle(null);
+	};
+
+	console.log("fullArticle", fullArticle);
+
+	/* -----------------------------
 	 * Render
-	 * ----------------------------------------------------------- */
+	 * ----------------------------- */
 	return (
 		<ThemeProvider>
 			<div className="min-h-screen flex flex-col bg-background text-foreground pb-12">
@@ -225,20 +181,46 @@ const App = () => {
 				{/* Header */}
 				<HeaderTop selectedLocation={location} onLocationChange={setLocationState} />
 
-				{/* Filters */}
-				<div className="sticky top-0 z-20 bg-background px-6 py-3 border-b shadow-sm border-border">
-					<FiltersPanel filter={filter} setFilter={setFilter} />
-				</div>
+				{/* View Switcher */}
+				{!fullArticle && <ViewSwitcher mode={mode} onChange={setMode} />}
 
 				{/* Main Content */}
 				<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6 w-full">
-					<div className="flex-1">
-						<ArticlesGrid articles={mergedArticles} />
-					</div>
+					{fullArticle ? (
+						<div className="flex-1 space-y-6">
+							<ArticlesView
+								article={fullArticle}
+								location={location}
+								onBack={handleCloseFullArticle}
+							/>
+						</div>
+					) : (
+						<>
+							<div className="flex-1">
+								{mode === "workbench" ? (
+									<WorkbenchView
+										onAnalyzeArticle={handleAnalyzeArticle}
+										onLoadingChange={handleViewLoading}
+										filter={workbenchFilter}
+										setFilter={setWorkbenchFilter}
+										onOpen={handleOpenArticle}
+									/>
+								) : (
+									<ReadingView
+										onLoadingChange={handleViewLoading}
+										filter={readingFilter}
+										setFilter={setReadingFilter}
+									/>
+								)}
+							</div>
 
-					<div className="hidden lg:block w-80 shrink-0 sticky top-20">
-						<InsightsPanel />
-					</div>
+							<div className="hidden lg:block w-80 shrink-0">
+								<div className="sticky top-16">
+									<InsightsPanel />
+								</div>
+							</div>
+						</>
+					)}
 				</div>
 
 				{/* Modals */}

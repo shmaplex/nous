@@ -24,7 +24,7 @@ export function FilterBar({
 			variant="outline"
 			size="sm"
 			key={label}
-			className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs sm:text-sm whitespace-nowrap ${
+			className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs sm:text-xs whitespace-nowrap ${
 				value === "all" ? "text-muted-foreground" : ""
 			}`}
 			onClick={onClear}

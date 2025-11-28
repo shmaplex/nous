@@ -1,3 +1,7 @@
+/**
+ * NOTE: This is unused at the moment
+ * @file route-articles.ts
+ */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Article, RouteHandler } from "@/types";
 import { handleError } from "./helpers";

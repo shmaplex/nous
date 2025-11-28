@@ -2,6 +2,7 @@
 import { Documents, type OrbitDB } from "@orbitdb/core";
 import { log } from "@/lib/log.server";
 import type { DebugLogEntry } from "@/types/log";
+import { loadDBPaths, saveDBPaths } from "./setup";
 
 // Explicit type for the debug DB instance
 export interface DebugDB {
@@ -26,13 +27,20 @@ export async function setupDebugDB(orbitdb: OrbitDB) {
 		return debugDBInstance;
 	}
 
+	const savedPaths = loadDBPaths();
+	const dbName = savedPaths.debug ?? "nous.debug.logs";
+
 	let db: any;
 	try {
 		// Pass the generator function, not the result
-		db = await orbitdb.open("nous.debug.logs", {
+		db = await orbitdb.open(dbName, {
 			Database: Documents({ indexBy: "timestamp" }) as any, // cast to satisfy TS
 			meta: { indexBy: "timestamp" },
 		});
+
+		// Save back path for future loads
+		saveDBPaths({ ...savedPaths, debug: db.address.toString() });
+
 		log(`✅ Debug DB opened with address: ${db.address?.toString()}`);
 	} catch (err) {
 		const message = (err as Error).message || "Unknown error opening debug DB";

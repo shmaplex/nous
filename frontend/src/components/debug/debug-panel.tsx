@@ -167,3 +167,5 @@ export function DebugPanel({
 		</div>
 	);
 }
+
+export default DebugPanel

@@ -1,10 +1,11 @@
 /**
+ * Coming soon
  * @file sourceManager.server.ts
  * @description Library for managing sources, including user-added sources with validation.
  */
 
-import { SourceSchema, Source } from "@/types/source";
 import { z } from "zod";
+import { type Source, SourceSchema } from "@/types/source";
 
 /** Simple in-memory storage for demo; can persist in DB */
 const USER_SOURCES: Source[] = [];
@@ -15,14 +16,14 @@ const USER_SOURCES: Source[] = [];
  * @returns Source object validated
  */
 export function addSource(newSource: Partial<Source>): Source {
-  const validated = SourceSchema.parse(newSource);
-  USER_SOURCES.push(validated);
-  return validated;
+	const validated = SourceSchema.parse(newSource);
+	USER_SOURCES.push(validated);
+	return validated;
 }
 
 /**
  * List all sources
  */
 export function listSources(): Source[] {
-  return USER_SOURCES;
+	return USER_SOURCES;
 }

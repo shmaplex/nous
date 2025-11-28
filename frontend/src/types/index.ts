@@ -11,3 +11,4 @@ export * from "./routes";
 export * from "./source";
 export * from "./source-cluster";
 export * from "./source-meta";
+export * from "./view";

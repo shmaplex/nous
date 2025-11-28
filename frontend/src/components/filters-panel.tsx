@@ -27,7 +27,7 @@ export default function FiltersPanel({ filter, setFilter }: FiltersPanelProps) {
 	const [showFilters, setShowFilters] = useState(false);
 
 	const selectClass =
-		"min-w-[100px] sm:min-w-[120px] md:min-w-[140px] rounded-full border border-border bg-background shadow-sm hover:shadow-md transition text-xs sm:text-sm";
+		"min-w-[100px] sm:min-w-[120px] md:min-w-[140px] rounded-full border border-border bg-background shadow-sm hover:shadow-md transition text-xs sm:text-xs";
 
 	const renderSelect = <T extends string>(
 		label: string,
@@ -36,7 +36,7 @@ export default function FiltersPanel({ filter, setFilter }: FiltersPanelProps) {
 		onChange: (val: T) => void,
 	) => (
 		<div className="flex flex-col gap-1">
-			<Label className="text-xs sm:text-sm font-medium text-muted-foreground">{label}</Label>
+			<Label className="text-xs sm:text-xs font-medium text-muted-foreground">{label}</Label>
 			<Select value={value ?? ""} onValueChange={(v) => onChange(v as T)}>
 				<SelectTrigger className={selectClass} aria-label={label}>
 					<SelectValue placeholder={`Select ${label}`} />
@@ -46,7 +46,7 @@ export default function FiltersPanel({ filter, setFilter }: FiltersPanelProps) {
 						<SelectItem
 							key={option}
 							value={option}
-							className="hover:bg-accent hover:text-accent-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground rounded-md text-xs sm:text-sm"
+							className="hover:bg-accent hover:text-accent-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground rounded-md text-xs sm:text-xs"
 						>
 							{option.charAt(0).toUpperCase() + option.slice(1)}
 						</SelectItem>

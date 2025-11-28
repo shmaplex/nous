@@ -46,6 +46,10 @@ export function FetchFederatedArticles() {
   return window['go']['main']['App']['FetchFederatedArticles']();
 }
 
+export function FetchLocalArticle(arg1) {
+  return window['go']['main']['App']['FetchLocalArticle'](arg1);
+}
+
 export function FetchLocalArticles() {
   return window['go']['main']['App']['FetchLocalArticles']();
 }
