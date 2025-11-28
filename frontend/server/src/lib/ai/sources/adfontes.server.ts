@@ -1,40 +1,71 @@
 /**
  * @file ai/sources/adfontes.server.ts
- * Fetch + normalize ratings from Ad Fontes.
+ * @description
+ * Fetch + normalize ratings from Ad Fontes Media using the **official CSV dataset**.
+ *
+ * Instructions for users:
+ * 1. Register at Ad Fontes to access the latest CSV dataset:
+ *    https://adfontesmedia.com/advertisers/
+ * 2. Download the CSV file (usually named like `Media Bias Chart - vX.csv`).
+ * 3. Save it in your project, e.g., `/data/adfontes.csv`.
+ * 4. Set the `ADFONTES_CSV_PATH` environment variable to the file path.
+ *
+ * Notes:
+ * - If the CSV file is missing or invalid, the function will return `{}`.
  */
 
+import fs from "fs";
+import path from "path";
+import Papa from "papaparse";
 import { SourceMetaPartial } from "@/types";
 import { normalizeBias } from "./helpers";
 
-const ADFONTES_URL =
-  "https://adfontesmedia.com/static/media/media-ratings-dataset.json";
+// Environment variable for the CSV file path
+const ADFONTES_CSV_PATH =
+  process.env.ADFONTES_CSV_PATH || path.resolve("./data/adfontes.csv");
 
 interface AdFontesRow {
   Source: string;
   Bias: string;
-  Reliability: number;
+  Reliability: string | number;
 }
 
-let cache: Record<
-  string,
-  { bias: string; reliability: number }
-> = {};
+let cache: Record<string, { bias: string; reliability: number }> = {};
 
-async function loadDataset() {
+/**
+ * Load and parse the Ad Fontes CSV dataset into memory.
+ */
+async function loadDataset(): Promise<
+  Record<string, { bias: string; reliability: number }>
+> {
   if (Object.keys(cache).length > 0) return cache;
 
-  try {
-    const res = await fetch(ADFONTES_URL);
-    const rows: AdFontesRow[] = await res.json();
+  if (!fs.existsSync(ADFONTES_CSV_PATH)) {
+    console.warn(
+      `Ad Fontes CSV not found at ${ADFONTES_CSV_PATH}. Returning empty results.`
+    );
+    return {};
+  }
 
-    for (const row of rows) {
-      cache[row.Source.trim()] = {
-        bias: row.Bias,
-        reliability: row.Reliability,
-      };
-    }
-  } catch (err) {
-    console.error("AdFontes fetch error:", err);
+  const csvText = fs.readFileSync(ADFONTES_CSV_PATH, "utf-8");
+
+  const parsed = Papa.parse<AdFontesRow>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (parsed.errors.length) {
+    console.error("AdFontes CSV parse errors:", parsed.errors);
+    return {};
+  }
+
+  for (const row of parsed.data) {
+    if (!row.Source || !row.Bias || !row.Reliability) continue;
+
+    cache[row.Source.trim()] = {
+      bias: row.Bias.trim(),
+      reliability: Number(row.Reliability),
+    };
   }
 
   return cache;
@@ -42,6 +73,14 @@ async function loadDataset() {
 
 /**
  * Fetch Ad Fontes metadata for a single source.
+ * Returns normalized bias and reliability.
+ *
+ * @param name Name of the source
+ * @returns Partial source metadata (`SourceMetaPartial`)
+ *
+ * @example
+ * fetchAdFontes("CNN Digital")
+ *   → { adFontes: "lean-left", adFontesReliability: 0.9 }
  */
 export async function fetchAdFontes(
   name: string
