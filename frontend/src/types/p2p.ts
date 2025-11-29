@@ -11,6 +11,7 @@ export const NodeConfigSchema = z.object({
 	httpPort: z.number(),
 	libp2pListenAddr: z.string(),
 	relayAddresses: z.array(z.string()).optional(),
+	id: z.string().optional(), // Identity id to use
 });
 
 export type NodeConfig = z.infer<typeof NodeConfigSchema>;

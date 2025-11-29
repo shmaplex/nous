@@ -1,5 +1,5 @@
 // frontend/src/p2p/db-articles-local.ts
-import { Documents, type OrbitDB } from "@orbitdb/core";
+import { Documents, IPFSAccessController, type OrbitDB } from "@orbitdb/core";
 import type { Helia } from "helia";
 import { smartFetch } from "@/lib/fetch.server";
 import { addDebugLog, log } from "@/lib/log.server";
@@ -82,6 +82,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 
 	const db = (await orbitdb.open(dbName, {
 		Database: Documents({ indexBy: "url" }) as any, // cast to satisfy TS
+		AccessController: IPFSAccessController({ write: ["*"] }),
 		meta: { indexBy: "url" },
 	})) as any;
 

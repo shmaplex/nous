@@ -152,8 +152,8 @@ export async function shutdownP2PNode() {
 	try {
 		if (orbitdb) {
 			await orbitdb.keystore.close();
-			await orbitdb.ipfs.stop();
 			await orbitdb.stop();
+			await orbitdb.ipfs.stop();
 		}
 		log("✅ OrbitDB stopped");
 	} catch (err: any) {

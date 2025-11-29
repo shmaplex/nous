@@ -15,6 +15,7 @@ import { registerShutdownHandlers, setRunningInstance, shutdownP2PNode } from ".
 const ORBITDB_KEYSTORE_PATH = path.resolve(process.env.KEYSTORE_PATH ?? "orbitdb-keystore");
 const ORBITDB_DB_PATH = path.resolve(process.env.DB_PATH ?? "orbitdb-databases");
 const DB_PATH_FILE = "path.json";
+const IDENTITY_ID = "nous-node";
 
 // Ensure directories exist
 [ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
@@ -39,14 +40,14 @@ export interface DBPaths {
 
 /** Load saved DB paths */
 export function loadDBPaths(): DBPaths {
-	try {
-		if (fs.existsSync(ORBITDB_DB_PATH)) {
+	if (fs.existsSync(ORBITDB_DB_PATH)) {
+		try {
 			return JSON.parse(
 				fs.readFileSync(path.join(ORBITDB_DB_PATH, DB_PATH_FILE), "utf8"),
 			) as DBPaths;
+		} catch (err) {
+			console.error("Failed to load DB paths file:", err);
 		}
-	} catch (err) {
-		console.error("Failed to load DB paths file:", err);
 	}
 	return {};
 }
@@ -144,6 +145,7 @@ const config: NodeConfig = {
 	httpPort: Number(process.env.HTTP_PORT) || 9001,
 	libp2pListenAddr: process.env.LIBP2P_ADDR || "/ip4/127.0.0.1/tcp/15003",
 	relayAddresses: RELAYS,
+	id: String(process.env.IDENTITY_ID) || IDENTITY_ID,
 };
 
 startP2PNode(config).catch((err) => {

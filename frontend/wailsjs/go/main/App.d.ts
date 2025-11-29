@@ -50,4 +50,4 @@ export function SetLocation(arg1:string):Promise<string>;
 
 export function StartP2PNode():Promise<string>;
 
-export function StopP2PNode():Promise<string>;
+export function StopP2PNode():Promise<boolean>;

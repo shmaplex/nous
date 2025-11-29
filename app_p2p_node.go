@@ -109,7 +109,7 @@ func (a *App) StartP2PNode() string {
 // kill any lingering node processes that might still be running.
 //
 // Returns a string describing the result of the stop attempt.
-func (a *App) StopP2PNode() string {
+func (a *App) StopP2PNode() bool {
 	if a.p2pCmd != nil && a.p2pCmd.Process != nil {
 		a.p2pCmd.Process.Signal(os.Interrupt)
 		a.p2pCmd = nil
@@ -120,5 +120,6 @@ func (a *App) StopP2PNode() string {
 
 	// Kill any leftover Node processes
 	KillLingeringNode()
-	return "P2P node stopped"
+	log.Println("[P2P] Node stopped successfully")
+	return true
 }

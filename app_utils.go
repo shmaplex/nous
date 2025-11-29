@@ -13,35 +13,42 @@ import (
 	"strings"
 )
 
-// KillLingeringNode kills any leftover node processes running the P2P script
+// KillLingeringNode kills any lingering bundled node processes
 func KillLingeringNode() {
-	scriptPath := "frontend/dist/p2p/setup.ts"
+	binaries := []string{
+		"node-macos",
+		"node-linux",
+		"node-win.exe",
+	}
 
-	switch runtime.GOOS {
-	case "windows":
-		out, err := exec.Command("tasklist").Output()
-		if err != nil {
-			log.Println("Error listing processes:", err)
-			return
-		}
-		for _, line := range strings.Split(string(out), "\n") {
-			if strings.Contains(line, "node.exe") && strings.Contains(line, scriptPath) {
-				fields := strings.Fields(line)
-				if len(fields) > 1 {
-					pid := fields[1]
-					exec.Command("taskkill", "/PID", pid, "/F").Run()
-					log.Println("Killed Node process on Windows:", pid)
+	for _, bin := range binaries {
+		switch runtime.GOOS {
+		case "windows":
+			out, err := exec.Command("tasklist").Output()
+			if err != nil {
+				log.Println("Error listing processes:", err)
+				continue
+			}
+			for _, line := range strings.Split(string(out), "\n") {
+				if strings.Contains(line, bin) {
+					fields := strings.Fields(line)
+					if len(fields) > 1 {
+						pid := fields[1]
+						exec.Command("taskkill", "/PID", pid, "/F").Run()
+						log.Println("Killed bundled Node process (Windows):", pid)
+					}
 				}
 			}
-		}
-	default:
-		out, err := exec.Command("pgrep", "-f", scriptPath).Output()
-		if err != nil {
-			return
-		}
-		for _, pid := range strings.Fields(string(out)) {
-			exec.Command("kill", "-9", pid).Run()
-			log.Println("Killed Node process:", pid)
+
+		default: // macOS + Linux
+			out, err := exec.Command("pgrep", "-f", bin).Output()
+			if err != nil {
+				continue
+			}
+			for _, pid := range strings.Fields(string(out)) {
+				exec.Command("kill", "-9", pid).Run()
+				log.Println("Killed bundled Node process:", pid)
+			}
 		}
 	}
 }

@@ -1,6 +1,10 @@
+import { noise } from "@chainsafe/libp2p-noise";
+import { yamux } from "@chainsafe/libp2p-yamux";
 import { circuitRelayServer, circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { gossipsub } from "@libp2p/gossipsub";
 import { identify, identifyPush } from "@libp2p/identify";
+import { mdns } from "@libp2p/mdns";
+import { tcp } from "@libp2p/tcp";
 import { webRTC } from "@libp2p/webrtc";
 import { webTransport } from "@libp2p/webtransport";
 import { type Multiaddr, multiaddr } from "@multiformats/multiaddr";
@@ -22,8 +26,11 @@ export async function createLibp2pNode(
 	relayAddresses: string[] = [],
 ): Promise<Libp2p> {
 	const libp2p: Libp2p = await createLibp2p({
+		peerDiscovery: [mdns()],
 		addresses: { listen: [libp2pListenAddr, "/webrtc", "/webtransport", "/p2p-circuit"] },
-		transports: [webRTC(), webTransport(), circuitRelayTransport()],
+		transports: [tcp(), webRTC(), webTransport(), circuitRelayTransport()],
+		connectionEncrypters: [noise()],
+		streamMuxers: [yamux()],
 		services: {
 			identify: identify(),
 			identifyPush: identifyPush(),

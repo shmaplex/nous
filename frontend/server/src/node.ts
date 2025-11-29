@@ -8,12 +8,13 @@ import {
 	type KeyStoreType,
 	type OrbitDB,
 } from "@orbitdb/core";
+import { LevelBlockstore } from "blockstore-level";
 import type { Helia } from "helia";
 import { createHelia } from "helia";
 import type { Libp2p } from "libp2p";
 import { log } from "@/lib/log.server";
 import { updateStatus } from "@/lib/status.server";
-import { cleanLockFiles } from "@/lib/utils.server";
+// import { cleanLockFiles } from "@/lib/utils.server";
 import { createEmptyNodeStatus, type NodeConfig, type NodeStatus } from "@/types";
 import { type ArticleAnalyzedDB, setupArticleAnalyzedDB } from "./db-articles-analyzed";
 import { type ArticleFederatedDB, setupArticleFederatedDB } from "./db-articles-federated";
@@ -73,12 +74,19 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 	status.connected = true;
 
 	// --- Helia ---
-	const helia = await createHelia({ libp2p });
+	// @see https://github.com/orbitdb/orbitdb/blob/main/docs/GETTING_STARTED.md
+	const blockstore = new LevelBlockstore("./ipfs/blocks");
+	const helia = await createHelia({ libp2p, blockstore });
 
 	// --- OrbitDB ---
-	const { identity, identities, keystore } = await getOrbitDBIdentity();
+	const id = config?.id || "nous-node";
+	const { identity, identities, keystore } = await getOrbitDBIdentity({
+		id,
+		helia,
+	});
 	const orbitdb = await createOrbitDB({
 		ipfs: helia,
+		id,
 		identity,
 		identities,
 		directory: ORBITDB_DB_PATH,

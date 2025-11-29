@@ -6,7 +6,7 @@
  * functions for saving, deleting, querying, and retrieving AI-analyzed articles.
  */
 
-import { Documents, type OrbitDB } from "@orbitdb/core";
+import { Documents, IPFSAccessController, type OrbitDB } from "@orbitdb/core";
 import { addDebugLog, log } from "@/lib/log.server";
 import type { ArticleAnalyzed } from "@/types";
 import { loadDBPaths, saveDBPaths } from "./setup";
@@ -43,10 +43,11 @@ export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleA
 	}
 
 	const savedPaths = loadDBPaths();
-	const dbName = savedPaths.articles ?? "nous.analyzed.feed";
+	const dbName = savedPaths.analyzed ?? "nous.analyzed.feed";
 
 	const db = (await orbitdb.open(dbName, {
 		Database: Documents({ indexBy: "id" }) as any, // cast to satisfy TS
+		AccessController: IPFSAccessController({ write: ["*"] }),
 		meta: { indexBy: "id" },
 	})) as any;
 
