@@ -31,7 +31,7 @@ import * as Block from "multiformats/block";
 import { CID } from "multiformats/cid";
 import { sha256 } from "multiformats/hashes/sha2";
 
-const KEYSTORE_PATH = process.env.KEYSTORE_PATH || "orbitdb-keystore";
+const KEYSTORE_PATH = process.env.ORBITDB_KEYSTORE_PATH || "frontend/.nous/orbitdb-keystore";
 const IDENTITY_FILE = path.join(KEYSTORE_PATH, "identity.json");
 
 const codec = dagCbor;
@@ -84,6 +84,7 @@ export async function fetchIdentityFromIPFS<T>(helia: any, hash: string): Promis
 	if (!bytes) throw new Error(`Block not found for CID: ${hash}`);
 	if (!(bytes instanceof Uint8Array)) throw new Error(`Invalid bytes type: ${typeof bytes}`);
 
+	// return decodeIdentity(bytes)
 	return decodeBlock<T>(bytes);
 }
 
@@ -123,11 +124,17 @@ function saveIdentity(identity: Identity) {
  * OrbitDB v2 identities must be saved and restored using the entire object,
  * not a hash, since `identity.hash` no longer exists.
  *
- * @param id - The id to use to create identity
+ * @param identityId - The id to use to create identity
  * @param helia - The underlying Helia (IPFS) instance
  * @returns {Promise<{ keystore: KeyStoreType, identities: IdentitiesType, identity: Identity }>}
  */
-export async function getOrbitDBIdentity({ id, helia }: { id: string; helia: Helia }): Promise<{
+export async function getOrbitDBIdentity({
+	identityId: id = "nous-node",
+	helia,
+}: {
+	identityId: string;
+	helia: Helia;
+}): Promise<{
 	keystore: KeyStoreType;
 	identities: IdentitiesType;
 	identity: Identity;
@@ -137,7 +144,9 @@ export async function getOrbitDBIdentity({ id, helia }: { id: string; helia: Hel
 		fs.mkdirSync(KEYSTORE_PATH, { recursive: true });
 	}
 
-	const keystore = await KeyStore({ path: KEYSTORE_PATH });
+	const keystore = await KeyStore({
+		path: KEYSTORE_PATH,
+	});
 	const identities = await Identities({
 		keystore,
 		path: KEYSTORE_PATH,
@@ -152,33 +161,29 @@ export async function getOrbitDBIdentity({ id, helia }: { id: string; helia: Hel
 			console.log("🔐 Restoring existing OrbitDB identity...");
 			// Now validate it
 			const valid = await identities.verifyIdentity(savedIdentity);
-
 			if (valid) {
 				console.log("✅ Identity verified successfully");
 			}
 
-			// const privateKey = await keystore.getKey(savedIdentity.id);
-			// const hash = parseIdentityCID(savedIdentity.hash);
+			// const identity = await identities.getIdentity(savedIdentity.hash);
+			// const identity = {
+			// 	...savedIdentity,
+			// 	sign: identities.sign,
+			// 	verify: identities.verify,
+			// };
 
-			// This reconstructs the FULL identity
-			// console.log("Restoring identity with hash:", hash.toString());
-			const identity = await identities.getIdentity(savedIdentity.hash.toString());
-			// console.log("restored", identity);
-
-			// if (identity) {
-			console.log("✅ Identity restored successfully");
-			// console.log("restored identity", savedIdentity);
-			return { keystore, identities, identity };
-			// }
-			// throw new Error("⚠️ Stored identity invalid");
+			if (savedIdentity) {
+				console.log("✅ Identity restored successfully");
+				return { keystore, identities, identity: savedIdentity };
+			}
+			throw new Error("⚠️ Stored identity invalid");
 		} catch (err) {
 			throw new Error(`Failed to verify stored identity: ${err?.toString()}`);
 		}
 	}
 
 	// Create a brand-new identity
-	console.log("✨ Creating new OrbitDB identity...");
-
+	console.log(`✨ Creating new OrbitDB identity with id: [${id}]`);
 	const identity = await identities.createIdentity({
 		id,
 		type: "ed25519",

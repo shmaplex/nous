@@ -156,7 +156,11 @@ declare module "@orbitdb/core" {
       publicKey: string;
     };
     type: string;
+    
+    // generated
     hash: string;
+    bytes: Uint8Array;
+
     sign: (identity: Identity, data: string) => Promise<string>;
     verify: (
       signature: string,

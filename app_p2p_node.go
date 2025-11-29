@@ -63,9 +63,9 @@ func (a *App) StartP2PNode() string {
 	a.p2pCmd.Env = append(os.Environ(),
 		fmt.Sprintf("HTTP_PORT=%d", httpPort),
 		fmt.Sprintf("LIBP2P_ADDR=/ip4/127.0.0.1/tcp/%d", libp2pPort),
-		fmt.Sprintf("NODE_ID=%s", NODE_ID),
-		fmt.Sprintf("KEYSTORE_PATH=%s", keystorePath),
-		fmt.Sprintf("DB_PATH=%s", dbPath),
+		fmt.Sprintf("IDENTITY_ID=%s", IDENTITY_ID),
+		fmt.Sprintf("ORBITDB_KEYSTORE_PATH=%s", keystorePath),
+		fmt.Sprintf("ORBITDB_DB_PATH=%s", dbPath),
 	)
 
 	// Capture stdout and stderr

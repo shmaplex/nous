@@ -283,6 +283,49 @@ export const getFullLocalArticleRoute: RouteHandler = {
 	},
 };
 
+
+/**
+ * GET /api/article/aggregated/:id
+ * Fetch aggregated article with full analysis
+ */
+// export const getAggregatedArticleRoute: RouteHandler = {
+//   method: "GET",
+//   path: "/api/article/aggregated/",
+//   handler: async ({ res, url, getAllLocalArticles }) => {
+//     res.setHeader("Content-Type", "application/json");
+
+//     if (!getAllLocalArticles) {
+//       return handleError(res, "getAllLocalArticles function not provided", 500, "error");
+//     }
+
+//     try {
+//       const pathParts = url?.split("/") || [];
+//       const storyId = decodeURIComponent(pathParts.slice(4).join("/"));
+//       if (!storyId) {
+//         return handleError(res, "No story ID provided", 400, "warn");
+//       }
+
+//       const allArticles = await getAllLocalArticles();
+//       // Aggregate articles for the same story
+//       const related = allArticles.filter(a => a.storyId === storyId);
+
+//       if (related.length === 0) {
+//         return handleError(res, `No articles found for story: ${storyId}`, 404, "warn");
+//       }
+
+//       // Combine content
+//       const combinedContent = related.map(a => a.content).filter(Boolean).join("\n\n");
+
+//       // TODO: Run analysis (political bias, cognitive bias, summary, bullet points)
+//       const analyzed = await analyzeContent(combinedContent, related);
+
+//       res.end(JSON.stringify(analyzed));
+//     } catch (err) {
+//       return handleError(res, `Error fetching aggregated article: ${(err as Error).message}`, 500, "error");
+//     }
+//   },
+// };
+
 /**
  * POST /articles/local/save
  * Save a single new source article

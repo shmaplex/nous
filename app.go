@@ -15,15 +15,18 @@ type App struct {
 	Location string
 }
 
-var ORBITDB_KEYSTORE_PATH = "frontend/orbitdb-keystore"
-var ORBITDB_DB_PATH = "frontend/orbitdb-databases"
+var IDENTITY_ID = "nous-node"
+var ORBITDB_KEYSTORE_PATH = "frontend/.nous/orbitdb-keystore"
+var ORBITDB_DB_PATH = "frontend/.nous/orbitdb-databases"
+var IPFS_BLOCKSTORE_PATH = "frontend/.nous/helia-blocks"
 
 var instanceID int
-var NODE_ID string = "nous-node-1"
 var httpPortBase int = 9001
-var libp2pPortBase int = 4001
+var libp2pPortBase int = 15003
+var identityId string = IDENTITY_ID
 var keystorePath string = ORBITDB_KEYSTORE_PATH
 var dbPath string = ORBITDB_DB_PATH
+var blockstorePath string = IPFS_BLOCKSTORE_PATH
 
 var BASE_API_URL string = "http://localhost"
 
@@ -62,12 +65,15 @@ func (a *App) Startup(ctx context.Context) {
 	if path := os.Getenv("DB_PATH"); path != "" {
 		dbPath = path
 	}
-	if envID := os.Getenv("NODE_ID"); envID != "" {
-		NODE_ID = envID
+	if path := os.Getenv("IPFS_BLOCKSTORE_PATH"); path != "" {
+		blockstorePath = path
+	}
+	if envID := os.Getenv("IDENTITY_ID"); envID != "" {
+		identityId = envID
 	}
 
-	log.Printf("[Startup] Using config → http:%d libp2p:%d db:%s keystore:%s",
-		httpPortBase+instanceID, libp2pPortBase+instanceID, dbPath, keystorePath)
+	log.Printf("[Startup] Using config → id:%s http:%d libp2p:%d db:%s keystore:%s blockstore:%s",
+		identityId, httpPortBase+instanceID, libp2pPortBase+instanceID, dbPath, keystorePath, blockstorePath)
 
 	// Start P2P node asynchronously
 	go func() {

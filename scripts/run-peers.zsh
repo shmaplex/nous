@@ -30,19 +30,19 @@ full_clean() {
 # Build a peer Wails app
 # -----------------------------
 build_peer() {
-  local NODE_ID=$1
+  local IDENTITY_ID=$1
   local KEYSTORE_PATH=$2
   local DB_PATH=$3
   local HTTP_PORT=$4
   local LIBP2P_ADDR=$5
   local VITE_PORT=$6
-  local OUTPUT_BIN="$BIN_DIR/$NODE_ID"
+  local OUTPUT_BIN="$BIN_DIR/$IDENTITY_ID"
 
-  echo "🧹 Cleaning Wails bindings for $NODE_ID..."
+  echo "🧹 Cleaning Wails bindings for $IDENTITY_ID..."
   rm -rf "$APP_DIR/frontend/wailsjs/go/main"
 
-  echo "🛠 Building $NODE_ID..."
-  export NODE_ID="$NODE_ID"
+  echo "🛠 Building $IDENTITY_ID..."
+  export IDENTITY_ID="$IDENTITY_ID"
   export KEYSTORE_PATH="$KEYSTORE_PATH"
   export DB_PATH="$DB_PATH"
   export HTTP_PORT="$HTTP_PORT"
@@ -54,13 +54,13 @@ build_peer() {
     if [[ -f "$DEFAULT_BIN" ]]; then
       cp "$DEFAULT_BIN" "$OUTPUT_BIN"
       chmod +x "$OUTPUT_BIN"
-      echo "✅ $NODE_ID built successfully at $OUTPUT_BIN"
+      echo "✅ $IDENTITY_ID built successfully at $OUTPUT_BIN"
     else
       echo "❌ Wails build succeeded but binary not found at $DEFAULT_BIN"
       exit 1
     fi
   else
-    echo "❌ Failed to build $NODE_ID"
+    echo "❌ Failed to build $IDENTITY_ID"
     exit 1
   fi
 }
@@ -70,7 +70,7 @@ build_peer() {
 # -----------------------------
 start_peer() {
   local BIN_PATH=$1
-  local NODE_ID=$2
+  local IDENTITY_ID=$2
   local HTTP_PORT=$3
   local LIBP2P_ADDR=$4
   local VITE_PORT=$5
@@ -79,15 +79,15 @@ start_peer() {
 
   clean_locks "$DB_PATH" "$KEYSTORE_PATH"
 
-  export NODE_ID="$NODE_ID"
+  export IDENTITY_ID="$IDENTITY_ID"
   export HTTP_PORT="$HTTP_PORT"
   export LIBP2P_ADDR="$LIBP2P_ADDR"
   export VITE_PORT="$VITE_PORT"
   export KEYSTORE_PATH="$KEYSTORE_PATH"
   export DB_PATH="$DB_PATH"
 
-  "$BIN_PATH" > "$BIN_DIR/$NODE_ID.log" 2>&1 &
-  echo "🚀 $NODE_ID started, logging to $BIN_DIR/$NODE_ID.log"
+  "$BIN_PATH" > "$BIN_DIR/$IDENTITY_ID.log" 2>&1 &
+  echo "🚀 $IDENTITY_ID started, logging to $BIN_DIR/$IDENTITY_ID.log"
 
   # Wait for DB + Helia to initialize
   sleep 6

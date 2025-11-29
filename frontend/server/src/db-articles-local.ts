@@ -78,7 +78,7 @@ export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLoca
 	}
 
 	const savedPaths = loadDBPaths();
-	const dbName = savedPaths.articles ?? "nous.articles.feed";
+	const dbName = savedPaths && savedPaths?.articles ? savedPaths.articles : "nous.articles.feed";
 
 	const db = (await orbitdb.open(dbName, {
 		Database: Documents({ indexBy: "url" }) as any, // cast to satisfy TS

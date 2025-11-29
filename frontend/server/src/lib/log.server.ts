@@ -1,6 +1,6 @@
 // server/src/server/log.server.ts
 
-import { getP2PNode } from "@/node";
+import { getRunningInstance, type NodeInstance } from "@/node";
 import type { DebugLogEntry } from "@/types";
 
 /**
@@ -8,7 +8,7 @@ import type { DebugLogEntry } from "@/types";
  */
 export function log(message: string, level: "info" | "warn" | "error" = "info") {
 	const timestamp = new Date().toISOString();
-	const formatted = `[P2P] ${timestamp} - ${message}`;
+	const formatted = `${timestamp} - ${message}`;
 
 	switch (level) {
 		case "warn":
@@ -48,7 +48,11 @@ export async function addDebugLog(
 	else if (logEntry.level === "error") console.error(prefix);
 	else console.log(prefix);
 
-	const { debugDB } = await getP2PNode();
+	const runningInstance = getRunningInstance();
+	if (!runningInstance) {
+		return;
+	}
+	const { debugDB } = runningInstance;
 
 	try {
 		// Log the error to the debug db

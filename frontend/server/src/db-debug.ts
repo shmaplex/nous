@@ -28,7 +28,7 @@ export async function setupDebugDB(orbitdb: OrbitDB) {
 	}
 
 	const savedPaths = loadDBPaths();
-	const dbName = savedPaths.debug ?? "nous.debug.logs";
+	const dbName = savedPaths && savedPaths?.debug ? savedPaths.debug : "nous.debug.logs";
 
 	let db: any;
 	try {

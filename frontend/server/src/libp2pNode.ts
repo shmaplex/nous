@@ -25,23 +25,29 @@ export async function createLibp2pNode(
 	libp2pListenAddr: string,
 	relayAddresses: string[] = [],
 ): Promise<Libp2p> {
-	const libp2p: Libp2p = await createLibp2p({
-		peerDiscovery: [mdns()],
-		addresses: { listen: [libp2pListenAddr, "/webrtc", "/webtransport", "/p2p-circuit"] },
-		transports: [tcp(), webRTC(), webTransport(), circuitRelayTransport()],
-		connectionEncrypters: [noise()],
-		streamMuxers: [yamux()],
-		services: {
-			identify: identify(),
-			identifyPush: identifyPush(),
-			relay: circuitRelayServer(),
-			pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
-		},
-	});
+	let libp2p: Libp2p;
+	try {
+		const options = {
+			peerDiscovery: [mdns()],
+			addresses: { listen: [libp2pListenAddr, "/webrtc", "/webtransport", "/p2p-circuit"] },
+			transports: [tcp(), webRTC(), webTransport(), circuitRelayTransport()],
+			connectionEncrypters: [noise()],
+			streamMuxers: [yamux()],
+			services: {
+				identify: identify(),
+				identifyPush: identifyPush(),
+				relay: circuitRelayServer(),
+				pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
+			},
+		};
+		libp2p = await createLibp2p(options);
+	} catch (err) {
+		throw new Error("Error creating libP2P node");
+	}
 
 	// Log listening addresses (forEach callback should not return a value)
 	libp2p.getMultiaddrs().forEach((addr: Multiaddr) => {
-		log(`🚦 Listening on: ${addr.toString()}`);
+		log(`[P2P] 🚦 Listening on: ${addr.toString()}`);
 		addDebugLog({
 			message: `🚦 Listening on: ${addr.toString()}`,
 			level: "info",
@@ -50,12 +56,18 @@ export async function createLibp2pNode(
 		});
 	});
 
+	// Peer discovery with mdns
+	libp2p.addEventListener("peer:discovery", (evt) => {
+		libp2p.dial(evt.detail.multiaddrs); // dial discovered peers
+		console.log("[P2P] Found peer: ", evt.detail.toString());
+	});
+
 	// Connect to relays
 	if (relayAddresses?.length) {
 		for (const addr of relayAddresses) {
 			try {
 				await libp2p.dial(multiaddr(addr));
-				log(`Connected to relay ${addr.toString()}`);
+				log(`[P2P] Connected to relay ${addr.toString()}`);
 				addDebugLog({
 					message: `Connected to relay ${addr.toString()}`,
 					level: "info",
@@ -63,7 +75,7 @@ export async function createLibp2pNode(
 					// type: "p2p",
 				});
 			} catch (err) {
-				log(`Failed to connect to relay ${addr}: ${(err as Error).message}`);
+				log(`[P2P] Failed to connect to relay ${addr}: ${(err as Error).message}`);
 				addDebugLog({
 					message: `Failed to connect to relay ${addr}: ${(err as Error).message}`,
 					level: "info",
@@ -76,7 +88,7 @@ export async function createLibp2pNode(
 
 	// PubSub logging
 	(libp2p.services.pubsub as any).addEventListener("message", (evt: any) => {
-		log(`PubSub message received: ${JSON.stringify(evt.detail)}`);
+		log(`[P2P] PubSub message received: ${JSON.stringify(evt.detail)}`);
 		addDebugLog({
 			message: `PubSub message received: ${JSON.stringify(evt.detail)}`,
 			level: "info",

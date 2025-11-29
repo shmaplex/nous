@@ -130,6 +130,8 @@ export function createHttpServer(
 				log("✅ HTTP server closed");
 				resolve();
 			});
+			// Close all connections
+			server.closeAllConnections();
 		});
 	}
 

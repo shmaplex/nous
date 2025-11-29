@@ -9,13 +9,19 @@ import type { ArticleLocalDB } from "./db-articles-local";
 import type { DebugDB } from "./db-debug";
 import { createHttpServer, type HttpServerContext } from "./httpServer";
 import { startNetworkStatusPoll } from "./networkStatus";
-import { getP2PNode } from "./node";
-import { registerShutdownHandlers, setRunningInstance, shutdownP2PNode } from "./shutdown";
+import { getP2PNode, type NodeInstance, setRunningInstance } from "./node";
+import { registerShutdownHandlers } from "./shutdown";
 
-const ORBITDB_KEYSTORE_PATH = path.resolve(process.env.KEYSTORE_PATH ?? "orbitdb-keystore");
-const ORBITDB_DB_PATH = path.resolve(process.env.DB_PATH ?? "orbitdb-databases");
 const DB_PATH_FILE = "path.json";
-const IDENTITY_ID = "nous-node";
+const IDENTITY_ID = process.env.IDENTITY_ID ?? "nous-node";
+
+// Critical: Storage and Database Paths
+const ORBITDB_KEYSTORE_PATH =
+	process.env.ORBITDB_KEYSTORE_PATH || path.join(process.cwd(), "frontend/.nous/orbitdb-keystore");
+const ORBITDB_DB_PATH =
+	process.env.ORBITDB_DB_PATH || path.join(process.cwd(), "frontend/.nous/orbitdb-databases");
+const BLOCKSTORE_PATH =
+	process.env.BLOCKSTORE_PATH || path.join(process.cwd(), "frontend/.nous/helia-blockstore");
 
 // Ensure directories exist
 [ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
@@ -39,7 +45,7 @@ export interface DBPaths {
 }
 
 /** Load saved DB paths */
-export function loadDBPaths(): DBPaths {
+export function loadDBPaths(): DBPaths | null {
 	if (fs.existsSync(ORBITDB_DB_PATH)) {
 		try {
 			return JSON.parse(
@@ -49,7 +55,7 @@ export function loadDBPaths(): DBPaths {
 			console.error("Failed to load DB paths file:", err);
 		}
 	}
-	return {};
+	return null;
 }
 
 /** Save DB paths */
@@ -65,30 +71,42 @@ export function saveDBPaths(paths: DBPaths) {
 	}
 }
 
-export async function startP2PNode(config: NodeConfig) {
+export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 	log("Setting up node...");
 
 	// Get or create running instance
 	const {
+		// Databases
+		debugDB,
+		articleLocalDB,
+		articleAnalyzedDB,
+		articleFederatedDB,
+		identity,
+		identities,
+
+		// Core node
 		keystore,
 		libp2p,
 		helia,
 		orbitdb,
 		status: nodeStatus,
-		debugDB,
-		articleLocalDB,
-		articleAnalyzedDB,
-		articleFederatedDB,
+
+		// Paths
+		orbitDBKeystorePath,
+		orbitDBPath,
+		blockstorePath,
 	} = await getP2PNode(config);
 
 	// --- Start network polling ---
 	const stopNetworkPoll = startNetworkStatusPoll(helia, nodeStatus);
 
+	const httpPort = config?.httpPort || 9001;
+
 	// --- HTTP server ---
 	const httpContext: HttpServerContext = {
 		status: nodeStatus,
 		orbitdbConnected: Boolean(orbitdb),
-		httpPort: config.httpPort,
+		httpPort,
 
 		// Pass custom database methods
 		...debugDB,
@@ -97,20 +115,33 @@ export async function startP2PNode(config: NodeConfig) {
 		...articleFederatedDB,
 	};
 
-	const { server, shutdown: shutdownHttpServer } = createHttpServer(config.httpPort, httpContext);
+	const { server, shutdown: shutdownHttpServer } = createHttpServer(httpPort, httpContext);
 
 	// --- Graceful shutdown ---
 	const runningInstance = {
-		keystore,
-		libp2p,
-		helia,
-		orbitdb,
+		// Databases
 		debugDB,
 		articleLocalDB,
 		articleAnalyzedDB,
 		articleFederatedDB,
+		// Core node
+		helia,
+		orbitdb,
+		keystore,
+		identity,
+		identities,
+		// HTTP server
+		httpServer: server,
 		shutdownHttpServer,
-	};
+		stopNetworkPoll,
+		libp2p,
+		status: nodeStatus,
+
+		orbitDBKeystorePath,
+		orbitDBPath,
+		blockstorePath,
+	} as NodeInstance;
+
 	setRunningInstance(runningInstance);
 
 	const status = loadStatus();
@@ -123,29 +154,18 @@ export async function startP2PNode(config: NodeConfig) {
 	// Register process signals once
 	registerShutdownHandlers();
 
-	return {
-		// DBs
-		debugDB,
-		articleLocalDB,
-		articleAnalyzedDB,
-		articleFederatedDB,
-		// Core node
-		helia,
-		orbitdb,
-		server,
-		libp2p,
-		nodeStatus,
-		stopNetworkPoll,
-		shutdown: shutdownP2PNode,
-	};
+	return runningInstance;
 }
 
 // Auto-start
 const config: NodeConfig = {
 	httpPort: Number(process.env.HTTP_PORT) || 9001,
 	libp2pListenAddr: process.env.LIBP2P_ADDR || "/ip4/127.0.0.1/tcp/15003",
-	relayAddresses: RELAYS,
-	id: String(process.env.IDENTITY_ID) || IDENTITY_ID,
+	relayAddresses: RELAYS || [],
+	identityId: IDENTITY_ID,
+	orbitDBKeystorePath: ORBITDB_KEYSTORE_PATH,
+	orbitDBPath: ORBITDB_DB_PATH,
+	blockstorePath: BLOCKSTORE_PATH,
 };
 
 startP2PNode(config).catch((err) => {

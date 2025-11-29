@@ -1,6 +1,6 @@
 // frontend/src/p2p/node.ts
 import fs from "node:fs";
-import path from "node:path";
+import type { Server } from "node:http";
 import {
 	createOrbitDB,
 	type IdentitiesType,
@@ -23,11 +23,14 @@ import { type DebugDB, setupDebugDB } from "./db-debug";
 import { getOrbitDBIdentity } from "./identity";
 import { createLibp2pNode } from "./libp2pNode";
 
-const ORBITDB_KEYSTORE_PATH =
-	process.env.KEYSTORE_PATH || path.join(process.cwd(), "orbitdb-keystore");
-const ORBITDB_DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "orbitdb-databases");
-
 export type NodeInstance = {
+	// Databases
+	debugDB: DebugDB;
+	articleLocalDB: ArticleLocalDB;
+	articleAnalyzedDB: ArticleAnalyzedDB;
+	articleFederatedDB: ArticleFederatedDB;
+
+	// Core node
 	keystore: KeyStoreType;
 	identity: Identity;
 	identities: IdentitiesType;
@@ -35,13 +38,40 @@ export type NodeInstance = {
 	helia: Helia;
 	orbitdb: OrbitDB;
 	status: NodeStatus;
-	debugDB: DebugDB;
-	articleLocalDB: ArticleLocalDB;
-	articleAnalyzedDB: ArticleAnalyzedDB;
-	articleFederatedDB: ArticleFederatedDB;
+
+	// HTTP server
+	httpServer?: Server; // http server
+	shutdownHttpServer?: () => Promise<void>; // http server shutdown method
+	stopNetworkPoll?: () => void;
+
+	// Paths
+	orbitDBKeystorePath: string;
+	orbitDBPath: string;
+	blockstorePath: string;
 };
 
 let runningInstance: NodeInstance | null = null;
+
+/**
+ * Sets the currently running P2P node instance.
+ * Useful for centralizing shutdown logic.
+ * @param instance - The running P2P node instance
+ */
+export function setRunningInstance(instance: NodeInstance) {
+	runningInstance = instance;
+}
+
+/**
+ * Returns the currently running P2P node instance.
+ * Useful for centralizing shutdown logic.
+ * @return NodeInstance - The running P2P node instance
+ */
+export function getRunningInstance(): NodeInstance | null {
+	if (!runningInstance) {
+		return null;
+	}
+	return runningInstance;
+}
 
 /**
  * Start or return the running P2P node instances
@@ -52,14 +82,22 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 		return runningInstance;
 	}
 
-	const nodeConfig: NodeConfig = config || {
-		httpPort: Number(process.env.HTTP_PORT) || 9001,
-		libp2pListenAddr: process.env.LIBP2P_ADDR || "/ip4/127.0.0.1/tcp/15003",
-		relayAddresses: process.env.RELAYS?.split(",") || [],
-	};
+	const nodeConfig: NodeConfig = config || null;
+	if (!nodeConfig) {
+		throw new Error("[Node] Unable to load node NodeConfig.");
+	}
+
+	[nodeConfig.orbitDBKeystorePath, nodeConfig.orbitDBPath, nodeConfig.blockstorePath].forEach(
+		(dir) => {
+			if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+		},
+	);
+	console.log("✅ Verified storage directories exist");
+
+	console.log(`[Node] Starting p2p node with config: ${JSON.stringify(nodeConfig, null, 2)}`);
 
 	// Ensure directories exist
-	[ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
+	[nodeConfig.orbitDBKeystorePath, nodeConfig.orbitDBPath].forEach((dir) => {
 		if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 	});
 
@@ -75,21 +113,25 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 
 	// --- Helia ---
 	// @see https://github.com/orbitdb/orbitdb/blob/main/docs/GETTING_STARTED.md
-	const blockstore = new LevelBlockstore("./ipfs/blocks");
-	const helia = await createHelia({ libp2p, blockstore });
+	// const blockstore = new LevelBlockstore(nodeConfig.blockstorePath);
+	// await blockstore.open();
+	const helia = await createHelia({
+		libp2p,
+		// blockstore,
+	});
 
 	// --- OrbitDB ---
-	const id = config?.id || "nous-node";
+	const identityId = nodeConfig?.identityId?.toString() || "nous-node";
 	const { identity, identities, keystore } = await getOrbitDBIdentity({
-		id,
+		identityId,
 		helia,
 	});
 	const orbitdb = await createOrbitDB({
 		ipfs: helia,
-		id,
+		// id: identityId,
 		identity,
 		identities,
-		directory: ORBITDB_DB_PATH,
+		directory: nodeConfig.orbitDBPath,
 	});
 
 	let debugDB: DebugDB;
@@ -120,18 +162,27 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 		throw new Error("Failed to initialize databases. Node cannot start.");
 	}
 
+	const { orbitDBKeystorePath, orbitDBPath, blockstorePath } = nodeConfig;
 	runningInstance = {
-		keystore,
-		identity,
-		identities,
+		// Core node
 		libp2p,
 		helia,
 		orbitdb,
 		status,
+
+		// Databases
 		debugDB,
 		articleLocalDB,
 		articleAnalyzedDB,
 		articleFederatedDB,
+		keystore,
+		identity,
+		identities,
+
+		// Paths
+		orbitDBKeystorePath,
+		orbitDBPath,
+		blockstorePath,
 	};
 
 	log("✅ P2P node initialized successfully");

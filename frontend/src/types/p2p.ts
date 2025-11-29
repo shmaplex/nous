@@ -11,10 +11,13 @@ export const NodeConfigSchema = z.object({
 	httpPort: z.number(),
 	libp2pListenAddr: z.string(),
 	relayAddresses: z.array(z.string()).optional(),
-	id: z.string().optional(), // Identity id to use
+	identityId: z.string().optional(),
+	orbitDBKeystorePath: z.string(), // For OrbitDB keystore
+	orbitDBPath: z.string(), // For OrbitDB databases
+	blockstorePath: z.string(), // For Helia blockstore
 });
 
-export type NodeConfig = z.infer<typeof NodeConfigSchema>;
+export type NodeConfig = z.infer<typeof NodeConfigSchema> | null;
 
 /* -------------------------------------------------------------
  * Peer Connection Info

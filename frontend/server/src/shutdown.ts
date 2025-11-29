@@ -1,40 +1,14 @@
-import type { KeyStoreType, OrbitDB } from "@orbitdb/core";
-import type { Helia } from "helia";
-import type { Libp2p } from "libp2p";
+// frontend/server/src/shutdown.ts
 import { log } from "@/lib/log.server";
 import { deleteStatus } from "@/lib/status.server";
 import { cleanLockFiles } from "@/lib/utils.server";
+import { getRunningInstance } from "./node";
 import type { P2PDatabases } from "./setup";
-
-/**
- * Singleton reference to the running P2P node instance.
- * Stores libp2p, helia, OrbitDB, and all database instances.
- */
-let runningInstance: {
-	keystore: KeyStoreType;
-	libp2p: Libp2p;
-	helia: Helia;
-	orbitdb: OrbitDB;
-	debugDB?: P2PDatabases["debugDB"];
-	articleLocalDB?: P2PDatabases["articleLocalDB"];
-	articleAnalyzedDB?: P2PDatabases["articleAnalyzedDB"];
-	articleFederatedDB?: P2PDatabases["articleFederatedDB"];
-	shutdownHttpServer: () => Promise<void>;
-} | null = null;
 
 let shuttingDown = false;
 
 function sleep(ms: number) {
 	return new Promise((r) => setTimeout(r, ms));
-}
-
-/**
- * Sets the currently running P2P node instance.
- * Useful for centralizing shutdown logic.
- * @param instance - The running P2P node instance
- */
-export function setRunningInstance(instance: typeof runningInstance) {
-	runningInstance = instance;
 }
 
 /**
@@ -109,6 +83,8 @@ export async function shutdownP2PNode() {
 	}
 	shuttingDown = true;
 
+	const runningInstance = getRunningInstance();
+
 	if (!runningInstance) {
 		log("ℹ️ No running instance to shut down");
 		process.exit(0);
@@ -124,7 +100,11 @@ export async function shutdownP2PNode() {
 		articleLocalDB,
 		articleAnalyzedDB,
 		articleFederatedDB,
+		// httpServer,
 		shutdownHttpServer,
+		orbitDBKeystorePath,
+		orbitDBPath,
+		blockstorePath,
 	} = runningInstance;
 
 	log("🔻 Starting P2P node shutdown...");
@@ -205,15 +185,15 @@ export async function shutdownP2PNode() {
 
 	// Clean lock files
 	try {
-		await cleanLockFiles(process.env.KEYSTORE_PATH || "orbitdb-keystore");
-		await cleanLockFiles(process.env.DB_PATH || "orbitdb-databases");
+		await cleanLockFiles(orbitDBKeystorePath);
+		await cleanLockFiles(orbitDBPath);
+		await cleanLockFiles(blockstorePath);
 		log("✅ Lock files cleaned");
 	} catch (err: any) {
 		log(`❌ Error cleaning lock files: ${err.message}`);
 	}
 
 	log("✅ Graceful shutdown complete");
-	runningInstance = null;
 	process.exit(0);
 }
 

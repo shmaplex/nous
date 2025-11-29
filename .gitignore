@@ -18,6 +18,7 @@ build/*
 *.app
 bin/
 .node-cache
+frontend/.nous
 
 # ---------------------------
 # OrbitDB / Helia
