@@ -69,16 +69,22 @@ let articleLocalDBInstance: ArticleLocalDB | null = null;
  * Safe to call multiple times; returns existing instance if already initialized.
  *
  * @param orbitdb - Existing OrbitDB instance.
+ * @param prefixPath - Folder holding OrbitDb databases
  * @returns DB instance and helper methods for articles (unanalyzed) management.
  */
-export async function setupArticleLocalDB(orbitdb: OrbitDB): Promise<ArticleLocalDB> {
+export async function setupArticleLocalDB(
+	orbitdb: OrbitDB,
+	prefixPath: string,
+): Promise<ArticleLocalDB> {
 	if (articleLocalDBInstance) {
 		log("🟢 Article Local DB already initialized, skipping setup");
 		return articleLocalDBInstance;
 	}
 
 	const savedPaths = loadDBPaths();
-	const dbName = savedPaths && savedPaths?.articles ? savedPaths.articles : "nous.articles.feed";
+	const dbName = savedPaths?.articles
+		? `${prefixPath}${savedPaths.articles}`
+		: "nous.articles.feed";
 
 	const db = (await orbitdb.open(dbName, {
 		Database: Documents({ indexBy: "url" }) as any, // cast to satisfy TS

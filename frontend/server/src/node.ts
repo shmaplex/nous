@@ -128,7 +128,7 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 	});
 	const orbitdb = await createOrbitDB({
 		ipfs: helia,
-		// id: identityId,
+		id: identityId,
 		identity,
 		identities,
 		directory: nodeConfig.orbitDBPath,
@@ -140,15 +140,15 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 	let articleFederatedDB: ArticleFederatedDB;
 	try {
 		// --- Setup DBs ---
-		debugDB = await setupDebugDB(orbitdb);
+		debugDB = await setupDebugDB(orbitdb, nodeConfig.orbitDBPath);
 
 		await new Promise((res) => setTimeout(res, 10));
 
-		articleLocalDB = await setupArticleLocalDB(orbitdb);
+		articleLocalDB = await setupArticleLocalDB(orbitdb, nodeConfig.orbitDBPath);
 
 		await new Promise((res) => setTimeout(res, 10));
 
-		articleAnalyzedDB = await setupArticleAnalyzedDB(orbitdb);
+		articleAnalyzedDB = await setupArticleAnalyzedDB(orbitdb, nodeConfig.orbitDBPath);
 
 		await new Promise((res) => setTimeout(res, 10));
 

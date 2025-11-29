@@ -46,14 +46,14 @@ export interface DBPaths {
 
 /** Load saved DB paths */
 export function loadDBPaths(): DBPaths | null {
-	if (fs.existsSync(ORBITDB_DB_PATH)) {
-		try {
+	try {
+		if (fs.existsSync(ORBITDB_DB_PATH)) {
 			return JSON.parse(
 				fs.readFileSync(path.join(ORBITDB_DB_PATH, DB_PATH_FILE), "utf8"),
 			) as DBPaths;
-		} catch (err) {
-			console.error("Failed to load DB paths file:", err);
 		}
+	} catch (err) {
+		console.error("Failed to load DB paths file:", err);
 	}
 	return null;
 }
@@ -73,6 +73,8 @@ export function saveDBPaths(paths: DBPaths) {
 
 export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 	log("Setting up node...");
+
+	const status = loadStatus();
 
 	// Get or create running instance
 	const {
@@ -117,6 +119,8 @@ export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 
 	const { server, shutdown: shutdownHttpServer } = createHttpServer(httpPort, httpContext);
 
+	status.running = true;
+
 	// --- Graceful shutdown ---
 	const runningInstance = {
 		// Databases
@@ -144,12 +148,9 @@ export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 
 	setRunningInstance(runningInstance);
 
-	const status = loadStatus();
-	console.log("Current status:", status);
+	updateStatus(status);
 
-	updateStatus({
-		running: true,
-	});
+	console.log("Current status:", status);
 
 	// Register process signals once
 	registerShutdownHandlers();

@@ -172,11 +172,16 @@ export async function getOrbitDBIdentity({
 			// 	verify: identities.verify,
 			// };
 
-			// if (savedIdentity) {
-			console.log("✅ Identity restored successfully");
-			return { keystore, identities, identity: savedIdentity };
-			// }
-			// throw new Error("⚠️ Stored identity invalid");
+			const identity = await identities.createIdentity(savedIdentity);
+
+			console.log("savedIdentity hash ->", savedIdentity.hash);
+			console.log("identity hash ->", identity.hash);
+
+			if (identity) {
+				console.log("✅ Identity restored successfully");
+				return { keystore, identities, identity };
+			}
+			throw new Error("⚠️ Stored identity invalid");
 		} catch (err) {
 			throw new Error(`Failed to verify stored identity: ${err?.toString()}`);
 		}

@@ -19,16 +19,17 @@ let debugDBInstance: DebugDB | null = null;
  * Safe to call multiple times; will return existing instance.
  *
  * @param orbitdb - Existing OrbitDB instance.
+ * @param prefixPath - Folder holding OrbitDb databases
  * @returns DB instance and helper methods for logging and retrieving entries.
  */
-export async function setupDebugDB(orbitdb: OrbitDB) {
+export async function setupDebugDB(orbitdb: OrbitDB, prefixPath: string) {
 	if (debugDBInstance) {
 		log("🟢 Debug DB already initialized, skipping setup");
 		return debugDBInstance;
 	}
 
 	const savedPaths = loadDBPaths();
-	const dbName = savedPaths && savedPaths?.debug ? savedPaths.debug : "nous.debug.logs";
+	const dbName = savedPaths?.debug ? `${prefixPath}${savedPaths.debug}` : "nous.debug.logs";
 
 	let db: any;
 	try {

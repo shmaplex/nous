@@ -10,6 +10,7 @@ import { webTransport } from "@libp2p/webtransport";
 import { type Multiaddr, multiaddr } from "@multiformats/multiaddr";
 import { createLibp2p, type Libp2p } from "libp2p";
 import { addDebugLog, log } from "@/lib/log.server";
+// import { kadDHT } from '@libp2p/kad-dht'
 
 /**
  * Initializes a Libp2p node with common transports, relays, and PubSub logging.
@@ -29,11 +30,19 @@ export async function createLibp2pNode(
 	try {
 		const options = {
 			peerDiscovery: [mdns()],
-			addresses: { listen: [libp2pListenAddr, "/webrtc", "/webtransport", "/p2p-circuit"] },
+			addresses: {
+				listen: [
+					libp2pListenAddr,
+					"/ip4/127.0.0.1/tcp/15005/ws/webrtc-direct",
+					"/ip4/127.0.0.1/udp/15004/quic-v1/webtransport",
+					"/ip4/127.0.0.1/udp/15006/p2p-circuit",
+				],
+			},
 			transports: [tcp(), webRTC(), webTransport(), circuitRelayTransport()],
 			connectionEncrypters: [noise()],
 			streamMuxers: [yamux()],
 			services: {
+				//  dht: kadDHT(),
 				identify: identify(),
 				identifyPush: identifyPush(),
 				relay: circuitRelayServer(),

@@ -34,16 +34,22 @@ let articleAnalyzedDBInstance: ArticleAnalyzedDB | null = null;
  * including cognitive bias, sentiment, antithesis, political bias, and other metadata.
  *
  * @param orbitdb - Existing OrbitDB instance
+ * @param prefixPath - Folder holding OrbitDb databases
  * @returns Analyzed DB instance with helper methods
  */
-export async function setupArticleAnalyzedDB(orbitdb: OrbitDB): Promise<ArticleAnalyzedDB> {
+export async function setupArticleAnalyzedDB(
+	orbitdb: OrbitDB,
+	prefixPath: string,
+): Promise<ArticleAnalyzedDB> {
 	if (articleAnalyzedDBInstance) {
 		log("🟢 Analyzed DB already initialized, skipping setup");
 		return articleAnalyzedDBInstance;
 	}
 
 	const savedPaths = loadDBPaths();
-	const dbName = savedPaths && savedPaths?.analyzed ? savedPaths.analyzed : "nous.analyzed.feed";
+	const dbName = savedPaths?.analyzed
+		? `${prefixPath}${savedPaths.analyzed}`
+		: "nous.analyzed.feed";
 
 	const db = (await orbitdb.open(dbName, {
 		Database: Documents({ indexBy: "id" }) as any, // cast to satisfy TS
