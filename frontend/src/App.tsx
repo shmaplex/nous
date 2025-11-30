@@ -209,7 +209,7 @@ const App = () => {
 							</div>
 
 							<div className="hidden lg:block w-80 shrink-0">
-								<div className="sticky top-16">
+								<div className="sticky top-18">
 									<InsightsPanel />
 								</div>
 							</div>

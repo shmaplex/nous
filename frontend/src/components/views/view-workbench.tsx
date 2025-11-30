@@ -14,39 +14,39 @@
 
 import type React from "react";
 import { useEffect } from "react";
-import type { Article, FilterOptions } from "@/types";
 import ArticlesGrid from "@/components/articles/articles-grid";
 import { LoadingOverlay } from "@/components/loading/loading-overlay";
-import FiltersPanel from "../filters-panel";
 import { useArticleLoader } from "@/hooks/useArticleLoader";
+import type { Article, FilterOptions } from "@/types";
+import FiltersPanel from "../filters-panel";
 
 interface Props {
-  /**
-   * Callback triggered whenever the user chooses to analyze an article.
-   */
-  onAnalyzeArticle: (article: Article) => void;
+	/**
+	 * Callback triggered whenever the user chooses to analyze an article.
+	 */
+	onAnalyzeArticle: (article: Article) => void;
 
-  /**
-   * Callback triggered when a user clicks an article.
-   * Parent handles opening full view.
-   */
-  onOpen?: (article: Article) => void;
+	/**
+	 * Callback triggered when a user clicks an article.
+	 * Parent handles opening full view.
+	 */
+	onOpen?: (article: Article) => void;
 
-  /**
-   * Optional callback to notify parent about loading state changes.
-   * Called with `(isLoading, statusMessage?, progress?)`.
-   */
-  onLoadingChange?: (isLoading: boolean, statusMessage?: string, progress?: number) => void;
+	/**
+	 * Optional callback to notify parent about loading state changes.
+	 * Called with `(isLoading, statusMessage?, progress?)`.
+	 */
+	onLoadingChange?: (isLoading: boolean, statusMessage?: string, progress?: number) => void;
 
-  /**
-   * Current filter state for this view
-   */
-  filter: FilterOptions;
+	/**
+	 * Current filter state for this view
+	 */
+	filter: FilterOptions;
 
-  /**
-   * Callback to update filter state
-   */
-  setFilter: (filter: FilterOptions) => void;
+	/**
+	 * Callback to update filter state
+	 */
+	setFilter: (filter: FilterOptions) => void;
 }
 
 /**
@@ -62,63 +62,63 @@ interface Props {
  *  - Communicate loading state to parent via `onLoadingChange`
  */
 const WorkbenchView: React.FC<Props> = ({
-  onAnalyzeArticle,
-  onOpen,
-  onLoadingChange,
-  filter,
-  setFilter,
+	onAnalyzeArticle,
+	onOpen,
+	onLoadingChange,
+	filter,
+	setFilter,
 }) => {
-  /** -----------------------------
-   * Local articles loader
-   * ----------------------------- */
-  const { articles, loading, loadingStatus, progress } = useArticleLoader();
+	/** -----------------------------
+	 * Local articles loader
+	 * ----------------------------- */
+	const { articles, loading, loadingStatus, progress } = useArticleLoader();
 
-  /** -----------------------------
-   * Notify parent about loading
-   * ----------------------------- */
-  useEffect(() => {
-    onLoadingChange?.(loading, loadingStatus, progress);
-  }, [loading, loadingStatus, progress, onLoadingChange]);
+	/** -----------------------------
+	 * Notify parent about loading
+	 * ----------------------------- */
+	useEffect(() => {
+		onLoadingChange?.(loading, loadingStatus, progress);
+	}, [loading, loadingStatus, progress, onLoadingChange]);
 
-  /**
-   * Handle click on an article card.
-   * Calls `onOpen` if provided by parent.
-   *
-   * @param article - The clicked article
-   */
-  const handleArticleClick = (article: Article) => {
-    if (onOpen) {
-      onOpen(article);
-    }
-  };
+	/**
+	 * Handle click on an article card.
+	 * Calls `onOpen` if provided by parent.
+	 *
+	 * @param article - The clicked article
+	 */
+	const handleArticleClick = (article: Article) => {
+		if (onOpen) {
+			onOpen(article);
+		}
+	};
 
-  return (
-    <div className="flex flex-col gap-10">
-      {/* Loading overlay */}
-      <LoadingOverlay open={loading} status={loadingStatus} progress={progress} />
+	return (
+		<div className="flex flex-col gap-10">
+			{/* Loading overlay */}
+			<LoadingOverlay open={loading} status={loadingStatus} progress={progress} />
+			{/* Filters Panel */}
+			<div className="sticky top-14 z-20 bg-background px-6 py-3 border-b shadow-sm border-border">
+				<FiltersPanel filter={filter} setFilter={setFilter} />
+			</div>
 
-      {/* Header */}
-      <header className="px-4 sm:px-0">
-        <h1 className="text-2xl font-semibold tracking-tight mb-2">Workbench</h1>
-        <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
-          Raw news articles fetched from your selected sources. Analyze them to generate AI-enriched insights and publish into the distributed knowledge graph.
-        </p>
-      </header>
+			{/* Header */}
+			<header className="px-4 sm:px-0">
+				<h1 className="text-2xl font-semibold tracking-tight mb-2">Workbench</h1>
+				<p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+					Raw news articles fetched from your selected sources. Analyze them to generate AI-enriched
+					insights and publish into the distributed knowledge graph.
+				</p>
+			</header>
 
-      {/* Filters Panel */}
-      <div className="sticky top-0 z-20 bg-background px-6 py-3 border-b shadow-sm border-border">
-        <FiltersPanel filter={filter} setFilter={setFilter} />
-      </div>
-
-      {/* Articles Grid */}
-      <ArticlesGrid
-        articles={articles}
-        onAnalyze={onAnalyzeArticle}
-        onOpen={handleArticleClick}
-        mode="workbench"
-      />
-    </div>
-  );
+			{/* Articles Grid */}
+			<ArticlesGrid
+				articles={articles}
+				onAnalyze={onAnalyzeArticle}
+				onOpen={handleArticleClick}
+				mode="workbench"
+			/>
+		</div>
+	);
 };
 
 export default WorkbenchView;
