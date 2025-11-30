@@ -143,6 +143,7 @@ const App = () => {
 	const handleOpenArticle = async (article: Article) => {
 		setLoading(true);
 		try {
+			console.log("Fetching local article:", article.id);
 			const res = await FetchLocalArticle(article.id);
 			const full = JSON.parse(res);
 			setFullArticle(full);

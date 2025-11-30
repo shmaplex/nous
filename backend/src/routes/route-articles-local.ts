@@ -189,8 +189,6 @@ export const getAllLocalArticlesRoute: RouteHandler = {
 		try {
 			const allArticles = await getAllLocalArticles();
 
-			console.log("allArticles", JSON.stringify(allArticles, null, 2));
-
 			if (addDebugLog) {
 				await addDebugLog({
 					_id: crypto.randomUUID(),
@@ -260,6 +258,8 @@ export const getFullLocalArticleRoute: RouteHandler = {
 			}
 
 			const lookupKey = id || cid || url!;
+
+			console.log('lookupKey', lookupKey)
 			const article = await getLocalArticle(lookupKey);
 			if (!article) {
 				await handleError(res, `Article not found for ID/CID/URL: ${lookupKey}`, 404, "warn");

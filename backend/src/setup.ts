@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DB_PATH_FILE_PATH } from "@/constants";
 import { log } from "@/lib/log.server";
 import { loadStatus, updateStatus } from "@/lib/status.server";
 import type { NodeConfig } from "@/types";
@@ -11,15 +12,12 @@ import { createHttpServer, type HttpServerContext } from "./httpServer";
 import { startNetworkStatusPoll } from "./networkStatus";
 import { getP2PNode, type NodeInstance, setRunningInstance } from "./node";
 import { registerShutdownHandlers } from "./shutdown";
-import { DB_PATH_FILE_PATH } from '@/constants' 
-
 
 /**
  * Absolute file path used for persisting paths between server restarts.
  * This file contains a reference of the OrbitDB databases
  */
 const DB_REFERRENCE_PATH = path.resolve(process.cwd(), DB_PATH_FILE_PATH);
-
 
 const IDENTITY_ID = process.env.IDENTITY_ID ?? "nous-node";
 
@@ -30,11 +28,6 @@ const ORBITDB_DB_PATH =
 	process.env.ORBITDB_DB_PATH || path.join(process.cwd(), "backend/.nous/orbitdb-databases");
 const BLOCKSTORE_PATH =
 	process.env.BLOCKSTORE_PATH || path.join(process.cwd(), "backend/.nous/helia-blockstore");
-
-// Ensure directories exist
-[ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
-	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
 
 const RELAYS: string[] = process.env.RELAYS?.split(",") || [];
 
@@ -73,11 +66,10 @@ export function loadDBPaths(): DBPaths | null {
 /** Save DB paths */
 export function saveDBPaths(paths: DBPaths) {
 	try {
-		fs.writeFileSync(
-			path.resolve(DB_REFERRENCE_PATH),
-			JSON.stringify(paths, null, 2),
-			"utf8",
-		);
+		const dir = path.dirname(DB_REFERRENCE_PATH);
+		if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+		fs.writeFileSync(DB_REFERRENCE_PATH, JSON.stringify(paths, null, 2), "utf8");
 	} catch (err) {
 		console.error("Failed to save DB paths file:", err);
 	}
@@ -85,6 +77,11 @@ export function saveDBPaths(paths: DBPaths) {
 
 export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 	log("Setting up node...");
+
+	// Ensure directories exist
+	[ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
+		if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+	});
 
 	let status = loadStatus();
 
@@ -111,7 +108,7 @@ export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 		blockstorePath,
 	} = await getP2PNode(config);
 
-	status = { ...nodeStatus }
+	status = { ...nodeStatus };
 
 	// --- Start network polling ---
 	const stopNetworkPoll = startNetworkStatusPoll(helia, nodeStatus);

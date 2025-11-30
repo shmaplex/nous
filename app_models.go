@@ -1,4 +1,3 @@
-// models.go
 package main
 
 // ----------------------
@@ -54,8 +53,10 @@ type DebugLogEntry struct {
 // Source Metadata
 // ----------------------
 
-// SourceMeta represents metadata about a news source, including bias and confidence.
-// Used for enriching article analysis.
+// SourceMeta holds basic information about a source and its bias.
+// - Name: the human-readable source name
+// - Bias: political or ideological bias (e.g., "left", "right", "neutral")
+// - Confidence: optional confidence score in bias assessment (0-1)
 type SourceMeta struct {
 	Name       string   `json:"name"`                 // Name of the source, e.g., "CBS News"
 	Bias       string   `json:"bias"`                 // Political/ideological leaning: "left", "center", "right"
@@ -66,7 +67,10 @@ type SourceMeta struct {
 // Source Definition
 // ----------------------
 
-// Source represents a content or news source with optional metadata for ingestion.
+// Source defines a data source for articles, including endpoints, auth, and metadata.
+// - Parser / Normalizer: define how the data is processed and normalized
+// - Bias / Factuality: optional bias and factuality scoring
+// - Ownership: company or organization ownership info
 type Source struct {
 	Name            string            `json:"name"`                         // Name of the source (e.g., "BBC News")
 	Endpoint        string            `json:"endpoint"`                     // API or RSS endpoint URL
@@ -82,15 +86,44 @@ type Source struct {
 	AuthType        *string           `json:"authType,omitempty"`           // Optional auth type: none, apiKey, bearerToken, oauth, etc.
 	RateLimitPerMin *int              `json:"rateLimitPerMinute,omitempty"` // Optional rate limit
 	Headers         map[string]string `json:"headers,omitempty"`            // Optional custom headers
-	LastUpdated     interface{}       `json:"lastUpdated,omitempty"`        // Optional string or timestamp of last update
-	Pinned          *bool             `json:"pinned,omitempty"`             // Optional flag for pinned sources
+	LastUpdated     *string           `json:"lastUpdated,omitempty"`
+	Pinned          *bool             `json:"pinned,omitempty"`
+
+	// Parser & Normalizer
+	Parser     string `json:"parser"`     // defaults to "json"
+	Normalizer string `json:"normalizer"` // defaults to "json"
+
+	// Bias / Factuality
+	Bias       string   `json:"bias,omitempty"`
+	Factuality *string  `json:"factuality,omitempty"`
+	Confidence *float64 `json:"confidence,omitempty"`
+
+	// Ownership info
+	Ownership *Ownership `json:"ownership,omitempty"`
+
+	// Last fetched timestamp
+	LastFetched *string `json:"lastFetched,omitempty"`
+}
+
+// ----------------------
+// Ownership Schema
+// ----------------------
+
+// Ownership represents the owner organization of a source.
+// - CompanyName: official organization name
+// - Type: type of organization (private, government, NGO, etc.)
+// - Country: optional country code
+type Ownership struct {
+	CompanyName string  `json:"companyName"`
+	Type        string  `json:"type"` // private, government, ngo, etc.
+	Country     *string `json:"country,omitempty"`
 }
 
 // ----------------------
 // Article Editions
 // ----------------------
 
-// Edition represents regional or language editions for articles.
+// Edition defines the regional or contextual edition of an article.
 type Edition string
 
 const (
@@ -100,14 +133,18 @@ const (
 	EditionKR            Edition = "kr"
 	EditionCN            Edition = "cn"
 	EditionOther         Edition = "other"
-	// Add more editions as needed
 )
 
 // ----------------------
 // Federated Article Pointer
 // ----------------------
 
-// FederatedArticlePointer is a minimal pointer to an article stored in a federated network or IPFS.
+// FederatedArticlePointer is a minimal representation of an article shared across nodes.
+// - CID: IPFS Content Identifier for fetching full content
+// - Timestamp: creation or last update of the pointer
+// - Hash: optional content hash for verification
+// - Analyzed: true if this article has been analyzed
+// - Source / Edition: optional metadata
 type FederatedArticlePointer struct {
 	CID       string  `json:"cid"`               // Content Identifier (IPFS)
 	Timestamp string  `json:"timestamp"`         // ISO timestamp of creation/update
@@ -121,50 +158,86 @@ type FederatedArticlePointer struct {
 // Raw Article (Ingested)
 // ----------------------
 
-// Article represents a news article, potentially not yet analyzed.
+// Article represents a raw article before analysis, including minimal metadata.
+// - ID, Title, URL: required identifiers
+// - Content, Summary, Image: optional media and text fields
+// - Categories / Tags: optional classification
+// - SourceMeta: optional bias/factuality metadata
 type Article struct {
-	ID          string      `json:"id"`                    // Unique identifier (hash, UUID)
-	Title       string      `json:"title"`                 // Article title
-	URL         string      `json:"url"`                   // Fully qualified URL
-	Content     *string     `json:"content,omitempty"`     // Full content
-	Summary     *string     `json:"summary,omitempty"`     // Optional short summary
-	Image       *string     `json:"image,omitempty"`       // Primary image URL
-	Categories  []string    `json:"categories,omitempty"`  // Optional categories
-	Tags        []string    `json:"tags,omitempty"`        // Optional tags
-	Language    *string     `json:"language,omitempty"`    // ISO 639-1 language code
-	Author      *string     `json:"author,omitempty"`      // Optional author
-	PublishedAt *string     `json:"publishedAt,omitempty"` // Optional ISO timestamp
-	Edition     *Edition    `json:"edition,omitempty"`     // Optional regional edition
-	Analyzed    bool        `json:"analyzed"`              // False until analyzed
-	IPFSHash    *string     `json:"ipfsHash,omitempty"`    // Optional IPFS content hash
-	Raw         interface{} `json:"raw,omitempty"`         // Optional raw feed or debug info
-	SourceMeta  *SourceMeta `json:"sourceMeta,omitempty"`  // Optional metadata about the source
+	ID            string      `json:"id"`                    // Unique identifier (hash, UUID)
+	Title         string      `json:"title"`                 // Article title
+	URL           string      `json:"url"`                   // Fully qualified URL
+	Content       *string     `json:"content,omitempty"`     // Full content
+	Summary       *string     `json:"summary,omitempty"`     // Optional short summary
+	Image         *string     `json:"image,omitempty"`       // Primary image URL
+	Categories    []string    `json:"categories,omitempty"`  // Optional categories
+	Tags          []string    `json:"tags,omitempty"`        // Optional tags
+	Language      *string     `json:"language,omitempty"`    // ISO 639-1 language code
+	Author        *string     `json:"author,omitempty"`      // Optional author
+	PublishedAt   *string     `json:"publishedAt,omitempty"` // Optional ISO timestamp
+	Edition       *Edition    `json:"edition,omitempty"`     // Optional regional edition
+	Analyzed      bool        `json:"analyzed"`              // False until analyzed
+	IPFSHash      *string     `json:"ipfsHash,omitempty"`
+	Raw           interface{} `json:"raw,omitempty"`
+	SourceMeta    *SourceMeta `json:"sourceMeta,omitempty"`
+	FetchedAt     *string     `json:"fetchedAt,omitempty"`
+	Parser        string      `json:"parser"`     // frontend-compatible parser
+	Normalizer    string      `json:"normalizer"` // frontend-compatible normalizer
+	Confidence    *float64    `json:"confidence,omitempty"`
+	MobileURL     *string     `json:"mobileUrl,omitempty"`
+	Source        *string     `json:"source,omitempty"`
+	SourceDomain  *string     `json:"sourceDomain,omitempty"`
+	SourceType    *string     `json:"sourceType,omitempty"`
+	SourceCountry *string     `json:"sourceCountry,omitempty"`
 }
 
 // ----------------------
 // Analyzed Article
 // ----------------------
 
-// CognitiveBias represents a detected cognitive bias in an article.
+// CognitiveBias represents one detected cognitive bias in an article.
 type CognitiveBias struct {
-	Bias        string  `json:"bias"`                  // Name of the bias
-	Snippet     string  `json:"snippet"`               // Text snippet showing the bias
-	Explanation string  `json:"explanation"`           // Short explanation
-	Severity    string  `json:"severity"`              // "low", "medium", "high"
-	Description *string `json:"description,omitempty"` // Optional full description
-	Category    *string `json:"category,omitempty"`    // Optional category
+	Bias        string  `json:"bias"`
+	Snippet     string  `json:"snippet"`
+	Explanation string  `json:"explanation"`
+	Severity    string  `json:"severity"`
+	Description *string `json:"description,omitempty"`
+	Category    *string `json:"category,omitempty"`
 }
 
-// ArticleAnalyzed represents a fully analyzed article with AI-enriched fields.
+// ArticleAnalyzed extends Article with AI-enriched fields.
+// - PoliticalBias: optional political/ideological classification
+// - Antithesis / Philosophical: optional interpretative summaries
+// - Sentiment: optional sentiment label and valence
+// - CognitiveBiases: optional array of detected cognitive biases
+// - ClickbaitLevel, CredibilityLevel, SubjectivityLevel: optional quality metrics
+// - EmotionalPalette: optional dominant/secondary emotions
+// - Readability: optional reading difficulty metrics
+// - Trustworthiness: optional 1-5 score
+// - AnalysisTimestamp: when analysis was performed
 type ArticleAnalyzed struct {
-	Article                           // Embed base Article
-	PoliticalBias     *string         `json:"politicalBias,omitempty"`     // Optional political/ideological bias
-	Antithesis        *string         `json:"antithesis,omitempty"`        // Concise summary of opposing viewpoints
-	Philosophical     *string         `json:"philosophical,omitempty"`     // Optional philosophical interpretation
-	Sentiment         *string         `json:"sentiment,omitempty"`         // e.g., positive/negative/neutral
-	CognitiveBiases   []CognitiveBias `json:"cognitiveBiases,omitempty"`   // Array of detected biases
-	Confidence        *float64        `json:"confidence,omitempty"`        // Confidence of analysis (0-1)
-	AnalysisTimestamp *string         `json:"analysisTimestamp,omitempty"` // When analysis was performed
+	Article                          // Embed base Article
+	PoliticalBias    *string         `json:"politicalBias,omitempty"`   // Optional political/ideological bias
+	Antithesis       *string         `json:"antithesis,omitempty"`      // Concise summary of opposing viewpoints
+	Philosophical    *string         `json:"philosophical,omitempty"`   // Optional philosophical interpretation
+	Sentiment        *string         `json:"sentiment,omitempty"`       // e.g., positive/negative/neutral
+	CognitiveBiases  []CognitiveBias `json:"cognitiveBiases,omitempty"` // Array of detected biases
+	Confidence       *float64        `json:"confidence,omitempty"`      // Confidence of analysis (0-1)
+	SentimentValence *float64        `json:"sentimentValence,omitempty"`
+	ClickbaitLevel   *string         `json:"clickbaitLevel,omitempty"`
+	CredibilityLevel *string         `json:"credibilityLevel,omitempty"`
+	EmotionalPalette *struct {
+		Dominant  string  `json:"dominant"`
+		Secondary *string `json:"secondary,omitempty"`
+	} `json:"emotionalPalette,omitempty"`
+	Readability *struct {
+		FleschEase   *float64 `json:"fleschEase,omitempty"`
+		FleschGrade  *float64 `json:"fleschGrade,omitempty"`
+		ReadingLevel *string  `json:"readingLevel,omitempty"`
+	} `json:"readability,omitempty"`
+	SubjectivityLevel *string  `json:"subjectivityLevel,omitempty"`
+	Trustworthiness   *float64 `json:"trustworthiness,omitempty"`
+	AnalysisTimestamp *string  `json:"analysisTimestamp,omitempty"`
 }
 
 // ArticlesResponse represents the standard response from the P2P HTTP API

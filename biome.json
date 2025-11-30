@@ -3,6 +3,7 @@
   "files": {
     "includes": [
       "**/frontend/**",
+      "**/backend/**",
       "**/*.go",
       "!**/node_modules",
       "!**/.next",

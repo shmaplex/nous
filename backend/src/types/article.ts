@@ -1,7 +1,14 @@
 // frontend/src/types/article.ts
 import { z } from "zod";
 
-export const PoliticalBiasValues = ["left", "lean-left", "center", "right", "lean-right", "unknown"];
+export const PoliticalBiasValues = [
+	"left",
+	"lean-left",
+	"center",
+	"right",
+	"lean-right",
+	"unknown",
+];
 
 /** TypeScript type for political bias */
 export type PoliticalBias = (typeof PoliticalBiasValues)[number];
@@ -92,6 +99,7 @@ export const SourceTypes = [
 	"rss",
 	"html",
 	"api",
+	"json",
 	"custom",
 	"newswire",
 	"google_news",

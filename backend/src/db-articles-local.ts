@@ -8,6 +8,7 @@ import { cleanArticlesForDB, getParser } from "@/lib/parsers";
 import type { ArticleAnalyzed, Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
 import { fetchArticleFromIPFS, saveArticleToIPFS, saveJSONToIPFS } from "./lib/ipfs.server";
+import { getRunningInstance } from "./node";
 import { loadDBPaths, saveDBPaths } from "./setup";
 
 /**
@@ -19,7 +20,7 @@ export interface ArticleLocalDB {
 	/**
 	 * Save a single article to the DB if it does not already exist
 	 */
-	saveLocalArticle: (doc: Article) => Promise<void>;
+	saveLocalArticle: (doc: Article, helia?: Helia, skipExists?: boolean) => Promise<void>;
 
 	/**
 	 * Delete a single article by URL
@@ -102,7 +103,7 @@ export async function setupArticleLocalDB(
 		await addDebugLog({ message: msg, level: "info" });
 
 		const all = await db.query(() => true);
-		const countMsg = `📦 Articles in sources DB: ${all.length}`;
+		const countMsg = `📦 Articles in local DB: ${all.length}`;
 		// log(countMsg);
 		await addDebugLog({ message: countMsg, level: "info" });
 	});
@@ -115,12 +116,16 @@ export async function setupArticleLocalDB(
 	/**
 	 * Save a single article if it does not exist
 	 * @param doc - Article to save
+	 * @param helia - Helia reference
+	 * @param skipExists - Skip the exists check
 	 */
-	async function saveLocalArticle(doc: Article, helia?: Helia) {
-		const exists = await db.get(doc.url);
-		if (exists) {
-			log(`Skipping duplicate article: ${doc.id} / ${doc.url}`);
-			return;
+	async function saveLocalArticle(doc: Article, helia?: Helia, skipExists = false) {
+		if (!skipExists) {
+			const exists = await db.get(doc.url);
+			if (exists) {
+				log(`Skipping duplicate article: ${doc.id} / ${doc.url}`);
+				return;
+			}
 		}
 
 		// Add content to IPFS if Helia provided
@@ -177,6 +182,9 @@ export async function setupArticleLocalDB(
 				}
 
 				const rawData = await response.json();
+
+				log(`Parsing Article with: ${source.parser}`);
+				log(`Normalizing Article with: ${source.normalizer}`);
 
 				// Get parser and normalizer for this source
 				const parserFn = getParser(source);
@@ -244,15 +252,14 @@ export async function setupArticleLocalDB(
 	 * @param identifier - The article's URL, internal ID, or IPFS CID
 	 */
 	async function getLocalArticle(identifier: string): Promise<Article | null> {
-		// 1️⃣ Try direct lookup by URL
-		const article = await db.get(identifier);
-		if (article) return article;
+		// query by URL
+		let results = await db.query((doc: Article) => doc.url === identifier);
+		if (results.length > 0) return results[0];
 
-		// 2️⃣ Fallback: query by ID or IPFS CID
-		const results: Article[] = await db.query(
+		// fallback by ID or IPFS hash
+		results = await db.query(
 			(doc: Article) => doc.id === identifier || doc.ipfsHash === identifier,
 		);
-
 		return results.length > 0 ? results[0] : null;
 	}
 
@@ -267,13 +274,17 @@ export async function setupArticleLocalDB(
 	/**
 	 * Add multiple articles, skipping duplicates
 	 * @param newArticles Array of articles to add
+	 * @param helia Helia reference
 	 */
 	async function addUniqueLocalArticles(newArticles: Article[]): Promise<number> {
+		const runningInstance = getRunningInstance();
+		if (!runningInstance) return 0;
+		const { helia } = runningInstance;
 		let added = 0;
 		for (const article of newArticles) {
 			const exists = await db.get(article.url);
 			if (!exists) {
-				await saveLocalArticle(article);
+				await saveLocalArticle(article, helia, true);
 				added++;
 			} else {
 				log(`Skipped existing article: ${article.url}`);

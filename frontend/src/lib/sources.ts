@@ -34,6 +34,8 @@ export function createSource(
 		headers: raw.headers ?? undefined,
 		lastUpdated: raw.lastUpdated ? new Date(raw.lastUpdated) : undefined,
 		pinned: raw.pinned ?? undefined,
+		parser: "json",
+		normalizer: "json",
 	} as Source;
 }
 
@@ -149,7 +151,6 @@ export const getAvailableSources = async (): Promise<Source[]> => {
 			return { ...s, enabled: usable, lastUpdated };
 		})
 		.filter((s) => s.enabled); // remove anything not usable
-
 	return availableSources;
 };
 
@@ -166,7 +167,7 @@ export const fetchArticlesBySources = async (sources: Source[]): Promise<Article
 		}
 
 		// Send actual sources to backend
-		const raw = await FetchArticlesBySources(sources);
+		const raw = await FetchArticlesBySources(sources as any);
 
 		const parsed: Article[] = JSON.parse(raw);
 

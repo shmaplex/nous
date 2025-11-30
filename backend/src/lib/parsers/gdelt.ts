@@ -23,7 +23,7 @@ import { mapCountryToEdition, safeDate, safeUrl } from ".";
  *   ]
  * }
  */
-export const gdeltParser: ParserFn = (raw: any, source: Source): Article[] => {
+export const gdeltParser: ParserFn = (raw: { articles: any }, source: Source): Article[] => {
 	if (!raw || !Array.isArray(raw.articles)) return [];
 
 	return raw.articles.map((a: any) => {

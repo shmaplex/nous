@@ -1,4 +1,4 @@
-import type { Article, NormalizerFn, SourceMeta } from "@/types";
+import type { Article, NormalizerFn, Source, SourceMeta } from "@/types";
 
 /**
  * Normalizer for GDELT API entries.
@@ -6,7 +6,7 @@ import type { Article, NormalizerFn, SourceMeta } from "@/types";
  * Converts parsed GDELT articles into the normalized Article type,
  * filling as many fields as possible.
  */
-export const normalizeGdelt: NormalizerFn = (a: Article): Article => {
+export const normalizeGdelt: NormalizerFn = (a: Article, source: Source): Article => {
 	return {
 		id: a.id ?? crypto.randomUUID(),
 		url: a.url,
@@ -30,7 +30,7 @@ export const normalizeGdelt: NormalizerFn = (a: Article): Article => {
 		analyzed: a.analyzed ?? false,
 		confidence: a.confidence ?? 0.8,
 
-		// raw: a.raw,
+		raw: a.raw,
 		sourceMeta: a.sourceMeta ?? ({ name: a.source ?? "GDELT", bias: "center" } as SourceMeta),
 		fetchedAt: a.fetchedAt ?? new Date().toISOString(),
 	};

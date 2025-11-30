@@ -67,6 +67,9 @@ export const SourcesSettings: React.FC = () => {
 			requiresApiKey,
 			hidden: false,
 			isDefault: false,
+			parser: "json", // default parser
+			normalizer: "json", // default normalizer
+			bias: "unknown", // default bias value
 		};
 		const updatedSources = [...sources, newSource];
 		handleSave(updatedSources);
@@ -111,7 +114,7 @@ export const SourcesSettings: React.FC = () => {
 				{/* Sources That Don’t Require API Key */}
 				<AccordionItem value="noApiKey">
 					<AccordionTrigger>
-						Sources That Don’t Require API Key ({noKeySources.length})
+						Sources That Don&apos;t Require API Key ({noKeySources.length})
 					</AccordionTrigger>
 					<AccordionContent className="flex flex-col gap-2 mt-2">
 						{noKeySources.map(({ source, index }) => (
