@@ -12,7 +12,7 @@
  *  - Wails event listeners for opening settings
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { FetchLocalArticle } from "@/../wailsjs/go/main/App"; // Wails binding
 import AddArticleModal from "@/components/articles/add-article-modal";
 import ArticlesView from "@/components/articles/article-view";
@@ -85,11 +85,6 @@ const App = () => {
 	 * Full article view state
 	 * ----------------------------- */
 	const [fullArticle, setFullArticle] = useState<Article | null>(null);
-
-	/** -----------------------------
-	 * Prevent double-fetching (internal)
-	 * ----------------------------- */
-	const fetchOnceRef = useRef(false);
 
 	/** -----------------------------
 	 * Initialize debug logging when node is ready
@@ -166,7 +161,7 @@ const App = () => {
 		setFullArticle(null);
 	};
 
-	console.log("fullArticle", fullArticle);
+	if (fullArticle) console.log("fullArticle", fullArticle);
 
 	/* -----------------------------
 	 * Render

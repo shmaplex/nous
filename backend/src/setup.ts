@@ -86,7 +86,7 @@ export function saveDBPaths(paths: DBPaths) {
 export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 	log("Setting up node...");
 
-	const status = loadStatus();
+	let status = loadStatus();
 
 	// Get or create running instance
 	const {
@@ -110,6 +110,8 @@ export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 		orbitDBPath,
 		blockstorePath,
 	} = await getP2PNode(config);
+
+	status = { ...nodeStatus }
 
 	// --- Start network polling ---
 	const stopNetworkPoll = startNetworkStatusPoll(helia, nodeStatus);
