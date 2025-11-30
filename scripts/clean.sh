@@ -1,20 +1,98 @@
 #!/bin/bash
 set -e
 
-echo "Cleaning OrbitDB and keystore..."
-rm -rf backend/.nous/orbitdb-databases/*
-rm -rf backend/.nous/orbitdb-keystore/*
-rm -rf backend/.nous/helia-blocks/*
+# ----------------------------------------------
+# Base directory of the repository (script root)
+# ----------------------------------------------
+BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "Cleaning dist folder..."
-rm -rf frontend/dist
+# ----------------------------------------------
+# Helper: pretty logging
+# ----------------------------------------------
+log() {
+  echo -e "\033[1;32m$1\033[0m"
+}
 
-echo "Cleaning build folder (keeping PNGs)..."
-# Remove all non-PNG files
-find ./build -type f ! -name "*.png" -delete
-# Remove empty directories
-find ./build -type d -empty -delete
-# Remove specific directories
-rm -rf ./build/bin ./build/darwin
+# ----------------------------------------------
+# Cleanup functions
+# ----------------------------------------------
+clean_orbit() {
+  log "🧹 Cleaning OrbitDB and Helia stores..."
+  rm -rf "$BASE_DIR/backend/.nous/orbitdb-databases/"*
+  rm -rf "$BASE_DIR/backend/.nous/orbitdb-keystore/"*
+  rm -rf "$BASE_DIR/backend/.nous/helia-blocks/"*
+  log "✔ Orbit cleanup complete."
+}
 
-echo "✅ Cleanup complete."
+clean_backend_dist() {
+  log "🧹 Cleaning backend dist/..."
+  rm -rf "$BASE_DIR/backend/dist"
+  log "✔ Backend dist cleaned."
+}
+
+clean_frontend_dist() {
+  log "🧹 Cleaning frontend dist/..."
+  rm -rf "$BASE_DIR/frontend/dist"
+  log "✔ Frontend dist cleaned."
+}
+
+clean_build_folder() {
+  log "🧹 Cleaning build folder (keeping PNGs)..."
+  find "$BASE_DIR/build" -type f ! -name "*.png" -delete
+  find "$BASE_DIR/build" -type d -empty -delete
+  rm -rf "$BASE_DIR/build/bin" "$BASE_DIR/build/darwin"
+  log "✔ Build folder cleaned."
+}
+
+# ----------------------------------------------
+# Usage
+# ----------------------------------------------
+usage() {
+  echo "Usage: ./clean.sh [all|orbit|backend|frontend|build]"
+  echo ""
+  echo "  all        Clean everything"
+  echo "  orbit      Clean OrbitDB, keystore, Helia"
+  echo "  backend    Clean backend/dist"
+  echo "  frontend   Clean frontend/dist"
+  echo "  build      Clean build folder (keep PNGs)"
+  echo ""
+  echo "If no argument is given, defaults to cleaning: orbit + backend"
+}
+
+# ----------------------------------------------
+# Main logic
+# ----------------------------------------------
+COMMAND="$1"
+
+case "$COMMAND" in
+  all)
+    clean_orbit
+    clean_backend_dist
+    clean_frontend_dist
+    clean_build_folder
+    log "✨ All cleanup complete."
+    ;;
+  orbit)
+    clean_orbit
+    ;;
+  backend)
+    clean_backend_dist
+    ;;
+  frontend)
+    clean_frontend_dist
+    ;;
+  build)
+    clean_build_folder
+    ;;
+  "")
+    log "⚠ No command given — defaulting to cleaning orbit + backend."
+    clean_orbit
+    clean_backend_dist
+    log "✨ Default cleanup complete."
+    ;;
+  *)
+    log "❌ Unknown command: $COMMAND"
+    usage
+    exit 1
+    ;;
+esac

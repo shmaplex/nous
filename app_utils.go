@@ -79,18 +79,34 @@ func instanceHTTPPort() int {
 	return httpPortBase + instanceID
 }
 
-// HTTP GET helper
+// HTTP GET helper with debug logging
 func get(url string) (string, error) {
+	log.Printf("GET %s\n", url)
+
 	resp, err := http.Get(url)
 	if err != nil {
+		log.Printf("GET ERROR %s -> %v\n", url, err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
+	log.Printf("GET %s -> status %d\n", url, resp.StatusCode)
+
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("GET READ ERROR %s -> %v\n", url, err)
 		return "", err
 	}
+
+	// Optional: print truncated body (helps debug HTML errors)
+	if len(b) > 0 {
+		preview := b
+		if len(b) > 300 {
+			preview = b[:300]
+		}
+		log.Printf("GET %s -> body (first 300 bytes): %s\n", url, string(preview))
+	}
+
 	return string(b), nil
 }
 

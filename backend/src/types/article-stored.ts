@@ -1,4 +1,4 @@
-// frontend/src/types/article-stored.ts
+// backend/src/types/article-stored.ts
 
 import { z } from "zod";
 import { ArticleSchema } from "./article";

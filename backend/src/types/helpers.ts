@@ -2,7 +2,7 @@
  * Helpers
  * ------------------------------------------------------------- */
 
-import { DebugStatus, NodeStatus } from "./p2p";
+import type { DebugStatus, NodeStatus } from "./p2p";
 
 /**
  * Returns a new NodeStatus object with default empty values.

@@ -277,3 +277,11 @@ type ArticlesResponse struct {
 //
 //	}
 type ArticlesBySource map[string][]byte
+
+// ArticleStatus represents the processing state of an article
+type ArticleStatus struct {
+	ID       string `json:"id"`
+	Status   string `json:"status"`   // "pending" | "complete" | "error"
+	Body     string `json:"body"`     // may be empty if pending
+	ErrorMsg string `json:"errorMsg"` // optional
+}

@@ -1,35 +1,73 @@
-// frontend/src/p2p/routes/route-article-federated.ts
-import type { FederatedArticlePointer, RouteHandler } from "@/types";
+/**
+ * @file route-article-federated.ts
+ * @description Express-compatible route for fetching federated article pointers.
+ */
+
+import type { Express, NextFunction, Request, Response } from "express";
+import type { FederatedArticlePointer } from "@/types";
 import { handleError } from "./helpers";
 
 /**
- * GET /articles/federated
- * Returns all federated articles from the P2P node.
+ * Simple in-memory throttle map to limit requests per IP
  */
-export const fetchFederatedArticlesRoute: RouteHandler = {
-	method: "GET",
-	path: "/articles/federated",
-	handler: async ({
-		getFederatedArticles,
-		res,
-	}: {
-		getFederatedArticles?: () => Promise<FederatedArticlePointer[]>;
-		res: import("node:http").ServerResponse;
-	}) => {
-		if (!getFederatedArticles) {
-			await handleError(res, "getFederatedArticles function not provided", 500, "error");
-			return;
-		}
+const throttleMap = new Map<string, { count: number; lastRequest: number }>();
+const THROTTLE_LIMIT = 15; // max requests per TIME_WINDOW
+const TIME_WINDOW = 1000 * 5; // 5 seconds
 
-		try {
-			const articles: FederatedArticlePointer[] = await getFederatedArticles();
-			res.setHeader("Content-Type", "application/json");
-			res.end(JSON.stringify(articles));
-		} catch (err) {
-			await handleError(res, (err as Error).message, 500, "error");
-		}
-	},
+/**
+ * Middleware to throttle requests per IP
+ */
+export const throttleMiddleware = (req: Request, res: Response, next: NextFunction) => {
+	const clientIP = req.ip || req.socket.remoteAddress || "unknown";
+	const now = Date.now();
+	const throttle = throttleMap.get(clientIP) || { count: 0, lastRequest: now };
+
+	if (now - throttle.lastRequest > TIME_WINDOW) throttle.count = 0;
+	throttle.count++;
+	throttle.lastRequest = now;
+	throttleMap.set(clientIP, throttle);
+
+	if (throttle.count > THROTTLE_LIMIT) {
+		res.status(429).json({ error: "Too many requests — please slow down." });
+		return;
+	}
+
+	next();
 };
 
-// Export as an array for easy spreading
-export const routes: RouteHandler[] = [fetchFederatedArticlesRoute];
+/**
+ * GET /articles/federated
+ *
+ * Fetch all federated articles from the P2P node.
+ */
+export const fetchFederatedArticlesHandler = async (
+	req: Request,
+	res: Response,
+	handlers?: { getFederatedArticles?: () => Promise<FederatedArticlePointer[]> },
+) => {
+	const { getFederatedArticles } = handlers || {};
+	if (!getFederatedArticles) {
+		return handleError(res, "getFederatedArticles function not provided", 500, "error");
+	}
+
+	try {
+		const articles: FederatedArticlePointer[] = await getFederatedArticles();
+		res.status(200).json(articles);
+	} catch (err) {
+		await handleError(
+			res,
+			(err as Error).message || "Unknown error fetching federated articles",
+			500,
+			"error",
+		);
+	}
+};
+
+/**
+ * Helper: register federated article routes in an Express app
+ */
+export function registerFederatedArticleRoutes(app: Express, handlers: any = {}) {
+	app.get("/articles/federated", throttleMiddleware, (req, res) =>
+		fetchFederatedArticlesHandler(req, res, handlers),
+	);
+}

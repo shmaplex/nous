@@ -1,19 +1,47 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 )
 
-// Fetch article by ID, CID or URL
+// FetchLocalArticle fetches by ID/URL/CID and returns immediately
 func (a *App) FetchLocalArticle(idOrCIDOrURL string) string {
+	// Call your internal fetch, e.g., database or cache
 	url := fmt.Sprintf("%s/articles/local/full?id=%s", GetNodeBaseUrl(), idOrCIDOrURL)
 	body, err := get(url)
 	if err != nil {
 		log.Printf("Error fetching local article: %v", err)
-		return fmt.Sprintf("Error fetching local article: %v", err)
+		status := ArticleStatus{
+			ID:       idOrCIDOrURL,
+			Status:   "error",
+			ErrorMsg: err.Error(),
+		}
+		res, _ := json.Marshal(status)
+		return string(res)
 	}
-	return body
+
+	// Check if processing is complete
+	var article map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &article); err != nil || article["content"] == nil {
+		// Article not fully processed
+		status := ArticleStatus{
+			ID:     idOrCIDOrURL,
+			Status: "pending",
+		}
+		res, _ := json.Marshal(status)
+		return string(res)
+	}
+
+	// Fully processed
+	status := ArticleStatus{
+		ID:     idOrCIDOrURL,
+		Status: "complete",
+		Body:   body,
+	}
+	res, _ := json.Marshal(status)
+	return string(res)
 }
 
 // FetchLocalArticles retrieves only local articles from the HTTP service

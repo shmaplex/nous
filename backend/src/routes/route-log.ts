@@ -1,93 +1,69 @@
 // frontend/src/p2p/routes/route-log.ts
-import type { ServerResponse } from "node:http";
-import type { DebugLogEntry, RouteHandler } from "@/types";
-import { handleError } from "./helpers";
+import type { Router } from "express";
+import { log } from "@/lib/log.server";
+import type { DebugLogEntry } from "@/types/log";
 
 /**
- * GET /debug/logs
+ * Registers debug log routes on an Express router.
  *
- * Returns all debug logs via the injected getAll() function.
+ * @param router - Express Router instance
+ * @param debugDB - DebugDB instance from setupDebugDB
  */
-export const getDebugLogsRoute: RouteHandler = {
-	method: "GET",
-	path: "/debug/logs",
-	handler: async ({
-		getAll,
-		res,
-	}: {
-		getAll?: () => Promise<DebugLogEntry[]>;
-		res: ServerResponse;
-	}) => {
-		res.setHeader("Content-Type", "application/json");
-
-		if (!getAll) {
-			await handleError(res, "Debug DB getAll() not provided", 500, "error");
-			return;
+export function registerDebugLogRoutes(router: Router, debugDB: any) {
+	/**
+	 * GET /debug/logs
+	 *
+	 * Returns all debug logs from the OrbitDB debug DB.
+	 */
+	router.get("/debug/logs", async (req, res) => {
+		if (!debugDB?.getAll) {
+			log("❌ Debug DB getAll() not available", "error");
+			return res.status(500).json({ error: "Debug DB getAll() not available" });
 		}
 
 		try {
-			const logs = await getAll();
-			res.statusCode = 200;
-			res.end(JSON.stringify(logs));
+			const logs = await debugDB.getAll();
+			return res.status(200).json(logs);
 		} catch (err) {
 			const msg = (err as Error).message || "Unknown error reading debug logs";
-			await handleError(res, msg, 500, "error");
+			log(`❌ ${msg}`, "error");
+			return res.status(500).json({ error: msg });
 		}
-	},
-};
+	});
 
-/**
- * POST /debug/log
- *
- * Adds a log entry using the injected add() function.
- */
-export const postDebugLogRoute: RouteHandler = {
-	method: "POST",
-	path: "/debug/log",
-	handler: async ({
-		add,
-		res,
-		body,
-	}: {
-		add?: (entry: DebugLogEntry) => Promise<void>;
-		res: ServerResponse;
-		body?: {
-			_id?: string;
-			timestamp?: string;
-			message: string;
-			level?: "info" | "warn" | "error";
-			meta?: Record<string, any>;
-		};
-	}) => {
-		if (!add) {
-			await handleError(res, "Debug DB add() not provided", 500, "error");
-			return;
+	/**
+	 * POST /debug/log
+	 *
+	 * Adds a log entry to the OrbitDB debug DB.
+	 */
+	router.post("/debug/log", async (req, res) => {
+		if (!debugDB?.add) {
+			log("❌ Debug DB add() not available", "error");
+			return res.status(500).json({ error: "Debug DB add() not available" });
 		}
-		console.log("body", body);
 
-		if (!body || !body.message) {
-			await handleError(res, "Missing log message", 400, "warn");
-			return;
+		const { _id, timestamp, message, level, meta } = req.body as Partial<DebugLogEntry>;
+
+		if (!message) {
+			return res.status(400).json({ error: "Missing log message" });
 		}
 
 		try {
 			const entry: DebugLogEntry = {
-				_id: body._id || crypto.randomUUID(),
-				timestamp: body.timestamp || new Date().toISOString(),
-				message: body.message,
-				level: body.level ?? "info",
-				meta: body.meta ?? {},
+				_id: _id || crypto.randomUUID(),
+				timestamp: timestamp || new Date().toISOString(),
+				message,
+				level: level ?? "info",
+				meta: meta ?? {},
 			};
 
-			await add(entry);
+			await debugDB.add(entry);
 
-			res.statusCode = 201;
-			res.end(JSON.stringify({ success: true, entry }));
+			return res.status(201).json({ success: true, entry });
 		} catch (err) {
 			const msg = (err as Error).message || "Unknown error writing debug log";
-			await handleError(res, msg, 500, "error");
+			log(`❌ ${msg}`, "error");
+			return res.status(500).json({ error: msg });
 		}
-	},
-};
-
-export const routes: RouteHandler[] = [getDebugLogsRoute, postDebugLogRoute];
+	});
+}

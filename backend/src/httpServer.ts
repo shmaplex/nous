@@ -1,124 +1,90 @@
 // frontend/src/p2p/httpServer.ts
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { NodeStatus, RouteHandler } from "@/types";
+
+import http from "node:http";
+import express, { type Express } from "express";
+import type { Helia } from "helia";
+import type { NodeStatus } from "@/types";
 import { log } from "./lib/log.server";
+import { registerFederatedArticleRoutes } from "./routes/route-articles-federated";
+import { registerLocalArticleRoutes } from "./routes/route-articles-local";
+// Import the new-style route registration functions
+import { registerDebugLogRoutes } from "./routes/route-log";
+import { registerStatusRoutes } from "./routes/route-status";
 
-import * as articleFederatedRoutes from "./routes/route-articles-federated";
-import * as articleLocalRoutes from "./routes/route-articles-local";
-import * as logRoutes from "./routes/route-log";
-import * as statusRoutes from "./routes/route-status";
-
+// Base URL for reference (useful for logging or generating URLs)
 export const BASE_URL = "http://localhost";
 
-export const routes: RouteHandler[] = [
-	...logRoutes.routes,
-	...statusRoutes.routes,
-	...articleLocalRoutes.routes,
-	...articleFederatedRoutes.routes,
-];
-
+// Context object passed to each route handler
 export interface HttpServerContext {
 	status: NodeStatus;
 	orbitdbConnected: boolean;
 	httpPort?: number;
+	helia: Helia;
 	[key: string]: any;
 }
 
+/**
+ * Create an Express-based HTTP server for the P2P node.
+ * - Registers routes from all modules
+ * - Adds CORS headers
+ * - Parses JSON bodies
+ * - Supports graceful shutdown
+ */
 export function createHttpServer(
 	httpPort: number,
 	context: HttpServerContext,
-): { server: Server; shutdown: () => Promise<void> } {
-	const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-		res.setHeader("Access-Control-Allow-Origin", "*");
-		res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-		res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-		res.setHeader("Content-Type", "application/json");
+): { server: http.Server; shutdown: () => Promise<void>; app: Express } {
+	const app = express();
 
+	//------------------------------------------------------------
+	// Middleware: JSON parsing
+	//------------------------------------------------------------
+	app.use(express.json());
+
+	//------------------------------------------------------------
+	// Middleware: CORS headers
+	//------------------------------------------------------------
+	app.use((req, res, next) => {
+		res.header("Access-Control-Allow-Origin", "*");
+		res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+		res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
 		if (req.method === "OPTIONS") {
-			res.writeHead(204);
-			res.end();
-			return;
-		}
-
-		try {
-			//------------------------------------------------------------
-			// Read request body safely (chunked, production-safe)
-			//------------------------------------------------------------
-			const chunks: Buffer[] = [];
-
-			req.on("data", (chunk) => {
-				chunks.push(chunk);
-			});
-
-			req.on("end", async () => {
-				const rawBody = Buffer.concat(chunks).toString("utf8");
-
-				//------------------------------------------------------------
-				// Match route
-				//------------------------------------------------------------
-				const route = routes.find(
-					(r) => r.method === req.method && (req.url === r.path || req.url?.startsWith(r.path)),
-				);
-
-				if (!route) {
-					res.statusCode = 404;
-					res.end(JSON.stringify({ error: "not found" }));
-					return;
-				}
-
-				//------------------------------------------------------------
-				// Parse JSON body (if present)
-				//------------------------------------------------------------
-				let parsedBody: any;
-
-				if (rawBody.trim().length > 0) {
-					try {
-						parsedBody = JSON.parse(rawBody);
-					} catch {
-						res.statusCode = 400;
-						res.end(JSON.stringify({ error: "Invalid JSON body" }));
-						return;
-					}
-				}
-
-				//------------------------------------------------------------
-				// Zod validation (if a bodySchema exists)
-				//------------------------------------------------------------
-				let finalBody = parsedBody;
-
-				if (route.bodySchema) {
-					try {
-						finalBody = route.bodySchema.parse(parsedBody ?? {});
-					} catch (err) {
-						res.statusCode = 400;
-						res.end(
-							JSON.stringify({
-								error: "Invalid request body",
-								details: (err as Error).message,
-							}),
-						);
-						return;
-					}
-				}
-
-				//------------------------------------------------------------
-				// Execute route handler
-				//------------------------------------------------------------
-				await route.handler({
-					...context,
-					req,
-					res,
-					body: finalBody,
-				});
-			});
-		} catch (err) {
-			res.statusCode = 500;
-			res.end(JSON.stringify({ error: (err as Error).message }));
+			res.sendStatus(204);
+		} else {
+			next();
 		}
 	});
 
 	//------------------------------------------------------------
-	// Shutdown helper
+	// Register routes using the new registration functions
+	//------------------------------------------------------------
+	if (registerDebugLogRoutes && context.debugDB) {
+		registerDebugLogRoutes(app, context.debugDB);
+	}
+
+	if (registerStatusRoutes) {
+		registerStatusRoutes(app);
+	}
+
+	if (registerLocalArticleRoutes) {
+		registerLocalArticleRoutes(app, context);
+	}
+
+	if (registerFederatedArticleRoutes) {
+		registerFederatedArticleRoutes(app, context);
+	}
+
+	//------------------------------------------------------------
+	// Express -> Node HTTP server
+	//------------------------------------------------------------
+	const server = http.createServer(app);
+
+	server.listen(httpPort, () => {
+		console.log(`P2P node HTTP API running on ${BASE_URL}:${httpPort}`);
+	});
+
+	//------------------------------------------------------------
+	// Graceful shutdown helper
 	//------------------------------------------------------------
 	async function shutdown() {
 		return new Promise<void>((resolve, reject) => {
@@ -131,13 +97,9 @@ export function createHttpServer(
 				resolve();
 			});
 			// Close all connections
-			server.closeAllConnections();
+			server.closeAllConnections?.();
 		});
 	}
 
-	server.listen(httpPort, () => {
-		console.log(`P2P node HTTP API running on ${BASE_URL}:${httpPort}`);
-	});
-
-	return { server, shutdown };
+	return { server, shutdown, app };
 }

@@ -142,17 +142,50 @@ const App = () => {
 	 */
 	const handleOpenArticle = async (article: Article) => {
 		setLoading(true);
-		try {
-			console.log("Fetching local article:", article.id);
-			const res = await FetchLocalArticle(article.id);
-			const full = JSON.parse(res);
-			setFullArticle(full);
-		} catch (err) {
-			console.error("Failed to fetch full article via Wails:", err);
-			setFullArticle(article); // fallback
-		} finally {
-			setLoading(false);
-		}
+		setFullArticle(null);
+
+		const pollInterval = 2000; // 2 seconds
+		const maxRetries = 30; // timeout after ~1 min
+
+		let retries = 0;
+		let fetchedArticle: Article | null = null;
+
+		const pollArticle = async () => {
+			try {
+				const res = await FetchLocalArticle(article.id);
+				const data = JSON.parse(res);
+
+				if (data.status === "complete") {
+					fetchedArticle = JSON.parse(data.body);
+					setFullArticle(fetchedArticle);
+					setLoading(false);
+					console.log("Article ready:", fetchedArticle);
+					return;
+				}
+				if (data.status === "error") {
+					console.error("Failed to fetch article:", data.errorMsg);
+					setFullArticle(null);
+					setLoading(false);
+					return;
+				}
+				// still pending
+				retries++;
+				if (retries >= maxRetries) {
+					console.warn("Article processing timeout");
+					setFullArticle(null);
+					setLoading(false);
+					return;
+				}
+				// retry after interval
+				setTimeout(pollArticle, pollInterval);
+			} catch (err) {
+				console.error("Error polling article:", err);
+				setFullArticle(null);
+				setLoading(false);
+			}
+		};
+
+		pollArticle();
 	};
 
 	/** -----------------------------

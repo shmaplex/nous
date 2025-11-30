@@ -1,4 +1,4 @@
-// frontend/src/lib/normalizer.ts
+// backend/src/lib/normalizer.ts
 import { z } from "zod";
 import type { Article, Source } from "@/types";
 
@@ -8,6 +8,13 @@ import type { Article, Source } from "@/types";
  * into a fully normalized `Article`.
  */
 export type NormalizerFn = (entry: any, source: Source) => Article;
+
+/**
+ * ArticleNormalizer type.
+ * Accepts an article object (partially parsed or raw) and returns
+ * a fully normalized article. Optionally, a hostname or source string can be provided.
+ */
+export type ArticleNormalizer = (article: any, source?: string) => Article;
 
 /** Valid normalizer types */
 export const SourceNormalizers = ["json", "rss", "gdelt", "hn", "reddit"] as const;

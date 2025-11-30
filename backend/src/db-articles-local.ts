@@ -3,11 +3,17 @@ import { Documents, IPFSAccessController, type OrbitDB } from "@orbitdb/core";
 import type { Helia } from "helia";
 import { smartFetch } from "@/lib/fetch.server";
 import { addDebugLog, log } from "@/lib/log.server";
-import { getNormalizer, normalizePublishedAt } from "@/lib/normalizers";
-import { cleanArticlesForDB, getParser } from "@/lib/parsers";
+import { getNormalizer, normalizePublishedAt } from "@/lib/normalizers/aggregate-sources";
+import { cleanArticlesForDB, getParser } from "@/lib/parsers/aggregate-sources";
 import type { ArticleAnalyzed, Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
+import { analyzeArticle } from "./lib/ai";
+import { normalizeAndTranslateArticle } from "./lib/ai/normalize.server";
+import { summarizeContentAI } from "./lib/ai/summarizer.server";
+import { translateContentAI } from "./lib/ai/translate.server";
+import { summarizeContent } from "./lib/article.server";
 import { fetchArticleFromIPFS, saveArticleToIPFS, saveJSONToIPFS } from "./lib/ipfs.server";
+import { getParserForUrl } from "./lib/parsers/sources";
 import { getRunningInstance } from "./node";
 import { loadDBPaths, saveDBPaths } from "./setup";
 
@@ -20,7 +26,11 @@ export interface ArticleLocalDB {
 	/**
 	 * Save a single article to the DB if it does not already exist
 	 */
-	saveLocalArticle: (doc: Article, helia?: Helia, skipExists?: boolean) => Promise<void>;
+	saveLocalArticle: (
+		doc: Article | ArticleAnalyzed,
+		helia?: Helia,
+		skipExists?: boolean,
+	) => Promise<boolean | null>;
 
 	/**
 	 * Delete a single article by URL
@@ -98,9 +108,9 @@ export async function setupArticleLocalDB(
 
 	// Listen for peer updates
 	db.events.on("update", async (entry: any) => {
-		const msg = `🔄 Article Local update from peer: ${JSON.stringify(entry)}`;
+		// const msg = `🔄 Article Local update from peer: ${JSON.stringify(entry)}`;
 		// log(JSON.stringify(msg, null, 2));
-		await addDebugLog({ message: msg, level: "info" });
+		// await addDebugLog({ message: msg, level: "info" });
 
 		const all = await db.query(() => true);
 		const countMsg = `📦 Articles in local DB: ${all.length}`;
@@ -119,12 +129,16 @@ export async function setupArticleLocalDB(
 	 * @param helia - Helia reference
 	 * @param skipExists - Skip the exists check
 	 */
-	async function saveLocalArticle(doc: Article, helia?: Helia, skipExists = false) {
+	async function saveLocalArticle(
+		doc: Article | ArticleAnalyzed,
+		helia?: Helia,
+		skipExists = false,
+	): Promise<boolean | null> {
 		if (!skipExists) {
 			const exists = await db.get(doc.url);
 			if (exists) {
 				log(`Skipping duplicate article: ${doc.id} / ${doc.url}`);
-				return;
+				return null;
 			}
 		}
 
@@ -142,6 +156,7 @@ export async function setupArticleLocalDB(
 		const msg = `Saved to local DB: ${doc.id} / ${doc.url}`;
 		log(msg);
 		await addDebugLog({ message: msg, level: "info" });
+		return true;
 	}
 
 	/**
@@ -160,10 +175,12 @@ export async function setupArticleLocalDB(
 	 * validate against the Article schema, and collect any per-source errors.
 	 *
 	 * @param availableSources - Array of sources to fetch from
+	 * @param targetLanguage - Optional BCP-47 language code for translation (default: "en")
 	 * @returns Object containing normalized articles and an array of per-source errors
 	 */
 	async function fetchAllLocalSources(
 		availableSources: Source[],
+		targetLanguage = "en",
 	): Promise<{ articles: Article[]; errors: { endpoint: string; error: string }[] }> {
 		const enabledSources = availableSources.filter((s) => s.enabled);
 		const allArticles: Article[] = [];
@@ -201,11 +218,25 @@ export async function setupArticleLocalDB(
 				}
 
 				// Normalize parsed articles
-				const normalizedArticles: Article[] = parsedArticles.map((a) => {
+				const normalizedArticles: Article[] = [];
+				for (const a of parsedArticles) {
 					const n = normalizerFn(a, source);
 					n.publishedAt = normalizePublishedAt(n.publishedAt);
-					return n;
-				});
+
+					// Translate title if it exists and targetLanguage is not the default
+					if (n.title && targetLanguage) {
+						try {
+							n.title = await translateContentAI(n.title, targetLanguage);
+						} catch (err) {
+							console.warn(
+								`Failed to translate title for article from ${source.endpoint}:`,
+								(err as Error).message,
+							);
+						}
+					}
+
+					normalizedArticles.push(n);
+				}
 
 				// Clean undefined values before storing in OrbitDB
 				const cleanArticles = cleanArticlesForDB(normalizedArticles);
@@ -252,15 +283,25 @@ export async function setupArticleLocalDB(
 	 * @param identifier - The article's URL, internal ID, or IPFS CID
 	 */
 	async function getLocalArticle(identifier: string): Promise<Article | null> {
-		// query by URL
+		// 1. Direct match by URL (primary key)
 		let results = await db.query((doc: Article) => doc.url === identifier);
 		if (results.length > 0) return results[0];
 
-		// fallback by ID or IPFS hash
+		// 2. Match by internal ID
+		results = await db.query((doc: Article) => doc.id === identifier);
+		if (results.length > 0) return results[0];
+
+		// 3. Match by IPFS CID
+		results = await db.query((doc: Article) => doc.ipfsHash === identifier);
+		if (results.length > 0) return results[0];
+
+		// 4. Match by normalized URL (common issue)
 		results = await db.query(
-			(doc: Article) => doc.id === identifier || doc.ipfsHash === identifier,
+			(doc: Article) => doc.url.replace(/\/$/, "") === identifier.replace(/\/$/, ""),
 		);
-		return results.length > 0 ? results[0] : null;
+		if (results.length > 0) return results[0];
+
+		return null;
 	}
 
 	/**
@@ -302,73 +343,126 @@ export async function setupArticleLocalDB(
 	 * Cached results are always stored back into OrbitDB.
 	 *
 	 * @async
-	 * @param helia - Active Helia node
 	 * @param article - Article metadata (may or may not include content)
-	 * @param fetchFromSource - Optional function to fetch full content from the source URL
-	 * @param summarizeContent - Optional function to generate a summary from full content
-	 * @param saveLocalArticle - Function to save to OrbitDB
+	 * @param helia - Active Helia node
 	 * @returns Article with guaranteed `.content` and `.summary` if retrievable
 	 */
 	async function getFullLocalArticle(
 		article: Article,
 		helia: Helia,
-		fetchFromSource?: (url: string) => Promise<string>,
-		summarizeContent?: (text: string) => Promise<string>,
-		saveLocalArticle?: (article: Article | ArticleAnalyzed, helia?: Helia) => Promise<void>,
 	): Promise<Article | ArticleAnalyzed> {
-		// 1️⃣ Already have content?
-		if (article.content && article.summary) return article;
+		if (article.content && article.summary && article.analyzed) return article;
 
-		// 2️⃣ Try loading full Article from IPFS
-		if (article.ipfsHash) {
+		// Try IPFS first
+		if (article.ipfsHash && article.analyzed) {
 			try {
 				const fetched = await fetchArticleFromIPFS(helia, article.ipfsHash);
 				if (fetched) {
-					if (saveLocalArticle) await saveLocalArticle(fetched, helia);
+					await saveLocalArticle(fetched);
 					return fetched;
 				}
 			} catch (err) {
-				log(`IPFS load failed for ${article.id}: ${(err as Error).message}`, "warn");
+				log(`IPFS fetch failed for ${article.id}: ${(err as Error).message}`, "warn");
 			}
 		}
 
-		// 3️⃣ Fetch from source URL if missing content
-		if (fetchFromSource && article.url) {
+		// Fetch from source URL
+		if (article.url) {
+			let raw: string | null = null;
 			try {
-				const rawContent = await fetchFromSource(article.url);
-				if (rawContent) {
-					const updated: Article = {
-						...article,
-						raw: rawContent,
-						content: rawContent, // could add extraction logic if needed
-						summary: summarizeContent ? await summarizeContent(rawContent) : undefined,
-						fetchedAt: new Date().toISOString(),
-					};
-
-					// Save updated Article to IPFS
-					if (helia && updated.content) {
-						try {
-							const cid = await saveArticleToIPFS(helia, updated);
-							updated.ipfsHash = cid;
-						} catch (err) {
-							log(
-								`Failed to save Article to IPFS for ${article.id}: ${(err as Error).message}`,
-								"warn",
-							);
-						}
-					}
-
-					// Save updated Article to OrbitDB
-					if (saveLocalArticle) await saveLocalArticle(updated, helia);
-
-					return updated;
-				}
+				const res = await smartFetch(article.url);
+				raw = await res.text();
 			} catch (err) {
 				log(`Network fetch failed for article ${article.id}: ${(err as Error).message}`, "warn");
 			}
+
+			if (raw) {
+				let content: string = raw; // default fallback
+				let summary: string;
+				let tags: string[] = [];
+
+				try {
+					// Try source-specific parser first
+					const parser = getParserForUrl(article.url);
+					if (parser) {
+						content = parser(raw);
+					}
+
+					console.log("parsed content", content);
+
+					// === Placeholder for source-specific normalization ===
+					// You can replace this with calls to your backend normalizers
+					// @see backend/src/lib/normalizers/sources/index.ts
+					// Example:
+					// const normalizer = getNormalizerForHostname(new URL(article.url).hostname);
+					// if (normalizer) {
+					//     const normalizedArticle = normalizer({ ...article, content }, article.url);
+					//     content = normalizedArticle.content ?? content;
+					//     summary = normalizedArticle.summary ?? summary;
+					//     tags = normalizedArticle.tags ?? tags;
+					// }
+				} catch (err: any) {
+					log(`Source-specific parser failed for ${article.id}: ${err.message}`, "warn");
+				}
+
+				try {
+					// Normalize, summarize, extract tags, and optionally translate
+					const aiRes = await normalizeAndTranslateArticle(
+						content ?? raw,
+						article.language ?? "en",
+					);
+					content = aiRes.content ?? content; // fallback to existing content
+					summary = aiRes.summary;
+					tags = aiRes.tags ?? [];
+				} catch (err: any) {
+					log(
+						`AI normalization/summarization failed for article ${article.id}: ${err.message}`,
+						"warn",
+					);
+					// Fallback: use raw content and simple summary
+					summary = await summarizeContent(raw);
+					tags = [];
+				}
+
+				const enrichedBase: Article = {
+					...article,
+					raw,
+					content,
+					summary,
+					tags,
+					fetchedAt: new Date().toISOString(),
+				};
+
+				let analyzed: ArticleAnalyzed | null = null;
+				try {
+					analyzed = await analyzeArticle(enrichedBase);
+				} catch (err) {
+					log(`AI analysis failed for article ${article.id}: ${(err as Error).message}`, "warn");
+				}
+
+				const finalVersion: Article | ArticleAnalyzed = analyzed ?? enrichedBase;
+
+				// Save to IPFS if Helia provided
+				if (helia) {
+					try {
+						const cid = await saveArticleToIPFS(helia, finalVersion);
+						finalVersion.ipfsHash = cid;
+					} catch (err) {
+						log(
+							`Failed to save article to IPFS for ${article.id}: ${(err as Error).message}`,
+							"warn",
+						);
+					}
+				}
+
+				// Save to local OrbitDB
+				await saveLocalArticle(finalVersion);
+
+				return finalVersion;
+			}
 		}
 
-		// 4️⃣ Return original if nothing worked
+		log(`Unable to find a url for the article: ${article.id}`, "warn");
 		return article;
 	}
 

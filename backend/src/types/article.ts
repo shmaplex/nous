@@ -1,4 +1,4 @@
-// frontend/src/types/article.ts
+// backend/src/types/article.ts
 import { z } from "zod";
 
 export const PoliticalBiasValues = [

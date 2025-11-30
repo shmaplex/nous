@@ -35,6 +35,7 @@ interface Props {
 }
 
 const ArticleView: React.FC<Props> = ({ article, location, onBack }) => {
+	console.log("article", article);
 	return (
 		<div className="relative w-full flex flex-col lg:flex-row gap-6">
 			{/* Left Column: Article content */}

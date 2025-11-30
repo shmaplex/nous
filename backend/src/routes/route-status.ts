@@ -1,19 +1,20 @@
 // frontend/src/p2p/routes/route-status.ts
 import fs from "node:fs";
-import type { ServerResponse } from "node:http";
 import path from "node:path";
+import type { Express, Request, Response } from "express";
 import { STATUS_FILE_PATH } from "@/constants";
-import type { NodeStatus, RouteHandler } from "@/types";
+import type { NodeStatus } from "@/types";
 import { handleError } from "./helpers";
 
 /**
- * GET /status
- * Returns the latest persisted NodeStatus from disk
+ * Registers status routes on an Express app:
+ * - GET /status: fetch current node status
+ * - POST /status: update node status
+ * - DELETE /status: delete persisted status file
  */
-export const getStatusRoute: RouteHandler = {
-	method: "GET",
-	path: "/status",
-	handler: async ({ res }: { res: ServerResponse }) => {
+export function registerStatusRoutes(app: Express) {
+	// GET /status
+	app.get("/status", async (req: Request, res: Response) => {
 		res.setHeader("Content-Type", "application/json");
 
 		try {
@@ -32,41 +33,32 @@ export const getStatusRoute: RouteHandler = {
 				port: 9001,
 				logs: [],
 				...persisted,
-				lastSync: persisted?.lastSync ?? null, // coerce to string | null
+				lastSync: persisted?.lastSync ?? null,
 			};
 
-			res.statusCode = 200;
-			res.end(JSON.stringify(status));
+			res.status(200).json(status);
 		} catch (err) {
 			await handleError(res, `Failed to load status file: ${(err as Error).message}`, 500, "error");
 		}
-	},
-};
+	});
 
-/**
- * POST /status
- * Updates the persisted NodeStatus by merging the provided fields
- */
-export const updateStatusRoute: RouteHandler = {
-	method: "POST",
-	path: "/status",
-	handler: async ({ res, body }: { res: ServerResponse; body?: Partial<NodeStatus> }) => {
+	// POST /status
+	app.post("/status", async (req: Request, res: Response) => {
 		res.setHeader("Content-Type", "application/json");
 
 		try {
+			const body = req.body;
 			if (!body || typeof body !== "object") {
 				await handleError(res, "Invalid body, expected JSON object", 400, "warn");
 				return;
 			}
 
-			// Load existing persisted status
 			let persisted: Partial<NodeStatus> = {};
 			if (fs.existsSync(STATUS_FILE_PATH)) {
 				const raw = fs.readFileSync(STATUS_FILE_PATH, "utf-8");
 				persisted = JSON.parse(raw) || {};
 			}
 
-			// Merge new status
 			const updated: NodeStatus = {
 				running: false,
 				connected: false,
@@ -88,13 +80,11 @@ export const updateStatusRoute: RouteHandler = {
 				updated.lastSync = new Date().toISOString();
 			}
 
-			// Persist to disk
 			const dir = path.dirname(STATUS_FILE_PATH);
 			fs.mkdirSync(dir, { recursive: true });
 			fs.writeFileSync(STATUS_FILE_PATH, JSON.stringify(updated, null, 2));
 
-			res.statusCode = 200;
-			res.end(JSON.stringify(updated));
+			res.status(200).json(updated);
 		} catch (err) {
 			await handleError(
 				res,
@@ -103,26 +93,17 @@ export const updateStatusRoute: RouteHandler = {
 				"error",
 			);
 		}
-	},
-};
+	});
 
-/**
- * DELETE /status
- * Removes the persisted status file entirely
- */
-export const deleteStatusRoute: RouteHandler = {
-	method: "DELETE",
-	path: "/status",
-	handler: async ({ res }: { res: ServerResponse }) => {
+	// DELETE /status
+	app.delete("/status", async (req: Request, res: Response) => {
 		res.setHeader("Content-Type", "application/json");
 
 		try {
 			if (fs.existsSync(STATUS_FILE_PATH)) {
 				fs.unlinkSync(STATUS_FILE_PATH);
 			}
-
-			res.statusCode = 200;
-			res.end(JSON.stringify({ deleted: true }));
+			res.status(200).json({ deleted: true });
 		} catch (err) {
 			await handleError(
 				res,
@@ -131,8 +112,5 @@ export const deleteStatusRoute: RouteHandler = {
 				"error",
 			);
 		}
-	},
-};
-
-// Export all backend routes
-export const routes: RouteHandler[] = [getStatusRoute, updateStatusRoute, deleteStatusRoute];
+	});
+}

@@ -120,6 +120,13 @@ export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 		status: nodeStatus,
 		orbitdbConnected: Boolean(orbitdb),
 		httpPort,
+		helia,
+		orbitdb,
+
+		// Paths
+		orbitDBKeystorePath,
+		orbitDBPath,
+		blockstorePath,
 
 		// Pass custom database methods
 		...debugDB,
