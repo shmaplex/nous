@@ -29,16 +29,21 @@ export async function createLibp2pNode(
 	let libp2p: Libp2p;
 	try {
 		const options = {
-			peerDiscovery: [mdns()],
+			// peerDiscovery: [mdns()],
 			addresses: {
 				listen: [
 					libp2pListenAddr,
-					"/ip4/127.0.0.1/tcp/15005/ws/webrtc-direct",
-					"/ip4/127.0.0.1/udp/15004/quic-v1/webtransport",
+					// "/ip4/127.0.0.1/tcp/15005/ws/webrtc-direct",
+					// "/ip4/127.0.0.1/udp/15004/quic-v1/webtransport",
 					"/ip4/127.0.0.1/udp/15006/p2p-circuit",
 				],
 			},
-			transports: [tcp(), webRTC(), webTransport(), circuitRelayTransport()],
+			transports: [
+				tcp(),
+				// webRTC(),
+				// webTransport(),
+				circuitRelayTransport(),
+			],
 			connectionEncrypters: [noise()],
 			streamMuxers: [yamux()],
 			services: {

@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import type { ServerResponse } from "node:http";
 import path from "node:path";
-import { STATUS_FILE_PATH } from "@/constants/status";
+import { STATUS_FILE_PATH } from "@/constants";
 import type { NodeStatus, RouteHandler } from "@/types";
 import { handleError } from "./helpers";
 

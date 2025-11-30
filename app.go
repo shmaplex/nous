@@ -16,9 +16,10 @@ type App struct {
 }
 
 var IDENTITY_ID = "nous-node"
-var ORBITDB_KEYSTORE_PATH = "frontend/.nous/orbitdb-keystore"
-var ORBITDB_DB_PATH = "frontend/.nous/orbitdb-databases"
-var IPFS_BLOCKSTORE_PATH = "frontend/.nous/helia-blocks"
+var DATA_PATH = "backend/dist/data"
+var ORBITDB_KEYSTORE_PATH = "backend/.nous/orbitdb-keystore"
+var ORBITDB_DB_PATH = "backend/.nous/orbitdb-databases"
+var IPFS_BLOCKSTORE_PATH = "backend/.nous/helia-blocks"
 
 var instanceID int
 var httpPortBase int = 9001

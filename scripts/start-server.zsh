@@ -21,16 +21,16 @@ which node
 BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "🚀 Starting Nous P2P Node (development)..."
-cd "$BASE_DIR/frontend"
+cd "$BASE_DIR/backend"
 
 # ---------------------------------------
 # Export ENV VARS (recommended way)
 # ---------------------------------------
 
 export IDENTITY_ID="nous-node"
-export ORBITDB_KEYSTORE_PATH="$BASE_DIR/frontend/.nous/orbitdb-keystore"
-export ORBITDB_DB_PATH="$BASE_DIR/frontend/.nous/orbitdb-databases"
-export BLOCKSTORE_PATH="$BASE_DIR/frontend/.nous/helia-blockstore"
+export ORBITDB_KEYSTORE_PATH="$BASE_DIR/backend/.nous/orbitdb-keystore"
+export ORBITDB_DB_PATH="$BASE_DIR/backend/.nous/orbitdb-databases"
+export BLOCKSTORE_PATH="$BASE_DIR/backend/.nous/helia-blockstore"
 
 # Confirm
 echo "🌱 ENV:"
@@ -44,6 +44,6 @@ echo "  BLOCKSTORE_PATH=$BLOCKSTORE_PATH"
 # ---------------------------------------
 
 npx tsx watch \
-  --tsconfig "./tsconfig.server.json" \
-  --watch-path "./server/src" \
-  "./server/src/setup.ts"
+  --tsconfig "./tsconfig.json" \
+  --watch-path "./src" \
+  "./src/setup.ts"

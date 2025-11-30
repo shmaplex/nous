@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-var DATA_PATH = "frontend/data"
-
 // SaveSources persists sources locally (e.g., JSON file)
 func (a *App) SaveSources(sources []Source) error {
 	if err := os.MkdirAll(DATA_PATH, os.ModePerm); err != nil {

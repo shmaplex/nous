@@ -11,17 +11,25 @@ import { createHttpServer, type HttpServerContext } from "./httpServer";
 import { startNetworkStatusPoll } from "./networkStatus";
 import { getP2PNode, type NodeInstance, setRunningInstance } from "./node";
 import { registerShutdownHandlers } from "./shutdown";
+import { DB_PATH_FILE_PATH } from '@/constants' 
 
-const DB_PATH_FILE = "path.json";
+
+/**
+ * Absolute file path used for persisting paths between server restarts.
+ * This file contains a reference of the OrbitDB databases
+ */
+const DB_REFERRENCE_PATH = path.resolve(process.cwd(), DB_PATH_FILE_PATH);
+
+
 const IDENTITY_ID = process.env.IDENTITY_ID ?? "nous-node";
 
 // Critical: Storage and Database Paths
 const ORBITDB_KEYSTORE_PATH =
-	process.env.ORBITDB_KEYSTORE_PATH || path.join(process.cwd(), "frontend/.nous/orbitdb-keystore");
+	process.env.ORBITDB_KEYSTORE_PATH || path.join(process.cwd(), "backend/.nous/orbitdb-keystore");
 const ORBITDB_DB_PATH =
-	process.env.ORBITDB_DB_PATH || path.join(process.cwd(), "frontend/.nous/orbitdb-databases");
+	process.env.ORBITDB_DB_PATH || path.join(process.cwd(), "backend/.nous/orbitdb-databases");
 const BLOCKSTORE_PATH =
-	process.env.BLOCKSTORE_PATH || path.join(process.cwd(), "frontend/.nous/helia-blockstore");
+	process.env.BLOCKSTORE_PATH || path.join(process.cwd(), "backend/.nous/helia-blockstore");
 
 // Ensure directories exist
 [ORBITDB_KEYSTORE_PATH, ORBITDB_DB_PATH].forEach((dir) => {
@@ -46,23 +54,27 @@ export interface DBPaths {
 
 /** Load saved DB paths */
 export function loadDBPaths(): DBPaths | null {
+	const dbPathFile = path.resolve(DB_REFERRENCE_PATH);
+
+	if (!fs.existsSync(dbPathFile)) {
+		// File doesn’t exist yet → return null or empty object
+		return null;
+	}
+
 	try {
-		if (fs.existsSync(ORBITDB_DB_PATH)) {
-			return JSON.parse(
-				fs.readFileSync(path.join(ORBITDB_DB_PATH, DB_PATH_FILE), "utf8"),
-			) as DBPaths;
-		}
+		const data = fs.readFileSync(dbPathFile, "utf8");
+		return JSON.parse(data) as DBPaths;
 	} catch (err) {
 		console.error("Failed to load DB paths file:", err);
+		return null;
 	}
-	return null;
 }
 
 /** Save DB paths */
 export function saveDBPaths(paths: DBPaths) {
 	try {
 		fs.writeFileSync(
-			path.join(ORBITDB_DB_PATH, DB_PATH_FILE),
+			path.resolve(DB_REFERRENCE_PATH),
 			JSON.stringify(paths, null, 2),
 			"utf8",
 		);

@@ -52,10 +52,10 @@ func (a *App) StartP2PNode() string {
 		return fmt.Sprintf("Bundled Node binary not found at %s", nodeBinary)
 	}
 
-	// Path to compiled P2P setup script
-	jsNodePath := "./frontend/dist/p2p/setup.js"
+	// Path to compiled server setup script
+	jsNodePath := "./backend/dist/setup.js"
 	if _, err := os.Stat(jsNodePath); os.IsNotExist(err) {
-		return fmt.Sprintf("Compiled P2P node not found at %s. Run build first.", jsNodePath)
+		return fmt.Sprintf("Compiled server node not found at %s. Run build first.", jsNodePath)
 	}
 
 	// Prepare the command

@@ -1,8 +1,8 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-	entry: ["server/src/setup.ts"],
-	outDir: "dist/p2p",
+	entry: ["src/setup.ts"],
+	outDir: "dist",
 	format: ["esm"],
 	target: "node22",
 	minify: true,
@@ -20,5 +20,5 @@ export default defineConfig({
 		"helia",
 		"uuid",
 	],
-	tsconfig: "tsconfig.server.json",
+	tsconfig: "tsconfig.json",
 });

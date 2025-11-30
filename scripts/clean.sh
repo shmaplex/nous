@@ -2,8 +2,9 @@
 set -e
 
 echo "Cleaning OrbitDB and keystore..."
-rm -rf frontend/orbitdb-databases/*
-rm -rf frontend/orbitdb-keystore/*
+rm -rf backend/.nous/orbitdb-databases/*
+rm -rf backend/.nous/orbitdb-keystore/*
+rm -rf backend/.nous/helia-blocks/*
 
 echo "Cleaning dist folder..."
 rm -rf frontend/dist

@@ -6,6 +6,15 @@ frontend/dist/
 frontend/package-lock.json
 frontend/package.json.md5
 
+
+# ---------------------------
+# Node / Backend
+# ---------------------------
+backend/dist/
+backend/package-lock.json
+backend/package.json.md5
+backend/.nous
+
 # ---------------------------
 # Build output
 # ---------------------------
@@ -18,7 +27,6 @@ build/*
 *.app
 bin/
 .node-cache
-frontend/.nous
 
 # ---------------------------
 # OrbitDB / Helia
@@ -29,8 +37,7 @@ orbitdb*/
 orbitdb-keystore*/
 helia-repo/
 data/
-!frontend/src/orbitdb
-!frontend/server/src/orbitdb
+!backend/src/orbitdb
 
 # ---------------------------
 # OS / IDE / Temp

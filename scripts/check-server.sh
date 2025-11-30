@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 PORT=${1:-9001}
-SCRIPT="frontend/dist/p2p/setup.ts"
+SCRIPT="backend/dist/setup.ts"
 
 echo "🔍 Checking P2P Node server (port $PORT)…"
 echo "-------------------------------------"

@@ -22,7 +22,7 @@ clean_locks() {
 # Full clean for first run
 # -----------------------------
 full_clean() {
-  rm -rf "$APP_DIR/frontend/orbitdb-"* "$APP_DIR/frontend/orbitdb-keystore-"*
+  rm -rf "$APP_DIR/backend/.nous/orbitdb-"* "$APP_DIR/backend/.nous/orbitdb-keystore-"*
   echo "🧹 Full DB + keystore clean"
 }
 
@@ -96,8 +96,8 @@ start_peer() {
 # -----------------------------
 # Define peers as arrays
 # -----------------------------
-PEER1=( "nous-node-1" "./frontend/orbitdb-keystore-1" "./frontend/orbitdb-1" 9001 "/ip4/127.0.0.1/tcp/15003" 5173 )
-PEER2=( "nous-node-2" "./frontend/orbitdb-keystore-2" "./frontend/orbitdb-2" 9002 "/ip4/127.0.0.1/tcp/15004" 5174 )
+PEER1=( "nous-node-1" "./backend/.nous/orbitdb-keystore-1" "./backend/.nous/orbitdb-1" 9001 "/ip4/127.0.0.1/tcp/15003" 5173 )
+PEER2=( "nous-node-2" "./backend/.nous/orbitdb-keystore-2" "./backend/.nous/orbitdb-2" 9002 "/ip4/127.0.0.1/tcp/15004" 5174 )
 
 PEERS=( PEER1 PEER2 )
 

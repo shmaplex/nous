@@ -120,6 +120,9 @@ export async function getP2PNode(config?: NodeConfig): Promise<NodeInstance> {
 		// blockstore,
 	});
 
+	// TODO: Figure out if we really need to start this here.
+	await helia.start();
+
 	// --- OrbitDB ---
 	const identityId = nodeConfig?.identityId?.toString() || "nous-node";
 	const { identity, identities, keystore } = await getOrbitDBIdentity({

@@ -1,7 +1,7 @@
 // frontend/server/src/lib/status.server.ts
 import fs from "node:fs";
 import path from "node:path";
-import { STATUS_FILE_PATH } from "@/constants/status";
+import { STATUS_FILE_PATH } from "@/constants";
 import type { NodeStatus } from "@/types";
 
 /**
@@ -26,6 +26,14 @@ let status: NodeStatus = {
 	port: 9001,
 };
 
+/** Ensure the parent directory exists before writing */
+function ensureStatusDir() {
+	const dir = path.dirname(STATUS_PATH);
+	if (!fs.existsSync(dir)) {
+		fs.mkdirSync(dir, { recursive: true });
+	}
+}
+
 /**
  * Load the most recent node status from the filesystem.
  *
@@ -48,7 +56,7 @@ export function loadStatus(): NodeStatus {
 			const data = JSON.parse(fs.readFileSync(STATUS_PATH, "utf-8"));
 			status = { ...status, ...data };
 		} catch {
-			// Corrupted file should not crash the node — fallback to defaults.
+			// Corrupted file → fallback to defaults
 		}
 	}
 	return status;
@@ -71,9 +79,11 @@ export function loadStatus(): NodeStatus {
  */
 export function updateStatus(newStatus: Partial<NodeStatus>): NodeStatus {
 	status = { ...status, ...newStatus };
+	ensureStatusDir();
 	fs.writeFileSync(STATUS_PATH, JSON.stringify(status, null, 2));
 	return status;
 }
+
 
 /**
  * Remove the persisted status file (if existing) and reset the in-memory

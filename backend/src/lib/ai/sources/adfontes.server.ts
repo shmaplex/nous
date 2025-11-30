@@ -22,7 +22,7 @@ import { normalizeBias } from "./helpers";
 
 // Environment variable for the CSV file path
 const ADFONTES_CSV_PATH =
-	process.env.ADFONTES_CSV_PATH || path.resolve("frontend/data/adfontes.csv");
+	process.env.ADFONTES_CSV_PATH || path.resolve("backend/data/adfontes.csv");
 
 interface AdFontesRow {
 	Source: string;

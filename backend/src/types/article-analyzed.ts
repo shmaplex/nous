@@ -50,7 +50,7 @@ export const ArticleAnalyzedSchema = z.object({
 	/** Overall sentiment, e.g., positive/negative/neutral, optional */
 	sentiment: z.string().optional(),
 
-	/** Sentiment valence score (-1 to 1) */
+		/** Sentiment valence score (-1 to 1) */
 	sentimentValence: z.number().min(-1).max(1).optional(),
 
 	/** Tags or keywords extracted from the article */

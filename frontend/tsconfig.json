@@ -20,7 +20,5 @@
       "@/*": ["*"]
     }
   },
-  "include": ["./src/**/*", "./src/types/**/*.d.ts"],
-  "exclude": ["./src/p2p/**/*"],
-  "references": [{ "path": "./tsconfig.server.json" }]
+  "include": ["./src/**/*", "./src/types/**/*.d.ts"]
 }

@@ -22,18 +22,17 @@ import InsightsPanel from "@/components/insights-panel";
 import { LoadingOverlay } from "@/components/loading/loading-overlay";
 import SettingsPanel from "@/components/settings-panel";
 import StatusBar from "@/components/status-bar";
-import { Button } from "@/components/ui/button";
 import ReadingView from "@/components/views/view-reading";
 import ViewSwitcher from "@/components/views/view-switcher";
 import WorkbenchView from "@/components/views/view-workbench";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { useNodeStatus } from "@/hooks/useNodeStatus";
 import { addDebugLog } from "@/lib/log";
 import type { Article, DebugStatus } from "@/types";
 import { createEmptyDebugStatus } from "@/types";
 import type { FilterOptions } from "@/types/filter";
 import type { ViewMode } from "@/types/view";
 import { EventsOff, EventsOn } from "../wailsjs/runtime";
-import { useNodeStatus } from "./hooks/useNodeStatus";
 
 const App = () => {
 	/** -----------------------------
