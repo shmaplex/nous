@@ -82,8 +82,8 @@ export function SaveFederatedArticle(arg1) {
   return window['go']['main']['App']['SaveFederatedArticle'](arg1);
 }
 
-export function SaveLocalArticle(arg1) {
-  return window['go']['main']['App']['SaveLocalArticle'](arg1);
+export function SaveLocalArticle(arg1, arg2) {
+  return window['go']['main']['App']['SaveLocalArticle'](arg1, arg2);
 }
 
 export function SaveSources(arg1) {
@@ -100,4 +100,8 @@ export function StartP2PNode() {
 
 export function StopP2PNode() {
   return window['go']['main']['App']['StopP2PNode']();
+}
+
+export function TranslateArticle(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['TranslateArticle'](arg1, arg2, arg3, arg4);
 }

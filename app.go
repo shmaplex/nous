@@ -78,10 +78,11 @@ func (a *App) Startup(ctx context.Context) {
 
 	// Start P2P node asynchronously
 	go func() {
-		if err := a.StartP2PNode(); err != "" {
+		msg, err := a.StartP2PNode()
+		if err != nil {
 			log.Println("[P2P] Failed to start node:", err)
 		} else {
-			log.Println("[P2P] Node started successfully")
+			log.Println("[P2P] Node started successfully:", msg)
 		}
 	}()
 }

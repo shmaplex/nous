@@ -285,3 +285,11 @@ type ArticleStatus struct {
 	Body     string `json:"body"`     // may be empty if pending
 	ErrorMsg string `json:"errorMsg"` // optional
 }
+
+// TranslationRequest represents the request body for translating specified fields of articles
+type TranslationRequest struct {
+	Identifiers    []string `json:"identifiers"`    // Article URLs, internal IDs, or IPFS CIDs
+	TargetLanguage string   `json:"targetLanguage"` // e.g., "en", "ko"
+	Keys           []string `json:"keys,omitempty"` // Fields to translate, default ["title"]
+	Overwrite      bool     `json:"overwrite"`      // Whether to overwrite existing translations
+}

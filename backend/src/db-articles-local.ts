@@ -9,8 +9,7 @@ import type { ArticleAnalyzed, Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
 import { analyzeArticle } from "./lib/ai";
 import { normalizeAndTranslateArticle } from "./lib/ai/normalize.server";
-import { summarizeContentAI } from "./lib/ai/summarizer.server";
-import { translateContentAI } from "./lib/ai/translate.server";
+import { translateMultipleTitlesAI } from "./lib/ai/translate.server";
 import { summarizeContent } from "./lib/article.server";
 import { fetchArticleFromIPFS, saveArticleToIPFS, saveJSONToIPFS } from "./lib/ipfs.server";
 import { getParserForUrl } from "./lib/parsers/sources";
@@ -43,9 +42,9 @@ export interface ArticleLocalDB {
 	getAllLocalArticles: (sources?: Source[]) => Promise<Article[]>;
 
 	/**
-	 * Get a single article by URL
+	 * Get a single article by the article's URL, internal ID, or IPFS CID
 	 */
-	getLocalArticle: (url: string) => Promise<Article | null>;
+	getLocalArticle: (identifier: string) => Promise<Article | null>;
 
 	/**
 	 * Query articles using a custom predicate
@@ -61,7 +60,12 @@ export interface ArticleLocalDB {
 	 * Fetch articles from external sources.
 	 * Returns both fetched articles and per-source errors.
 	 */
-	fetchAllLocalSources: (sources: Source[]) => Promise<{
+	fetchAllLocalSources: (
+		sources: Source[],
+		targetLanguage: string,
+		since?: Date,
+		skipTranslation?: boolean,
+	) => Promise<{
 		articles: Article[];
 		errors: { endpoint: string; error: string }[];
 	}>;
@@ -124,17 +128,25 @@ export async function setupArticleLocalDB(
 	});
 
 	/**
-	 * Save a single article if it does not exist
-	 * @param doc - Article to save
-	 * @param helia - Helia reference
-	 * @param skipExists - Skip the exists check
+	 * Save a single article to the local OrbitDB.
+	 *
+	 * This function **upserts** the document:
+	 *   - If `overwrite` is `true` (default), it will replace any existing article with the same `url`.
+	 *   - If `overwrite` is `false`, it will skip saving if the article already exists.
+	 *
+	 * Optionally adds content to IPFS if a Helia instance is provided.
+	 *
+	 * @param doc - The article to save (can be raw or analyzed)
+	 * @param helia - Optional Helia reference for IPFS storage
+	 * @param overwrite - If true, replace existing article with the same URL; if false, skip duplicates
+	 * @returns `true` if saved, `null` if skipped due to duplicate
 	 */
 	async function saveLocalArticle(
 		doc: Article | ArticleAnalyzed,
 		helia?: Helia,
-		skipExists = false,
+		overwrite = true,
 	): Promise<boolean | null> {
-		if (!skipExists) {
+		if (!overwrite) {
 			const exists = await db.get(doc.url);
 			if (exists) {
 				log(`Skipping duplicate article: ${doc.id} / ${doc.url}`);
@@ -142,7 +154,7 @@ export async function setupArticleLocalDB(
 			}
 		}
 
-		// Add content to IPFS if Helia provided
+		// Add to IPFS if Helia provided
 		if (helia && doc.content && !doc.ipfsHash) {
 			try {
 				const cid = await saveArticleToIPFS(helia, doc);
@@ -152,7 +164,7 @@ export async function setupArticleLocalDB(
 			}
 		}
 
-		await db.put(doc);
+		await db.put(doc); // Upsert! Overwrites if doc.url exists
 		const msg = `Saved to local DB: ${doc.id} / ${doc.url}`;
 		log(msg);
 		await addDebugLog({ message: msg, level: "info" });
@@ -176,11 +188,14 @@ export async function setupArticleLocalDB(
 	 *
 	 * @param availableSources - Array of sources to fetch from
 	 * @param targetLanguage - Optional BCP-47 language code for translation (default: "en")
+	 * @param skipTranslation - Optional flag to skip translating titles
 	 * @returns Object containing normalized articles and an array of per-source errors
 	 */
 	async function fetchAllLocalSources(
 		availableSources: Source[],
-		targetLanguage = "en",
+		targetLanguage: string,
+		since?: Date,
+		skipTranslation = true,
 	): Promise<{ articles: Article[]; errors: { endpoint: string; error: string }[] }> {
 		const enabledSources = availableSources.filter((s) => s.enabled);
 		const allArticles: Article[] = [];
@@ -203,11 +218,9 @@ export async function setupArticleLocalDB(
 				log(`Parsing Article with: ${source.parser}`);
 				log(`Normalizing Article with: ${source.normalizer}`);
 
-				// Get parser and normalizer for this source
 				const parserFn = getParser(source);
 				const normalizerFn = getNormalizer(source);
 
-				// Parse raw data into intermediate articles
 				const parsedArticles = parserFn(rawData, source);
 
 				if (!Array.isArray(parsedArticles)) {
@@ -217,31 +230,37 @@ export async function setupArticleLocalDB(
 					continue;
 				}
 
-				// Normalize parsed articles
 				const normalizedArticles: Article[] = [];
 				for (const a of parsedArticles) {
 					const n = normalizerFn(a, source);
 					n.publishedAt = normalizePublishedAt(n.publishedAt);
 
-					// Translate title if it exists and targetLanguage is not the default
-					if (n.title && targetLanguage) {
-						try {
-							n.title = await translateContentAI(n.title, targetLanguage);
-						} catch (err) {
-							console.warn(
-								`Failed to translate title for article from ${source.endpoint}:`,
-								(err as Error).message,
-							);
-						}
-					}
+					if (since && n.publishedAt && new Date(n.publishedAt) < since) continue;
 
 					normalizedArticles.push(n);
 				}
 
-				// Clean undefined values before storing in OrbitDB
+				// Only translate if skipTranslation is false
+				if (!skipTranslation && targetLanguage && normalizedArticles.length > 0) {
+					const titlesToTranslate = normalizedArticles.map((a) => a.title ?? "");
+					try {
+						const translatedTitles = await translateMultipleTitlesAI(
+							titlesToTranslate,
+							targetLanguage,
+						);
+						translatedTitles.forEach((t, idx) => {
+							normalizedArticles[idx].title = t;
+						});
+					} catch (err) {
+						console.warn(
+							`Failed to translate titles for articles from ${source.endpoint}:`,
+							(err as Error).message,
+						);
+					}
+				}
+
 				const cleanArticles = cleanArticlesForDB(normalizedArticles);
 
-				// Validate normalized articles
 				for (const article of cleanArticles) {
 					try {
 						ArticleSchema.parse(article);

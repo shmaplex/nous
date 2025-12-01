@@ -188,6 +188,16 @@ const App = () => {
 		pollArticle();
 	};
 
+	/**
+	 * Callback when the article is translated
+	 * @param id Article id translated
+	 * @param title New translated title (or old as fallback if failed)
+	 * @param successs Whether or not the translation was a success
+	 */
+	const handleArticleTranslated = async (id: string, title: string, success: boolean) => {
+		console.log(`Article ${id}: ${title} translated successfully: ${success}`);
+	};
+
 	/** -----------------------------
 	 * Back button to exit full article view
 	 * ----------------------------- */
@@ -228,6 +238,7 @@ const App = () => {
 								{mode === "workbench" ? (
 									<WorkbenchView
 										onAnalyzeArticle={handleAnalyzeArticle}
+										onTranslated={handleArticleTranslated}
 										onLoadingChange={handleViewLoading}
 										filter={workbenchFilter}
 										setFilter={setWorkbenchFilter}

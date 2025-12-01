@@ -42,7 +42,7 @@ export function SaveAnalyzedArticle(arg1:Record<string, any>):Promise<string>;
 
 export function SaveFederatedArticle(arg1:Record<string, any>):Promise<string>;
 
-export function SaveLocalArticle(arg1:Record<string, any>):Promise<string>;
+export function SaveLocalArticle(arg1:Record<string, any>,arg2:boolean):Promise<string>;
 
 export function SaveSources(arg1:Array<main.Source>):Promise<void>;
 
@@ -51,3 +51,5 @@ export function SetLocation(arg1:string):Promise<string>;
 export function StartP2PNode():Promise<string>;
 
 export function StopP2PNode():Promise<boolean>;
+
+export function TranslateArticle(arg1:any,arg2:string,arg3:Array<string>,arg4:boolean):Promise<string>;

@@ -1,107 +1,95 @@
-/**
- * @file view-workbench.tsx
- * @description
- * Workbench Mode — an operational view for inspecting raw, un-analyzed articles
- * and triggering analysis actions.
- *
- * Features:
- *  - Article grid with local articles
- *  - Per-view filters panel
- *  - Optional "Analyze" button per article
- *  - Loading overlay for data fetches
- *  - Clickable articles via `onOpen` callback (full view handled by parent)
- */
-
-import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ArticlesGrid from "@/components/articles/articles-grid";
+import FiltersPanel from "@/components/filters-panel";
 import { LoadingOverlay } from "@/components/loading/loading-overlay";
 import { useArticleLoader } from "@/hooks/useArticleLoader";
-import type { Article, FilterOptions } from "@/types";
-import FiltersPanel from "../filters-panel";
+import type { ApiResponse, Article, FilterOptions } from "@/types";
+import { TranslateArticle } from "../../../wailsjs/go/main/App";
 
 interface Props {
-	/**
-	 * Callback triggered whenever the user chooses to analyze an article.
-	 */
 	onAnalyzeArticle: (article: Article) => void;
-
-	/**
-	 * Callback triggered when a user clicks an article.
-	 * Parent handles opening full view.
-	 */
+	onTranslated: (id: Article["id"], title: string, success: boolean) => void;
 	onOpen?: (article: Article) => void;
-
-	/**
-	 * Optional callback to notify parent about loading state changes.
-	 * Called with `(isLoading, statusMessage?, progress?)`.
-	 */
 	onLoadingChange?: (isLoading: boolean, statusMessage?: string, progress?: number) => void;
-
-	/**
-	 * Current filter state for this view
-	 */
 	filter: FilterOptions;
-
-	/**
-	 * Callback to update filter state
-	 */
 	setFilter: (filter: FilterOptions) => void;
 }
 
 /**
  * WorkbenchView Component
- *
- * A modern, Perplexity-style workspace for interacting with raw news articles.
- *
- * Responsibilities:
- *  - Load and display local articles
- *  - Handle filtering via `FiltersPanel`
- *  - Allow analysis triggers via `onAnalyzeArticle`
- *  - Allow article clicks via `onOpen` callback
- *  - Communicate loading state to parent via `onLoadingChange`
  */
 const WorkbenchView: React.FC<Props> = ({
 	onAnalyzeArticle,
+	onTranslated,
 	onOpen,
 	onLoadingChange,
 	filter,
 	setFilter,
 }) => {
-	/** -----------------------------
-	 * Local articles loader
-	 * ----------------------------- */
-	const { articles, loading, loadingStatus, progress } = useArticleLoader();
+	const { articles: loadedArticles, loading, loadingStatus, progress } = useArticleLoader();
 
-	/** -----------------------------
-	 * Notify parent about loading
-	 * ----------------------------- */
+	// Local state for articles to allow updates (translate)
+	const [articles, setArticles] = useState(loadedArticles);
+
+	/** Update state when loader fetches new articles */
+	useEffect(() => {
+		setArticles(loadedArticles);
+	}, [loadedArticles]);
+
 	useEffect(() => {
 		onLoadingChange?.(loading, loadingStatus, progress);
 	}, [loading, loadingStatus, progress, onLoadingChange]);
 
-	/**
-	 * Handle click on an article card.
-	 * Calls `onOpen` if provided by parent.
-	 *
-	 * @param article - The clicked article
-	 */
-	const handleArticleClick = (article: Article) => {
-		if (onOpen) {
-			onOpen(article);
+	/** Handle translation of a single article title */
+	const handleTranslate = async (article: Article) => {
+		try {
+			if (!article.id) {
+				console.warn("Skipping translation: article.id missing", article);
+				return;
+			}
+
+			const resStr = await TranslateArticle([article.id], "en", ["title"], true);
+
+			const res: ApiResponse<Article[]> = JSON.parse(resStr);
+			console.log("res", res);
+
+			if (res.success && Array.isArray(res.data)) {
+				const firstResult = res.data[0];
+
+				if (res.success && firstResult.title) {
+					console.log("translatedTitle", firstResult.title);
+					if (onTranslated) onTranslated(article.id, firstResult.title, true);
+					setArticles((prev) =>
+						prev.map((a) =>
+							a.id === article.id ? { ...a, title: firstResult.title ?? a.title } : a,
+						),
+					);
+				} else {
+					console.warn(`Translation failed for ${article.id}:`, res.error);
+					if (onTranslated) onTranslated(article.id, article.title, false);
+				}
+			} else {
+				console.warn("Translation API call failed:", res.error);
+				if (onTranslated) onTranslated(article.id, article.title, false);
+			}
+		} catch (err) {
+			console.error("Translation error:", err);
+			if (onTranslated) onTranslated(article.id, article.title, false);
 		}
+	};
+
+	/** Handle click on article card */
+	const handleArticleClick = (article: Article) => {
+		if (onOpen) onOpen(article);
 	};
 
 	return (
 		<div className="flex flex-col gap-10">
-			{/* Loading overlay */}
 			<LoadingOverlay open={loading} status={loadingStatus} progress={progress} />
-			{/* Filters Panel */}
 			<div className="sticky top-14 z-20 bg-background px-6 py-3 border-b shadow-sm border-border">
 				<FiltersPanel filter={filter} setFilter={setFilter} />
 			</div>
 
-			{/* Header */}
 			<header className="px-4 sm:px-0">
 				<h1 className="text-2xl font-semibold tracking-tight mb-2">Workbench</h1>
 				<p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
@@ -110,10 +98,10 @@ const WorkbenchView: React.FC<Props> = ({
 				</p>
 			</header>
 
-			{/* Articles Grid */}
 			<ArticlesGrid
 				articles={articles}
 				onAnalyze={onAnalyzeArticle}
+				onTranslate={handleTranslate}
 				onOpen={handleArticleClick}
 				mode="workbench"
 			/>

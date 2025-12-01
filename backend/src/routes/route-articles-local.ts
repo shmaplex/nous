@@ -1,7 +1,7 @@
 import type { Express, NextFunction, Request, Response } from "express";
-import type { Helia } from "helia";
+import { translateMultipleTitlesAI } from "@/lib/ai/translate.server";
 import { addDebugLog, log } from "@/lib/log.server";
-import type { Article, DebugLogEntry, Source } from "@/types";
+import type { ApiResponse, Article, Source } from "@/types";
 import { handleError } from "./helpers";
 
 /**
@@ -33,6 +33,83 @@ export const throttleMiddleware = (req: Request, res: Response, next: NextFuncti
 };
 
 /**
+ * POST /articles/local/translate
+ *
+ * Handler to translate specified fields of local articles to a target language.
+ *
+ * @param req - Express request
+ *   - `req.body.urls`: string[] of article URLs or IDs to translate
+ *   - `req.body.targetLanguage`: target language code (e.g., "en", "ko")
+ *   - `req.body.keys`: optional array of Article keys to translate (default ["title"])
+ *   - `req.body.overwrite`: optional boolean, whether to overwrite existing translations
+ *   - `req.query.overwrite`: optional query param to override overwrite flag
+ * @param handlers - Functions to get and save local articles:
+ *   - `getLocalArticle(urlOrId: string): Promise<Article | null>` - fetches a local article
+ *   - `saveLocalArticle(article: Article, overwrite?: boolean): Promise<void>` - saves updated article
+ * @returns Promise resolving to an `ApiResponse<Article[]>` containing updated articles
+ */
+export const translateArticleHandler = async (
+	req: Request,
+	res: Response,
+	handlers: {
+		getLocalArticle?: (identifier: string) => Promise<Article | null>;
+		saveLocalArticle?: (article: Article, overwrite?: boolean) => Promise<void>;
+	},
+): Promise<void> => {
+	// <- note we no longer return ApiResponse, we handle response inside
+	const { getLocalArticle, saveLocalArticle } = handlers;
+
+	if (!getLocalArticle || !saveLocalArticle) {
+		await handleError(res, "Required DB functions not provided", 500, "error");
+		return;
+	}
+
+	const { identifiers, targetLanguage, keys = ["title"], overwrite: bodyOverwrite } = req.body;
+	const queryOverwrite = req.query?.overwrite === "true";
+	const overwrite = queryOverwrite || bodyOverwrite === true;
+
+	if (!Array.isArray(identifiers) || !targetLanguage || !Array.isArray(keys) || keys.length === 0) {
+		await handleError(res, "Missing ID, targetLanguage, or keys", 404, "error");
+		return;
+	}
+
+	const updatedArticles: Article[] = [];
+
+	for (const id of identifiers) {
+		try {
+			const article = await getLocalArticle(id);
+			if (!article) continue;
+
+			for (const key of keys) {
+				const originalText = article[key as keyof Article] as unknown;
+				if (typeof originalText !== "string") continue;
+
+				const translated = await translateMultipleTitlesAI([originalText], targetLanguage);
+
+				const translatedText = translated?.[0];
+				if (translatedText) {
+					(article as any)[key] = translatedText;
+				}
+			}
+
+			await saveLocalArticle(article, overwrite);
+			updatedArticles.push(article);
+		} catch (err) {
+			console.error(`Failed to translate article ${id}:`, err);
+			await handleError(
+				res,
+				`Failed to translate article ${id}: ${(err as Error).message}`,
+				500,
+				"error",
+			);
+			return;
+		}
+	}
+
+	res.json({ success: true, data: updatedArticles });
+};
+
+/**
  * POST /articles/local/fetch
  *
  * Starts a background fetch of articles.
@@ -51,7 +128,7 @@ export const fetchLocalArticlesHandler = async (req: Request, res: Response, han
 	// Fire-and-forget background fetch
 	(async () => {
 		try {
-			const { articles, errors } = await fetchAllLocalSources(sources, since);
+			const { articles, errors } = await fetchAllLocalSources(sources, "en", since);
 
 			const addedCount = await addUniqueLocalArticles(articles);
 
@@ -218,7 +295,7 @@ export const getFullLocalArticleHandler = async (req: Request, res: Response, ha
 
 /**
  * POST /articles/local/save
- * Save a single new source article
+ * Save a single new source article, optionally overwriting existing
  */
 export const saveLocalArticleHandler = async (req: Request, res: Response, handlers: any) => {
 	const { saveLocalArticle } = handlers;
@@ -228,10 +305,13 @@ export const saveLocalArticleHandler = async (req: Request, res: Response, handl
 		return handleError(res, "Missing required article fields", 400, "warn");
 	}
 
+	// Read overwrite flag from query param or request body
+	const overwrite = req.query.overwrite === "true" || req.body.overwrite === true;
+
 	try {
-		await saveLocalArticle(req.body);
+		await saveLocalArticle(req.body, overwrite);
 		await addDebugLog({ message: `Saved article: ${req.body.url}`, level: "info" });
-		res.json({ success: true, url: req.body.url });
+		res.json({ success: true, url: req.body.url, overwritten: overwrite });
 	} catch (err) {
 		const message = (err as Error).message;
 		await handleError(res, `Error saving article: ${message}`, 500, "error");
@@ -290,6 +370,9 @@ export function registerLocalArticleRoutes(app: Express, handlers: any = {}) {
 	app.get("/articles/local", throttleMiddleware, (req, res) =>
 		getAllLocalArticlesHandler(req, res, handlers),
 	);
+	app.post("/articles/local/translate", (req, res) => {
+		translateArticleHandler(req, res, handlers);
+	});
 	app.get("/articles/local/full", (req, res) => getFullLocalArticleHandler(req, res, handlers));
 	app.post("/articles/local/save", (req, res) => saveLocalArticleHandler(req, res, handlers));
 	app.post("/articles/local/refetch", (req, res) =>

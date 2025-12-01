@@ -3,9 +3,6 @@ import { getPipeline } from "./models.server";
 
 const DEFAULT_LANG = "en_XX";
 
-/**
- * Mapping of friendly BCP-47 codes to Xenova MBart model target codes.
- */
 const LANG_MAP: Record<string, string> = {
 	ar: "ar_AR",
 	cs: "cs_CZ",
@@ -61,22 +58,68 @@ const LANG_MAP: Record<string, string> = {
 	sl: "sl_SI",
 };
 
-/**
- * Get the Xenova MBart target language code for a given BCP-47 code.
- * Falls back to DEFAULT_LANG if not found.
- */
 export function getTranslatorLang(lang?: string): string {
-	if (!lang) return DEFAULT_LANG;
-	return LANG_MAP[lang.toLowerCase()] ?? DEFAULT_LANG;
+	if (!lang || typeof lang !== "string") return DEFAULT_LANG;
+	const mapped = LANG_MAP[lang.toLowerCase().trim()];
+	if (!mapped) {
+		console.warn(`Language "${lang}" not found in LANG_MAP, defaulting to ${DEFAULT_LANG}`);
+		return DEFAULT_LANG;
+	}
+	return mapped;
+}
+
+// Hold the resolved pipelines
+let detectorPipeline: ReturnType<typeof getPipeline> | null = null;
+let translatorPipeline: ReturnType<typeof getPipeline> | null = null;
+
+async function getDetectorPipeline() {
+	if (!detectorPipeline) {
+		console.log("Loading language detector pipeline...");
+		detectorPipeline = await getPipeline(
+			"text-classification",
+			"dnouv/xlm-roberta-base-language-detection-tfjs",
+		);
+		console.log("Language detector pipeline loaded.");
+	}
+	return detectorPipeline;
+}
+
+async function getTranslatorPipeline() {
+	if (!translatorPipeline) {
+		console.log("Loading translator pipeline...");
+		translatorPipeline = await getPipeline("translation", "Xenova/mbart-large-50-many-to-many-mmt");
+		console.log("Translator pipeline loaded.");
+	}
+	return translatorPipeline;
+}
+
+/**
+ * Detect language of given text using AI.
+ * @param content The text to detect the language of
+ * @returns Detected language code
+ */
+export async function detectLanguage(content: string): Promise<string> {
+	if (!content) return "en";
+
+	try {
+		console.log("Detecting language...");
+		const detector = await getDetectorPipeline();
+		const result = await detector(content.slice(0, 5000));
+		const detectedLang = result[0]?.label?.toLowerCase() ?? "en";
+		console.log(`Detected language: ${detectedLang}`);
+		return detectedLang;
+	} catch (err) {
+		console.warn("Language detection failed:", (err as Error).message);
+		return "en";
+	}
 }
 
 /**
  * Translate text content into a specified language using AI.
- * Falls back to original text if translation fails.
- *
- * @param content - The text to translate
- * @param targetLanguage - BCP-47 language code, e.g., "ko" for Korean, "en" for English
- * @returns Translated content as string
+ * Skips translation if content is already in the target language.
+ * @param content Text to translate
+ * @param targetLanguage Target language code
+ * @returns Translated text
  */
 export async function translateContentAI(
 	content: string,
@@ -84,14 +127,66 @@ export async function translateContentAI(
 ): Promise<string> {
 	if (!content) return content;
 
-	const modelLang = getTranslatorLang(targetLanguage);
+	const tgtLang = getTranslatorLang(targetLanguage);
+	console.log(`Target language: ${tgtLang}`);
 
-	try {
-		const translator = await getPipeline("translation", "Xenova/mbart-large-50-many-to-many-mmt");
-		const result = await translator(content.slice(0, 5000), { target_lang: modelLang });
-		return result[0]?.translation_text ?? content;
-	} catch (err) {
-		console.warn(`Translation AI failed for language ${modelLang}:`, (err as Error).message);
+	const detected = await detectLanguage(content);
+	const srcLang = getTranslatorLang(detected);
+
+	if (srcLang === tgtLang) {
+		console.log("Source and target languages are the same. Skipping translation.");
 		return content;
 	}
+
+	try {
+		console.log(`Translating content from ${srcLang} to ${tgtLang}...`);
+		const translator = await getTranslatorPipeline();
+		const result = await translator(content.slice(0, 5000), {
+			src_lang: srcLang,
+			tgt_lang: tgtLang,
+		});
+		const translatedText = result[0]?.translation_text ?? content;
+		console.log("Translation complete.");
+		return translatedText;
+	} catch (err) {
+		console.warn(`Translation AI failed for language ${tgtLang}:`, (err as Error).message);
+		return content;
+	}
+}
+
+/**
+ * Translate multiple titles in parallel using AI in memory-efficient batches.
+ * @param titles Array of text titles to translate
+ * @param targetLanguage Target language code
+ * @param batchSize Number of titles to process at once (default 10)
+ * @returns Array of translated titles
+ */
+export async function translateMultipleTitlesAI(
+	titles: string[],
+	targetLanguage?: string,
+	batchSize = 10,
+): Promise<string[]> {
+	if (!titles?.length) return [];
+
+	console.log(`Translating ${titles.length} titles in batches of ${batchSize}...`);
+	const translatedTitles: string[] = [];
+
+	for (let i = 0; i < titles.length; i += batchSize) {
+		const batch = titles.slice(i, i + batchSize);
+
+		// Translate all titles in the batch in parallel
+		const batchResults = await Promise.all(
+			batch.map((title, j) =>
+				translateContentAI(title, targetLanguage).then((translated) => {
+					console.log(`Translated title ${i + j + 1}/${titles.length}`);
+					return translated;
+				}),
+			),
+		);
+
+		translatedTitles.push(...batchResults);
+	}
+
+	console.log("All titles translated.");
+	return translatedTitles;
 }
