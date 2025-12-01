@@ -85,6 +85,7 @@ const App = () => {
 	 * Full article view state
 	 * ----------------------------- */
 	const [fullArticle, setFullArticle] = useState<Article | null>(null);
+	const [articleLoading, setArticleLoading] = useState(false); // new local loading state
 
 	/** -----------------------------
 	 * Initialize debug logging when node is ready
@@ -141,14 +142,13 @@ const App = () => {
 	 * @param article - Article clicked
 	 */
 	const handleOpenArticle = async (article: Article) => {
-		setLoading(true);
-		setFullArticle(null);
+		// Immediately show article view with current data
+		setFullArticle(article);
+		setArticleLoading(true);
 
-		const pollInterval = 2000; // 2 seconds
-		const maxRetries = 30; // timeout after ~1 min
-
+		const pollInterval = 2000;
+		const maxRetries = 30;
 		let retries = 0;
-		let fetchedArticle: Article | null = null;
 
 		const pollArticle = async () => {
 			try {
@@ -156,32 +156,30 @@ const App = () => {
 				const data = JSON.parse(res);
 
 				if (data.status === "complete") {
-					fetchedArticle = JSON.parse(data.body);
-					setFullArticle(fetchedArticle);
-					setLoading(false);
+					const fetchedArticle: Article = JSON.parse(data.body);
+					setFullArticle(fetchedArticle); // update with processed content
+					setArticleLoading(false);
 					console.log("Article ready:", fetchedArticle);
 					return;
 				}
+
 				if (data.status === "error") {
 					console.error("Failed to fetch article:", data.errorMsg);
-					setFullArticle(null);
-					setLoading(false);
+					setArticleLoading(false);
 					return;
 				}
-				// still pending
+
 				retries++;
 				if (retries >= maxRetries) {
 					console.warn("Article processing timeout");
-					setFullArticle(null);
-					setLoading(false);
+					setArticleLoading(false);
 					return;
 				}
-				// retry after interval
+
 				setTimeout(pollArticle, pollInterval);
 			} catch (err) {
 				console.error("Error polling article:", err);
-				setFullArticle(null);
-				setLoading(false);
+				setArticleLoading(false);
 			}
 		};
 
@@ -225,11 +223,12 @@ const App = () => {
 				{/* Main Content */}
 				<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6 w-full">
 					{fullArticle ? (
-						<div className="flex-1 space-y-6">
+						<div className="flex-1">
 							<ArticlesView
 								article={fullArticle}
 								location={location}
 								onBack={handleCloseFullArticle}
+								loading={articleLoading}
 							/>
 						</div>
 					) : (

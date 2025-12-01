@@ -19,7 +19,7 @@ interface AnalyzeButtonProps {
 export const AnalyzeButton: React.FC<AnalyzeButtonProps> = ({
 	article,
 	onAnalyze,
-	className = "h-7 px-2 py-0 text-xs gap-1 border-accent/40 text-accent hover:bg-accent/10",
+	className = "h-7 px-2 py-0 text-xs gap-1 border-accent/40 hover:border-accent/70! text-accent hover:bg-accent/50 cursor-pointer",
 }) => {
 	const { run, isLoading } = useAsyncAction(() => onAnalyze(article));
 

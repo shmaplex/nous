@@ -21,6 +21,7 @@ import CoverageDetails from "@/components/coverage-details";
 import InsightsPanel from "@/components/insights-panel";
 import NewsCluster from "@/components/news-cluster";
 import { Button } from "@/components/ui/button";
+import { getRelativeTime } from "@/lib/time";
 import type { Article } from "@/types";
 
 interface Props {
@@ -32,24 +33,21 @@ interface Props {
 
 	/** Optional callback to handle the "Back" button */
 	onBack?: () => void;
+
+	/** Whether the article is still being processed */
+	loading?: boolean;
 }
 
-const ArticleView: React.FC<Props> = ({ article, location, onBack }) => {
-	console.log("article", article);
+const ArticleView: React.FC<Props> = ({ article, location, onBack, loading = false }) => {
+	const isLoading = loading || !article;
+
 	return (
 		<div className="relative w-full flex flex-col lg:flex-row gap-6">
 			{/* Left Column: Article content */}
 			<div className="flex-1 w-full">
-				{/* Loading / Placeholder */}
-				{!article && (
-					<div className="text-center py-10 text-muted-foreground">
-						<p className="text-lg animate-pulse">Processing full article... please wait 🚀</p>
-					</div>
-				)}
-
 				{/* Back Button */}
 				{onBack && (
-					<div className="mb-4">
+					<div className="mb-2">
 						<Button variant="ghost" onClick={onBack}>
 							← Back
 						</Button>
@@ -58,40 +56,63 @@ const ArticleView: React.FC<Props> = ({ article, location, onBack }) => {
 
 				{/* Article Content */}
 				{article && (
-					<div className="bg-white dark:bg-gray-900 p-6 rounded-lg border border-border shadow-sm space-y-6">
-						{/* Source & Date */}
-						<p className="text-sm text-muted-foreground">
-							{article.source ?? article.sourceDomain ?? "Unknown source"} -{" "}
-							{article.publishedAt
-								? new Date(article.publishedAt).toLocaleDateString()
-								: "Unknown date"}
-						</p>
+					<div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-border/50 space-y-6 overflow-hidden">
+						{/* Article Image */}
+						{article.image && (
+							<div className="my-0">
+								<img
+									src={article.image}
+									alt={article.title}
+									className="w-full h-auto object-cover"
+								/>
+							</div>
+						)}
 
-						{/* Article Title */}
-						<h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 leading-tight">
-							{article.title}
-						</h1>
+						<div className="p-6">
+							{/* Source & Date */}
+							<p className="text-sm text-muted-foreground flex flex-wrap items-center dark:text-gray-400 space-x-2">
+								<span>{article.source ?? article.sourceDomain ?? "Unknown source"}</span>
+								<span className="before:content-['•'] before:mx-2">
+									Published {getRelativeTime(article?.publishedAt ?? undefined)}
+								</span>
+								<span className="before:content-['•'] before:mx-2">
+									Fetched {getRelativeTime(article?.fetchedAt ?? undefined)}
+								</span>
+							</p>
 
-						{/* Summary or Content */}
-						<p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed">
-							{article.summary ?? article.content ?? "No content available."}
-						</p>
+							{/* Article Title */}
+							<h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 leading-tight py-4">
+								{article.title}
+							</h1>
 
-						{/* Perspective Bullets Section */}
-						{/* TODO: Uncomment when analysis is available */}
-						{/*
-						<div className="mt-8">
-							<h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-								Perspectives & Bias Insights
-							</h2>
-							<PerspectiveBullets
-								leftPoints={["Left insight 1", "Left insight 2"]}
-								centerPoints={["Center insight 1"]}
-								rightPoints={["Right insight 1"]}
-								biasComparisonPoints={["Bias comparison 1", "Bias comparison 2"]}
-							/>
+							{/* Summary or Content */}
+							<p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed">
+								{article.summary ?? article.content ?? "No content available."}
+							</p>
+
+							{/* Perspective Bullets Section */}
+							{/* TODO: Uncomment when analysis is available */}
+							{/*
+							<div className="mt-8">
+								<h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
+									Perspectives & Bias Insights
+								</h2>
+								<PerspectiveBullets
+									leftPoints={["Left insight 1", "Left insight 2"]}
+									centerPoints={["Center insight 1"]}
+									rightPoints={["Right insight 1"]}
+									biasComparisonPoints={["Bias comparison 1", "Bias comparison 2"]}
+								/>
+							</div>
+							*/}
 						</div>
-						*/}
+					</div>
+				)}
+
+				{/* Loading / Placeholder */}
+				{isLoading && (
+					<div className="text-center py-10 text-muted-foreground">
+						<p className="text-lg animate-pulse">Processing full article... please wait 🚀</p>
 					</div>
 				)}
 			</div>

@@ -79,19 +79,19 @@ const WorkbenchView: React.FC<Props> = ({
 	};
 
 	/** Handle click on article card */
-	const handleArticleClick = (article: Article) => {
+	const handleOpenArticle = (article: Article) => {
 		if (onOpen) onOpen(article);
 	};
 
 	return (
 		<div className="flex flex-col gap-10">
 			<LoadingOverlay open={loading} status={loadingStatus} progress={progress} />
-			<div className="sticky top-14 z-20 bg-background px-6 py-3 border-b shadow-sm border-border">
+			<div className="sticky top-18 z-20 bg-transparent w-full">
 				<FiltersPanel filter={filter} setFilter={setFilter} />
 			</div>
 
-			<header className="px-4 sm:px-0">
-				<h1 className="text-2xl font-semibold tracking-tight mb-2">Workbench</h1>
+			<header className="p-3 sm:p-6 border rounded-xl text-foreground/50 border-border/50 flex space-x-4">
+				<h1 className="text-xl font-semibold tracking-tight mb-2">Workbench</h1>
 				<p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
 					Raw news articles fetched from your selected sources. Analyze them to generate AI-enriched
 					insights and publish into the distributed knowledge graph.
@@ -102,7 +102,7 @@ const WorkbenchView: React.FC<Props> = ({
 				articles={articles}
 				onAnalyze={onAnalyzeArticle}
 				onTranslate={handleTranslate}
-				onOpen={handleArticleClick}
+				onOpen={handleOpenArticle}
 				mode="workbench"
 			/>
 		</div>

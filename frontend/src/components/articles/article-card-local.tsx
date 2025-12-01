@@ -25,9 +25,13 @@ const ArticleLocalCard: React.FC<Props> = ({
 }) => {
 	const [isArchiving, setIsArchiving] = useState(false);
 
-	const openUrl = () => {
-		if (onOpen) onOpen(article);
-		else if (article.url) window.open(article.url, "_blank");
+	const handleCardClick = async () => {
+		if (onOpen) {
+			// Immediately open full view
+			onOpen(article);
+		} else if (article.url) {
+			window.open(article.url, "_blank");
+		}
 	};
 
 	const handleAnalyze = async (e?: React.MouseEvent) => {
@@ -58,7 +62,7 @@ const ArticleLocalCard: React.FC<Props> = ({
 	return (
 		<Card
 			className="flex flex-col overflow-hidden pt-0 rounded-xl shadow-sm cursor-pointer transition-all duration-200 bg-linear-to-b from-white to-muted/10 hover:shadow-md hover:scale-[1.01] hover:bg-muted/5"
-			onClick={openUrl}
+			onClick={handleCardClick}
 		>
 			{/* Image */}
 			<div className="w-full h-44 overflow-hidden rounded-t-xl bg-muted/20">
@@ -72,32 +76,39 @@ const ArticleLocalCard: React.FC<Props> = ({
 						{article.title}
 					</CardTitle>
 				</div>
-
-				<div className="flex flex-col gap-1 items-end">
-					{onAnalyze && <AnalyzeButton article={article} onAnalyze={() => handleAnalyze()} />}
-
-					{onTranslate && (
-						<TranslateButton article={article} onTranslate={() => handleTranslate()} />
-					)}
-
-					{onArchive && (
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={handleArchive}
-							className="p-1 rounded-full text-muted-foreground hover:bg-muted/20 hover:text-accent transition-colors"
-							aria-label={`Archive ${article.title}`}
-							disabled={isArchiving}
-						>
-							{isArchiving ? <Spinner className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
-						</Button>
-					)}
-				</div>
 			</CardHeader>
 
 			{/* Content */}
-			<CardContent className="text-sm text-muted-foreground line-clamp-4">
-				{article.summary ?? article.content ?? "No content available."}
+			<CardContent className="text-sm text-muted-foreground">
+				<div className="line-clamp-4">
+					{article.summary ?? article.content ?? "No content available."}
+				</div>
+
+				<div className="py-4">
+					<div className="flex gap-2 items-center">
+						<p className="text-foreground/50 text-xs">Actions:</p>
+						<div className="flex gap-1">
+							{onAnalyze && <AnalyzeButton article={article} onAnalyze={() => handleAnalyze()} />}
+
+							{onTranslate && (
+								<TranslateButton article={article} onTranslate={() => handleTranslate()} />
+							)}
+
+							{onArchive && (
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={handleArchive}
+									className="p-1 rounded-full text-muted-foreground hover:bg-muted/20 hover:text-accent transition-colors"
+									aria-label={`Archive ${article.title}`}
+									disabled={isArchiving}
+								>
+									{isArchiving ? <Spinner className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+								</Button>
+							)}
+						</div>
+					</div>
+				</div>
 			</CardContent>
 
 			{/* Footer */}
