@@ -33,6 +33,7 @@
     "blockstore-level": "^3.0.2",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
+    "cors": "^2.8.5",
     "datastore-core": "^11.0.2",
     "express": "^5.1.0",
     "helia": "^6.0.11",
@@ -45,6 +46,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/jsdom": "^27.0.0",
     "@types/papaparse": "^5.5.0",

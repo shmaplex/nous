@@ -1,6 +1,7 @@
 // frontend/src/p2p/httpServer.ts
 
 import http from "node:http";
+import cors from "cors";
 import express, { type Express } from "express";
 import type { Helia } from "helia";
 import type { NodeStatus } from "@/types";
@@ -42,18 +43,17 @@ export function createHttpServer(
 	app.use(express.json());
 
 	//------------------------------------------------------------
-	// Middleware: CORS headers
+	// Middleware: CORS
 	//------------------------------------------------------------
-	app.use((req, res, next) => {
-		res.header("Access-Control-Allow-Origin", "*");
-		res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-		res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-		if (req.method === "OPTIONS") {
-			res.sendStatus(204);
-		} else {
-			next();
-		}
-	});
+	app.use(
+		cors({
+			origin: "*", // allow any origin; change to specific domains if needed
+			methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+			allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+			preflightContinue: false,
+			optionsSuccessStatus: 204,
+		}),
+	);
 
 	//------------------------------------------------------------
 	// Register routes using the new registration functions
