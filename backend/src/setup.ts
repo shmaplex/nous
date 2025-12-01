@@ -9,6 +9,7 @@ import type { ArticleFederatedDB } from "./db-articles-federated";
 import type { ArticleLocalDB } from "./db-articles-local";
 import type { DebugDB } from "./db-debug";
 import { createHttpServer, type HttpServerContext } from "./httpServer";
+import { prefetchModels } from "./lib/ai/models.server";
 import { startNetworkStatusPoll } from "./networkStatus";
 import { getP2PNode, type NodeInstance, setRunningInstance } from "./node";
 import { registerShutdownHandlers } from "./shutdown";
@@ -165,6 +166,17 @@ export async function startP2PNode(config: NodeConfig): Promise<NodeInstance> {
 	} as NodeInstance;
 
 	setRunningInstance(runningInstance);
+
+	// Prefetch AI models first
+	try {
+		console.log("Prefetching AI models...");
+		await prefetchModels();
+		console.log("AI models prefetched successfully.");
+		status.modelsPrefetched = true;
+	} catch (err) {
+		console.error("Failed to prefetch AI models:", err);
+		status.modelsPrefetched = false;
+	}
 
 	updateStatus(status);
 

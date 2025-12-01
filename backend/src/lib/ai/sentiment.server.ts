@@ -1,5 +1,5 @@
-import { getPipeline } from "./models.server";
 import type { ArticleAnalyzed } from "@/types/article-analyzed";
+import { getPipeline } from "./models.server";
 
 /**
  * Perform sentiment analysis on an article using a lightweight,
@@ -7,7 +7,7 @@ import type { ArticleAnalyzed } from "@/types/article-analyzed";
  *
  * Currently uses:
  *   - Task: `"text-classification"`
- *   - Model: `"Xenova/distilbert-base-uncased-finetuned-sst-2-english"`
+ *   - Model Key: `"distilbert-sst2"` (mapped internally to Xenova/distilbert-base-uncased-finetuned-sst-2-english)
  *
  * The SST-2 model outputs high-level sentiment classes:
  *   - `"positive"`
@@ -44,24 +44,21 @@ import type { ArticleAnalyzed } from "@/types/article-analyzed";
  *   - Multilingual sentiment models for KR, JP, EU news
  *   - Models stored on IPFS for decentralized loading
  */
-export async function analyzeSentiment(
-  article: { content?: string }
-): Promise<ArticleAnalyzed["sentiment"]> {
-  const content = article.content ?? "";
-  if (!content) return "neutral";
+export async function analyzeSentiment(article: {
+	content?: string;
+}): Promise<ArticleAnalyzed["sentiment"]> {
+	const content = article.content ?? "";
+	if (!content) return "neutral";
 
-  // Load (or reuse) a cached classifier pipeline
-  const classifier = await getPipeline(
-    "text-classification",
-    "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
-  );
+	// Load (or reuse) a cached classifier pipeline using proper model key
+	const classifier = await getPipeline("text-classification", "distilbert-sst2");
 
-  // Limit input for efficiency
-  const text = content.slice(0, 500);
+	// Limit input for efficiency
+	const text = content.slice(0, 500);
 
-  const output = await classifier(text);
+	const output = await classifier(text);
 
-  const label = output?.[0]?.label?.toLowerCase() ?? "neutral";
+	const label = output?.[0]?.label?.toLowerCase() ?? "neutral";
 
-  return label as ArticleAnalyzed["sentiment"];
+	return label as ArticleAnalyzed["sentiment"];
 }

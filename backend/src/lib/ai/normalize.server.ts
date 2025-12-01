@@ -74,7 +74,7 @@ export async function summarizeContentAI(content: string): Promise<string> {
 	if (!content) return "";
 
 	try {
-		const summarizer = await getPipeline("summarization", "Xenova/distilbart-cnn-6-6");
+		const summarizer = await getPipeline("summarization", "distilbart-cnn");
 
 		const result = await summarizer(content.slice(0, 2000), { max_length: 120 });
 		return (
@@ -102,15 +102,16 @@ export async function extractTagsAI(content: string): Promise<string[]> {
 	if (!content) return [];
 
 	try {
-		const tagger = await getPipeline(
-			"token-classification",
-			"Xenova/bert-base-uncased-finetuned-ner",
-		);
+		const tagger = await getPipeline("token-classification", "bert-ner");
 
-		const entities = await tagger(content.slice(0, 1000));
+		// Token-classification models often require aggregation to merge subwords
+		const entities: any[] = await tagger(content.slice(0, 2000), {
+			aggregation_strategy: "simple", // merges subwords automatically
+		});
+
 		const tags = entities
-			.filter((e: any) => e.entity?.startsWith("B-") || e.entity?.startsWith("I-"))
-			.map((e: any) => e.word.toLowerCase());
+			.filter((e) => e.entity?.startsWith("B-") || e.entity?.startsWith("I-"))
+			.map((e) => e.word.toLowerCase());
 
 		// Remove duplicates
 		return Array.from(new Set(tags));

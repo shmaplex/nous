@@ -1,5 +1,5 @@
-import { getPipeline } from "./models.server";
 import type { ArticleAnalyzed } from "@/types/article-analyzed";
+import { getPipeline } from "./models.server";
 
 /**
  * Detect the political bias of an article using a lightweight
@@ -45,25 +45,22 @@ import type { ArticleAnalyzed } from "@/types/article-analyzed";
  *   - `classla/bse-ideology`
  * Or load a custom fine-tuned model from IPFS.
  */
-export async function detectPoliticalBias(
-  article: { content?: string }
-): Promise<ArticleAnalyzed["politicalBias"]> {
-  const text = article.content ?? "";
+export async function detectPoliticalBias(article: {
+	content?: string;
+}): Promise<ArticleAnalyzed["politicalBias"]> {
+	const text = article.content ?? "";
 
-  // Load the shared pipeline (cached automatically)
-  const classifier = await getPipeline(
-    "text-classification",
-    "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
-  );
+	// Load the shared pipeline (cached automatically)
+	const classifier = await getPipeline("text-classification", "distilbert-sst2");
 
-  // Only analyze the first part of the article to reduce compute cost
-  const input = text.slice(0, 500);
+	// Only analyze the first part of the article to reduce compute cost
+	const input = text.slice(0, 500);
 
-  const result = await classifier(input);
-  const label = result[0]?.label?.toLowerCase() ?? "neutral";
+	const result = await classifier(input);
+	const label = result[0]?.label?.toLowerCase() ?? "neutral";
 
-  // Basic label → political bias mapping
-  if (label.includes("positive")) return "left";
-  if (label.includes("negative")) return "right";
-  return "center";
+	// Basic label → political bias mapping
+	if (label.includes("positive")) return "left";
+	if (label.includes("negative")) return "right";
+	return "center";
 }

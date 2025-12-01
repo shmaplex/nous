@@ -20,6 +20,7 @@ let status: NodeStatus = {
 	connected: false,
 	syncing: false,
 	orbitConnected: false,
+	modelsPrefetched: false,
 	lastSync: null,
 	peers: [],
 	logs: [],
@@ -84,7 +85,6 @@ export function updateStatus(newStatus: Partial<NodeStatus>): NodeStatus {
 	return status;
 }
 
-
 /**
  * Remove the persisted status file (if existing) and reset the in-memory
  * status object to its default template.
@@ -108,6 +108,7 @@ export function deleteStatus(): NodeStatus {
 		running: false,
 		connected: false,
 		syncing: false,
+		modelsPrefetched: false,
 		orbitConnected: false,
 		lastSync: null,
 		peers: [],

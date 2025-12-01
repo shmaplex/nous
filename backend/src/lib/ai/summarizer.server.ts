@@ -1,6 +1,5 @@
 import { getPipeline } from "./models.server";
 
-
 /**
  * Generate an AI-powered summary using a local transformer model.
  *
@@ -11,22 +10,20 @@ import { getPipeline } from "./models.server";
  * @returns A concise abstractive summary
  */
 export async function summarizeContentAI(content: string): Promise<string> {
-  if (!content || content.trim().length === 0) return "";
+	if (!content || content.trim().length === 0) return "";
 
-  const summarizer = await getPipeline(
-    "summarization",
-    "Xenova/distilbart-cnn-6-6"
-  );
+	// Use proper model key
+	const summarizer = await getPipeline("summarization", "distilbart-cnn");
 
-  // Limit input length for performance
-  const safeInput = content.slice(0, 3000);
+	// Limit input length for performance
+	const safeInput = content.slice(0, 3000);
 
-  const output = await summarizer(safeInput, {
-    max_length: 130,
-    min_length: 40,
-  });
+	const output = await summarizer(safeInput, {
+		max_length: 130,
+		min_length: 40,
+	});
 
-  return output[0]?.summary_text ?? "";
+	return output[0]?.summary_text ?? "";
 }
 
 /**
@@ -35,7 +32,7 @@ export async function summarizeContentAI(content: string): Promise<string> {
  *
  * This function uses a local summarization model via Transformers.js:
  *   - Task: `"summarization"`
- *   - Model: `"Xenova/distilbart-cnn-6-6"`
+ *   - Model Key: `"distilbart-cnn"`
  *
  * ## Processing Logic
  * 1. Up to the first **2000 characters** of the article are extracted.
@@ -63,16 +60,13 @@ export async function summarizeContentAI(content: string): Promise<string> {
  * @returns A reframed summarization that suggests an opposing viewpoint.
  */
 export async function generateAntithesis(article: { content?: string }): Promise<string> {
-  const content = article.content?.slice(0, 2000) ?? "";
-  if (!content) return "";
+	const content = article.content?.slice(0, 2000) ?? "";
+	if (!content) return "";
 
-  const summarizer = await getPipeline(
-    "summarization",
-    "Xenova/distilbart-cnn-6-6"
-  );
+	const summarizer = await getPipeline("summarization", "distilbart-cnn");
 
-  const result = await summarizer(content, { max_length: 120 });
-  return "Opposing viewpoint: " + result[0].summary_text;
+	const result = await summarizer(content, { max_length: 120 });
+	return `Opposing viewpoint: ${result[0].summary_text}`;
 }
 
 /**
@@ -85,7 +79,7 @@ export async function generateAntithesis(article: { content?: string }): Promise
  *
  * Model used:
  *   - Task: `"summarization"`
- *   - Model: `"Xenova/distilbart-cnn-6-6"`
+ *   - Model Key: `"distilbart-cnn"`
  *
  * ## Processing Logic
  * 1. Analyze the first **2000 characters** of the article.
@@ -108,15 +102,12 @@ export async function generateAntithesis(article: { content?: string }): Promise
  * @returns A short interpretive/philosophical summary string.
  */
 export async function generatePhilosophicalInsight(article: { content?: string }): Promise<string> {
-  const content = article.content?.slice(0, 2000) ?? "";
-  if (!content) return "";
+	const content = article.content?.slice(0, 2000) ?? "";
+	if (!content) return "";
 
-  const summarizer = await getPipeline(
-    "summarization",
-    "Xenova/distilbart-cnn-6-6"
-  );
+	const summarizer = await getPipeline("summarization", "distilbart-cnn");
 
-  const result = await summarizer(content, { max_length: 80 });
+	const result = await summarizer(content, { max_length: 80 });
 
-  return "Philosophical framing: " + result[0].summary_text;
+	return `Philosophical framing: ${result[0].summary_text}`;
 }

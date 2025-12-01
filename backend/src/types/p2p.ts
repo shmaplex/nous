@@ -46,6 +46,7 @@ export const NodeStatusSchema = z.object({
 	connected: z.boolean(),
 	orbitConnected: z.boolean(),
 	syncing: z.boolean(),
+	modelsPrefetched: z.boolean(),
 	lastSync: z.string().nullable(),
 	port: z.number().optional(),
 	peers: z.array(ConnectionInfoSchema).optional(),
