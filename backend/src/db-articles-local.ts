@@ -7,12 +7,9 @@ import { getNormalizer, normalizePublishedAt } from "@/lib/normalizers/aggregate
 import { cleanArticlesForDB, getParser } from "@/lib/parsers/aggregate-sources";
 import type { ArticleAnalyzed, Source } from "@/types";
 import { type Article, ArticleSchema } from "@/types/article";
-import { analyzeArticle } from "./lib/ai";
-import { normalizeAndTranslateArticle } from "./lib/ai/normalize.server";
 import { translateMultipleTitlesAI } from "./lib/ai/translate.server";
-import { summarizeContent } from "./lib/article.server";
-import { fetchArticleFromIPFS, saveArticleToIPFS, saveJSONToIPFS } from "./lib/ipfs.server";
-import { getParserForUrl } from "./lib/parsers/sources";
+import { loadFullArticle } from "./lib/article.server";
+import { saveArticleToIPFS } from "./lib/ipfs.server";
 import { getRunningInstance } from "./node";
 import { loadDBPaths, saveDBPaths } from "./setup";
 
@@ -28,7 +25,7 @@ export interface ArticleLocalDB {
 	saveLocalArticle: (
 		doc: Article | ArticleAnalyzed,
 		helia?: Helia,
-		skipExists?: boolean,
+		overwrite?: boolean,
 	) => Promise<boolean | null>;
 
 	/**
@@ -73,7 +70,11 @@ export interface ArticleLocalDB {
 	/**
 	 * Loads the full article content using a 3-tier resolution strategy
 	 */
-	getFullLocalArticle: (article: Article, helia: Helia) => Promise<Article | ArticleAnalyzed>;
+	getFullLocalArticle: (
+		article: Article,
+		helia: Helia,
+		overwrite?: boolean,
+	) => Promise<Article | ArticleAnalyzed>;
 }
 
 // Singleton instance
@@ -357,7 +358,7 @@ export async function setupArticleLocalDB(
 	 * Load full article content using a 3-tier resolution strategy:
 	 *   1. Use content already on the article object
 	 *   2. Load full Article from IPFS via article.ipfsHash
-	 *   3. Fetch from the source endpoint, store raw, content, summary, and save to IPFS + OrbitDB
+	 *   3. Fetch from the source endpoint, parse, normalize, analyze, save to IPFS + OrbitDB
 	 *
 	 * Cached results are always stored back into OrbitDB.
 	 *
@@ -369,120 +370,39 @@ export async function setupArticleLocalDB(
 	async function getFullLocalArticle(
 		article: Article,
 		helia: Helia,
+		overwrite?: boolean,
 	): Promise<Article | ArticleAnalyzed> {
+		// Return early if fully analyzed
 		if (article.content && article.summary && article.analyzed) return article;
 
-		// Try IPFS first
-		if (article.ipfsHash && article.analyzed) {
+		let finalVersion: Article | ArticleAnalyzed;
+
+		try {
+			// Delegate the heavy lifting to loadFullArticle from server lib
+			finalVersion = await loadFullArticle(article, helia);
+		} catch (err) {
+			log(`Failed to load full article for ${article.id}: ${(err as Error).message}`, "warn");
+			return article;
+		}
+
+		// Save locally via OrbitDB
+		try {
+			await saveLocalArticle(finalVersion, helia, overwrite);
+		} catch (err) {
+			log(`Failed to save article locally for ${article.id}: ${(err as Error).message}`, "warn");
+		}
+
+		// Save to IPFS if Helia node provided
+		if (helia) {
 			try {
-				const fetched = await fetchArticleFromIPFS(helia, article.ipfsHash);
-				if (fetched) {
-					await saveLocalArticle(fetched);
-					return fetched;
-				}
+				const cid = await saveArticleToIPFS(helia, finalVersion);
+				finalVersion.ipfsHash = cid;
 			} catch (err) {
-				log(`IPFS fetch failed for ${article.id}: ${(err as Error).message}`, "warn");
+				log(`Failed to save article to IPFS for ${article.id}: ${(err as Error).message}`, "warn");
 			}
 		}
 
-		// Fetch from source URL
-		if (article.url) {
-			let raw: string | null = null;
-			try {
-				const res = await smartFetch(article.url);
-				raw = await res.text();
-			} catch (err) {
-				log(`Network fetch failed for article ${article.id}: ${(err as Error).message}`, "warn");
-			}
-
-			if (raw) {
-				let content: string = raw; // default fallback
-				let summary: string;
-				let tags: string[] = [];
-
-				try {
-					// Try source-specific parser first
-					const parser = getParserForUrl(article.url);
-					if (parser) {
-						content = parser(raw);
-					}
-
-					console.log("parsed content", content);
-
-					// === Placeholder for source-specific normalization ===
-					// You can replace this with calls to your backend normalizers
-					// @see backend/src/lib/normalizers/sources/index.ts
-					// Example:
-					// const normalizer = getNormalizerForHostname(new URL(article.url).hostname);
-					// if (normalizer) {
-					//     const normalizedArticle = normalizer({ ...article, content }, article.url);
-					//     content = normalizedArticle.content ?? content;
-					//     summary = normalizedArticle.summary ?? summary;
-					//     tags = normalizedArticle.tags ?? tags;
-					// }
-				} catch (err: any) {
-					log(`Source-specific parser failed for ${article.id}: ${err.message}`, "warn");
-				}
-
-				try {
-					// Normalize, summarize, extract tags, and optionally translate
-					const aiRes = await normalizeAndTranslateArticle(
-						content ?? raw,
-						article.language ?? "en",
-					);
-					content = aiRes.content ?? content; // fallback to existing content
-					summary = aiRes.summary;
-					tags = aiRes.tags ?? [];
-				} catch (err: any) {
-					log(
-						`AI normalization/summarization failed for article ${article.id}: ${err.message}`,
-						"warn",
-					);
-					// Fallback: use raw content and simple summary
-					summary = await summarizeContent(raw);
-					tags = [];
-				}
-
-				const enrichedBase: Article = {
-					...article,
-					raw,
-					content,
-					summary,
-					tags,
-					fetchedAt: new Date().toISOString(),
-				};
-
-				let analyzed: ArticleAnalyzed | null = null;
-				try {
-					analyzed = await analyzeArticle(enrichedBase);
-				} catch (err) {
-					log(`AI analysis failed for article ${article.id}: ${(err as Error).message}`, "warn");
-				}
-
-				const finalVersion: Article | ArticleAnalyzed = analyzed ?? enrichedBase;
-
-				// Save to IPFS if Helia provided
-				if (helia) {
-					try {
-						const cid = await saveArticleToIPFS(helia, finalVersion);
-						finalVersion.ipfsHash = cid;
-					} catch (err) {
-						log(
-							`Failed to save article to IPFS for ${article.id}: ${(err as Error).message}`,
-							"warn",
-						);
-					}
-				}
-
-				// Save to local OrbitDB
-				await saveLocalArticle(finalVersion);
-
-				return finalVersion;
-			}
-		}
-
-		log(`Unable to find a url for the article: ${article.id}`, "warn");
-		return article;
+		return finalVersion;
 	}
 
 	// Save singleton

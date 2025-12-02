@@ -1,5 +1,5 @@
 // frontend/src/hooks/useNodeStatus.ts
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createEmptyNodeStatus, type NodeStatus } from "@/types";
 import { AppStatus } from "../../wailsjs/go/main/App";
 
@@ -20,11 +20,11 @@ import { AppStatus } from "../../wailsjs/go/main/App";
  * The hook updates its state at the interval specified by `pollInterval`.
  *
  * @param pollInterval - The interval in milliseconds to poll the node status (default: 3000ms)
- * @returns The latest node status
+ * @returns The latest node status and a derived `appLoaded` flag
  *
  * @example
- * const status = useNodeStatus();
- * if (status.running && status.orbitConnected) {
+ * const { status, appLoaded } = useNodeStatus();
+ * if (appLoaded) {
  *   // Node is ready, can fetch articles
  * }
  */
@@ -55,5 +55,12 @@ export function useNodeStatus(pollInterval = 3000) {
 		return () => clearInterval(interval);
 	}, [pollInterval]);
 
-	return status;
+	/**
+	 * Derived boolean indicating if the node is fully ready for fetching articles.
+	 */
+	const appLoaded = useMemo(() => {
+		return status.running && status.connected && status.orbitConnected;
+	}, [status]);
+
+	return { status, appLoaded };
 }

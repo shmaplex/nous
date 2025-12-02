@@ -43,9 +43,12 @@
 
   /* --- Political Bias --- */
   --bias-left: #4F7CFF;
+  --bias-lean-left: #7FA0FF;
   --bias-center: #A0A0A0;
   --bias-right: #FF6B6B;
+  --bias-lean-right: #FFA0A0;
   --bias-none: #B0B8C1;
+  --bias-unknown: #8C8F94;
 
   /* --- Sentiment --- */
   --sentiment-positive: #00A8A5;
@@ -136,10 +139,14 @@
   --highlight: #FFB56E;
   --highlight-foreground: #1A1C2C;
 
+  /* --- Political Bias (Dark Mode) --- */
   --bias-left: #2A5ACC;
+  --bias-lean-left: #4E7BE0;
   --bias-center: #6B6B6B;
   --bias-right: #FF4C4C;
+  --bias-lean-right: #FF7A7A;
   --bias-none: #7D8790;
+  --bias-unknown: #545B63;
 
   --sentiment-positive: #00C2A5;
   --sentiment-neutral: #6B6B6B;
@@ -219,9 +226,12 @@
 
   /* --- Political Bias --- */
   --color-bias-left: var(--bias-left);
+  --color-bias-lean-left: var(--bias-lean-left);
   --color-bias-center: var(--bias-center);
   --color-bias-right: var(--bias-right);
+  --color-bias-lean-right: var(--bias-lean-right);
   --color-bias-none: var(--bias-none);
+  --color-bias-unknown: var(--bias-unknown);
 
   /* --- Sentiment --- */
   --color-sentiment-positive: var(--sentiment-positive);

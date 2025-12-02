@@ -1,5 +1,24 @@
-import { getPipeline } from "./models.server";
+/**
+ * @file translation.ts
+ * @description
+ * Language detection + token-aware translation pipelines using ONNX Transformers.js,
+ * with GPT-2 tokenizer truncation to prevent model overflow errors.
+ */
 
+import { getPipeline, MODEL_DIR } from "./models.server";
+import { getTokenizer } from "./tokenizer.server";
+
+//
+// ---------------------------------------------------------
+// Configurable Token Limits (adjust globally here)
+// ---------------------------------------------------------
+export const TRANSLATION_TOKEN_LIMIT = 128;
+export const LANG_DETECTOR_BOUNDS = 128;
+
+//
+// ---------------------------------------------------------
+// Language Maps
+// ---------------------------------------------------------
 const DEFAULT_LANG = "en_XX";
 
 const LANG_MAP: Record<string, string> = {
@@ -25,7 +44,6 @@ const LANG_MAP: Record<string, string> = {
 	ro: "ro_RO",
 	ru: "ru_RU",
 	si: "si_LK",
-	tr: "tr_TR",
 	vi: "vi_VN",
 	zh: "zh_CN",
 	af: "af_ZA",
@@ -49,6 +67,7 @@ const LANG_MAP: Record<string, string> = {
 	ta: "ta_IN",
 	te: "te_IN",
 	th: "th_TH",
+	tr: "tr_TR",
 	tl: "tl_XX",
 	uk: "uk_UA",
 	ur: "ur_PK",
@@ -57,122 +76,274 @@ const LANG_MAP: Record<string, string> = {
 	sl: "sl_SI",
 };
 
-// Limits for safe processing
-const LANG_TRANSLATION_BOUNDS = 4000;
-const LANG_DETECTOR_BOUNDS = 500;
+const DETECTOR_NAME_TO_ISO: Record<string, string> = {
+	arabic: "ar",
+	ar: "ar",
+	czech: "cs",
+	cs: "cs",
+	german: "de",
+	de: "de",
+	english: "en",
+	en: "en",
+	spanish: "es",
+	es: "es",
+	estonian: "et",
+	et: "et",
+	finnish: "fi",
+	fi: "fi",
+	french: "fr",
+	fr: "fr",
+	gujarati: "gu",
+	gu: "gu",
+	hindi: "hi",
+	hi: "hi",
+	italian: "it",
+	it: "it",
+	japanese: "ja",
+	ja: "ja",
+	kazakh: "kk",
+	kk: "kk",
+	korean: "ko",
+	ko: "ko",
+	lithuanian: "lt",
+	lt: "lt",
+	latvian: "lv",
+	lv: "lv",
+	myanmar: "my",
+	my: "my",
+	nepali: "ne",
+	ne: "ne",
+	dutch: "nl",
+	nl: "nl",
+	romanian: "ro",
+	ro: "ro",
+	russian: "ru",
+	ru: "ru",
+	sinhala: "si",
+	si: "si",
+	vietnamese: "vi",
+	vi: "vi",
+	chinese: "zh",
+	zh: "zh",
+	afrikaans: "af",
+	af: "af",
+	azerbaijani: "az",
+	az: "az",
+	bengali: "bn",
+	bn: "bn",
+	persian: "fa",
+	fa: "fa",
+	hebrew: "he",
+	he: "he",
+	croatian: "hr",
+	hr: "hr",
+	indonesian: "id",
+	id: "id",
+	georgian: "ka",
+	ka: "ka",
+	khmer: "km",
+	km: "km",
+	macedonian: "mk",
+	mk: "mk",
+	malayalam: "ml",
+	ml: "ml",
+	mongolian: "mn",
+	mn: "mn",
+	marathi: "mr",
+	mr: "mr",
+	polish: "pl",
+	pl: "pl",
+	pashto: "ps",
+	ps: "ps",
+	portuguese: "pt",
+	pt: "pt",
+	swedish: "sv",
+	sv: "sv",
+	swahili: "sw",
+	sw: "sw",
+	tamil: "ta",
+	ta: "ta",
+	telugu: "te",
+	te: "te",
+	thai: "th",
+	th: "th",
+	turkish: "tr",
+	tr: "tr",
+	tagalog: "tl",
+	tl: "tl",
+	ukrainian: "uk",
+	uk: "uk",
+	urdu: "ur",
+	ur: "ur",
+	xhosa: "xh",
+	xh: "xh",
+	galician: "gl",
+	gl: "gl",
+	slovene: "sl",
+	sl: "sl",
+};
 
-/** Map short code to translator code */
+//
+// ---------------------------------------------------------
+// Pipeline Caches
+// ---------------------------------------------------------
+let detectorPipeline: any = null;
+let translatorPipeline: any = null;
+
+//
+// ---------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------
 export function getTranslatorLang(lang?: string): string {
-	if (!lang || typeof lang !== "string") return DEFAULT_LANG;
-	const mapped = LANG_MAP[lang.toLowerCase().trim()];
-	if (!mapped) {
-		console.warn(`[LangMap] Language "${lang}" not found, defaulting to ${DEFAULT_LANG}`);
-		return DEFAULT_LANG;
-	}
-	return mapped;
+	if (!lang) return DEFAULT_LANG;
+	const iso = lang.toLowerCase().trim();
+	return LANG_MAP[iso] ?? DEFAULT_LANG;
 }
 
-// Cached pipelines
-let detectorPipeline: ReturnType<typeof getPipeline> | null = null;
-let translatorPipeline: ReturnType<typeof getPipeline> | null = null;
-
-/** Load language detector pipeline using model key */
 async function getDetectorPipeline() {
 	if (!detectorPipeline) {
-		console.log("[Pipeline] Loading language detector pipeline...");
+		console.log("[Pipeline] Loading language detector...");
 		detectorPipeline = await getPipeline("text-classification", "xlm-lang-detector");
-		console.log("[Pipeline] Language detector loaded.");
 	}
 	return detectorPipeline;
 }
 
-/** Load translator pipeline using model key */
-async function getTranslatorPipeline() {
+async function getTranslatorPipeline(srcLang: string, targetLang: string) {
 	if (!translatorPipeline) {
-		console.log("[Pipeline] Loading translator pipeline...");
-		translatorPipeline = await getPipeline("translation", "mbart-translate");
-		console.log("[Pipeline] Translator loaded.");
+		console.log("[Pipeline] Loading translator...");
+		// English ↔ major European languages → MBART
+		if (srcLang === "en" || targetLang === "en") {
+			translatorPipeline = await getPipeline("translation", "mbart-translate", true);
+		} else {
+			// Non-English → M2M-100 or NLLB-200
+			translatorPipeline = await getPipeline("translation", "m2m100", true);
+		}
 	}
 	return translatorPipeline;
 }
 
-/** Detect language of text */
+//
+// ---------------------------------------------------------
+// Language Detection
+// ---------------------------------------------------------
 export async function detectLanguage(content: string): Promise<string> {
 	if (!content) return "en";
 	try {
 		const detector = await getDetectorPipeline();
-		const result = await detector(content.slice(0, LANG_DETECTOR_BOUNDS));
-		const detectedLang = result[0]?.label?.toLowerCase() ?? "en";
-		console.log(`[Detect] Language detected: ${detectedLang}`);
-		return detectedLang;
+		const cleanText = content
+			.replace(/<[^>]+>/g, " ")
+			.replace(/[\r\n]+/g, " ")
+			.replace(/[^\p{L}\p{N}\s]+/gu, " ")
+			.slice(0, LANG_DETECTOR_BOUNDS);
+
+		const result = await detector(cleanText);
+		const raw = result?.[0]?.label?.toLowerCase().trim();
+		if (!raw || !DETECTOR_NAME_TO_ISO[raw]) {
+			console.warn(`[Detect] Unknown label "${raw}", defaulting to "en"`);
+			return "en";
+		}
+
+		return DETECTOR_NAME_TO_ISO[raw];
 	} catch (err) {
-		console.warn("[Detect] Language detection failed:", (err as Error).message);
+		console.warn("[Detect] Failed:", (err as Error).message);
 		return "en";
 	}
 }
 
-/** Translate text in safe chunks */
+//
+// ---------------------------------------------------------
+// Token-Aware Translation
+// ---------------------------------------------------------
 export async function translateContentAI(
 	content: string,
 	targetLanguage?: string,
 ): Promise<string> {
-	if (!content) return content;
+	if (!content?.trim()) return content;
 
-	const tgtLang = getTranslatorLang(targetLanguage);
-	const detected = await detectLanguage(content);
-	const srcLang = getTranslatorLang(detected);
+	try {
+		const iso = await detectLanguage(content);
 
-	if (srcLang === tgtLang) {
-		console.log("[Translate] Source and target are the same. Skipping translation.");
+		console.log("iso", iso);
+
+		const srcLang = getTranslatorLang(iso);
+
+		console.log("srcLang", srcLang);
+		const tgtLang = getTranslatorLang(targetLanguage ?? "en");
+		console.log("tgtLang", tgtLang);
+		if (srcLang === tgtLang) return content;
+
+		const tokenizer = await getTokenizer();
+		const translator = await getTranslatorPipeline(srcLang, tgtLang);
+
+		const sentences = content.match(/[^.!?]+[.!?]+/g) ?? [content];
+		const translated: string[] = [];
+
+		for (const sentence of sentences) {
+			if (!sentence.trim()) {
+				translated.push("");
+				continue;
+			}
+
+			const tokens = tokenizer.encode(sentence);
+			const truncated = tokens.slice(0, TRANSLATION_TOKEN_LIMIT);
+			const safeText = tokenizer.decode(truncated);
+
+			try {
+				let result: { translation_text?: string }[];
+				console.log("Translating", safeText);
+				if (translator.modelId.includes("m2m100")) {
+					result = await translator(safeText, {
+						src_lang: srcLang,
+						tgt_lang: tgtLang,
+						use_cache: false,
+					});
+				} else {
+					result = await translator(safeText, {
+						src_lang: srcLang,
+						tgt_lang: tgtLang,
+						use_cache: false,
+					});
+				}
+
+				console.log(`[translateContentAI] translated: ${result}`);
+				translated.push(result[0]?.translation_text ?? safeText);
+			} catch {
+				translated.push(safeText);
+			}
+		}
+
+		return translated.join(" ");
+	} catch (err) {
+		console.warn("[Translate] Failed:", (err as Error).message);
 		return content;
 	}
-
-	const translator = await getTranslatorPipeline();
-	const chunks: string[] = [];
-	for (let i = 0; i < content.length; i += LANG_TRANSLATION_BOUNDS) {
-		chunks.push(content.slice(i, i + LANG_TRANSLATION_BOUNDS));
-	}
-
-	const translatedChunks: string[] = [];
-	for (let i = 0; i < chunks.length; i++) {
-		try {
-			const result = await translator(chunks[i], { src_lang: srcLang, tgt_lang: tgtLang });
-			const translated = result[0]?.translation_text ?? chunks[i];
-			console.log(`[Translate] Chunk ${i + 1}/${chunks.length} translated`);
-			translatedChunks.push(translated);
-		} catch (err) {
-			console.warn(`[Translate] Chunk ${i + 1} failed: ${(err as Error).message}`);
-			translatedChunks.push(chunks[i]); // fallback
-		}
-	}
-
-	console.log("[Translate] Translation complete.");
-	return translatedChunks.join(" ");
 }
 
-/** Translate multiple titles in batches */
+//
+// ---------------------------------------------------------
+// Batch Title Translation
+// ---------------------------------------------------------
 export async function translateMultipleTitlesAI(
 	titles: string[],
 	targetLanguage?: string,
 	batchSize = 10,
 ): Promise<string[]> {
-	if (!titles?.length) return [];
-
-	const translatedTitles: string[] = [];
+	if (!titles.length) return [];
+	const results: string[] = [];
 
 	for (let i = 0; i < titles.length; i += batchSize) {
 		const batch = titles.slice(i, i + batchSize);
-		const batchResults = await Promise.all(
-			batch.map((title, j) =>
-				translateContentAI(title, targetLanguage).then((translated) => {
-					console.log(`[BatchTranslate] Title ${i + j + 1}/${titles.length} translated`);
-					return translated;
-				}),
-			),
+		const translated = await Promise.all(
+			batch.map(async (title) => {
+				try {
+					return await translateContentAI(title, targetLanguage);
+				} catch {
+					return title;
+				}
+			}),
 		);
-		translatedTitles.push(...batchResults);
+		results.push(...translated);
 	}
 
-	console.log("[BatchTranslate] All titles translated.");
-	return translatedTitles;
+	return results;
 }

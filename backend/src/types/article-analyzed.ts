@@ -1,6 +1,12 @@
 // backend/src/types/article-analyzed.ts
 import { z } from "zod";
-import { editions, PoliticalBiasValues, SourceMetaSchema, SourceTypes } from "./article";
+import {
+	ArticleSchema,
+	editions,
+	PoliticalBiasValues,
+	SourceMetaSchema,
+	SourceTypes,
+} from "./article";
 
 /** Cognitive bias detection output from AI */
 export const CognitiveBiasSchema = z.object({
@@ -21,18 +27,12 @@ export const CognitiveBiasSchema = z.object({
 /**
  * Schema for analyzed news articles with enriched AI features
  */
-export const ArticleAnalyzedSchema = z.object({
+export const ArticleAnalyzedSchema = ArticleSchema.extend({
 	/** Unique identifier for the article (hash, UUID, etc.) */
 	id: z.string(),
 
-	/** Article title, never empty */
-	title: z.string(),
-
-	/** Fully qualified URL of the article */
-	url: z.string().url(),
-
-	/** Full textual content of the article */
-	content: z.string(),
+	/** Reference to the original article (hash, UUID, etc.) */
+	originalId: z.string(),
 
 	// ----------------------
 	// AI / Feature-Enriched Fields
@@ -52,9 +52,6 @@ export const ArticleAnalyzedSchema = z.object({
 
 	/** Sentiment valence score (-1 to 1) */
 	sentimentValence: z.number().min(-1).max(1).optional(),
-
-	/** Tags or keywords extracted from the article */
-	tags: z.array(z.string()).optional(),
 
 	/** Array of detected cognitive biases (AI-driven analysis) */
 	cognitiveBiases: z.array(CognitiveBiasSchema).optional(),
@@ -91,36 +88,8 @@ export const ArticleAnalyzedSchema = z.object({
 	trustworthiness: z.number().min(1).max(5).optional(),
 
 	// ----------------------
-	// Metadata
-	// ----------------------
-
-	/** Source name or domain (e.g., "bbc.com") */
-	source: z.string().optional(),
-
-	/** Type of source the article was ingested from, based on `SourceTypes` */
-	sourceType: z.enum(SourceTypes).optional(),
-
-	/** Category of article (e.g., "sports", "politics") */
-	category: z.string().optional(),
-
-	/** Author name(s) */
-	author: z.string().optional(),
-
-	/** Original published date (ISO string or feed raw) */
-	publishedAt: z.string().optional(),
-
-	/** Edition or regional context (international, US, KR, etc.) */
-	edition: z.enum(editions).optional(),
-
-	// ----------------------
 	// Analysis Flags / Tracking
 	// ----------------------
-
-	/** Marks this article as analyzed */
-	analyzed: z.literal(true).default(true),
-
-	/** IPFS hash of full content, optional */
-	ipfsHash: z.string().optional(),
 
 	/** Timestamp when analysis was performed */
 	analysisTimestamp: z.string().optional(),
@@ -130,16 +99,7 @@ export const ArticleAnalyzedSchema = z.object({
 	// ----------------------
 
 	/** Confidence score of the analysis (0-1) */
-	confidence: z.number().min(0).max(1).optional(),
-
-	/** Optional raw data snapshot for debugging / auditing */
-	raw: z.any().optional(),
-
-	/** Metadata about the source itself, including political bias and confidence */
-	sourceMeta: SourceMetaSchema.optional(),
-
-	/** ISO timestamp when the article was fetched into the system */
-	fetchedAt: z.string().optional(),
+	analysisConfidence: z.number().min(0).max(1).optional(),
 });
 
 export type ArticleAnalyzed = z.infer<typeof ArticleAnalyzedSchema>;

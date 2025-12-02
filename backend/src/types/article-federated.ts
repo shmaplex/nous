@@ -1,5 +1,6 @@
-// backend/src/types/article-federated.ts
+// frontend/src/types/article-federated.ts
 import { z } from "zod";
+import { ArticleSchema } from "./article";
 
 export const feedTypes = ["local", "analyzed", "federated", "archived"];
 
@@ -9,7 +10,7 @@ export const feedTypes = ["local", "analyzed", "federated", "archived"];
  * This object contains minimal metadata for federated peers.
  * The full article can be retrieved from IPFS using the CID.
  */
-export const FederatedArticlePointerSchema = z.object({
+export const ArticleFederatedSchema = ArticleSchema.extend({
 	/** CID (Content Identifier) for the full article stored in IPFS */
 	cid: z.string(),
 
@@ -29,7 +30,7 @@ export const FederatedArticlePointerSchema = z.object({
 	edition: z.string().optional(),
 });
 
-export type FederatedArticlePointer = z.infer<typeof FederatedArticlePointerSchema>;
+export type ArticleFederated = z.infer<typeof ArticleFederatedSchema>;
 
 /**
  * FeedType describes the type of article storage or workflow.

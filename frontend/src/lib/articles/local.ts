@@ -58,7 +58,7 @@ export const saveLocalArticle = async (article: Partial<Article>): Promise<boole
 			fetchedAt: article.fetchedAt ?? new Date().toISOString(),
 		});
 
-		await SaveLocalArticle(validArticle);
+		await SaveLocalArticle(validArticle, true);
 		return true;
 	} catch (err) {
 		console.error("Failed to save local article:", err);

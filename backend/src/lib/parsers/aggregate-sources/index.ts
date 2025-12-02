@@ -56,6 +56,32 @@ export const safeDate = (d: any): string | null => {
 };
 
 /**
+ * Converts a date string in various known formats into ISO 8601 string.
+ * Falls back to `safeDate` for standard date parsing.
+ *
+ * Currently supports:
+ * - GDELT-style: "YYYYMMDDTHHMMSSZ"
+ * - Standard ISO 8601 strings
+ *
+ * @param d - Date string to convert
+ * @returns ISO 8601 string if valid, otherwise null
+ */
+export function dateToISO(d: string | undefined): string | null {
+	if (!d) return null;
+
+	// GDELT-style: 20251126T160000Z
+	const gdeltMatch = d.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
+	if (gdeltMatch) {
+		const [_, year, month, day, hour, min, sec] = gdeltMatch;
+		const iso = `${year}-${month}-${day}T${hour}:${min}:${sec}Z`;
+		return safeDate(iso);
+	}
+
+	// Fallback to normal date parsing
+	return safeDate(d);
+}
+
+/**
  * Maps a country name or code to a known edition value.
  * Returns "other" if no match is found.
  *

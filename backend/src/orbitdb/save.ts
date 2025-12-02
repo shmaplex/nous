@@ -2,7 +2,7 @@ import { dagCbor } from "@helia/dag-cbor";
 import { Documents } from "@orbitdb/core";
 import { MemoryDatastore } from "datastore-core/memory";
 import { createHelia, type Helia } from "helia";
-import type { ArticleStored, FederatedArticlePointer, FeedType } from "@/types";
+import type { ArticleAnalyzed, ArticleFederated, ArticleStored, FeedType } from "@/types";
 
 /**
  * Initialize a Helia IPFS node and an OrbitDB document store for a given feed.
@@ -67,7 +67,7 @@ export async function saveArticle(article: ArticleStored, feed: FeedType = "loca
 	if (article.analyzed) {
 		// ArticleAnalyzed
 		article.ipfsHash = cid;
-		article.analysisTimestamp ??= new Date().toISOString();
+		(article as ArticleAnalyzed).analysisTimestamp ??= new Date().toISOString();
 		article.source ??= article.source ?? "";
 		article.edition ??= article.edition ?? "other";
 	} else {
@@ -82,7 +82,7 @@ export async function saveArticle(article: ArticleStored, feed: FeedType = "loca
 	await store.put(article as any);
 
 	// Federated pointer (use it or remove)
-	// const pointer: FederatedArticlePointer = {
+	// const pointer: ArticleFedera = {
 	// 	cid,
 	// 	timestamp: new Date().toISOString(),
 	// 	analyzed: article.analyzed,

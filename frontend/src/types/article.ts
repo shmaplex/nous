@@ -1,7 +1,15 @@
 // frontend/src/types/article.ts
 import { z } from "zod";
 
-export const PoliticalBiasValues = ["left", "lean-left", "center", "right", "lean-right", "unknown"];
+export const PoliticalBiasValues = [
+	"left",
+	"lean-left",
+	"center",
+	"right",
+	"lean-right",
+	"none",
+	"unknown",
+] as const;
 
 /** TypeScript type for political bias */
 export type PoliticalBias = (typeof PoliticalBiasValues)[number];
@@ -92,6 +100,7 @@ export const SourceTypes = [
 	"rss",
 	"html",
 	"api",
+	"json",
 	"custom",
 	"newswire",
 	"google_news",
@@ -133,7 +142,7 @@ export const ArticleSchema = z.object({
 	id: z.string(),
 
 	/** Fully qualified URL of the article */
-	url: z.string().url(),
+	url: z.url(),
 
 	/** Article title. Must not be empty */
 	title: z.string().min(1),
@@ -190,7 +199,7 @@ export const ArticleSchema = z.object({
 	 * Flag indicating whether this article has been analyzed.
 	 * Default is `false`; will be set to `true` after processing for bias, sentiment, etc.
 	 */
-	analyzed: z.literal(false).default(false),
+	analyzed: z.boolean().default(false),
 
 	/** IPFS hash of raw content, if stored on decentralized storage */
 	ipfsHash: z.string().optional().nullable(),

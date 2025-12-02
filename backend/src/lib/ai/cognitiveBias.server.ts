@@ -1,11 +1,13 @@
 import { getCognitiveBiasPrompt } from "@/prompts/bias-cognitive";
 import type { CognitiveBias } from "@/types/article-analyzed";
 import { getPipeline } from "./models.server";
+import { getTokenizer } from "./tokenizer.server";
 
-const MAX_TOKENS = 1024; // Max tokens supported by the model
+const MAX_TOKENS = 1024; // Max tokens supported by distilbert-sst2
+const MAX_GPT2_PROMPT_TOKENS = 512; // Safe limit for GPT-2 prompt
 
 /**
- * Detect cognitive biases within an article using a two-stage hybrid pipeline:
+ * Detect cognitive biases within an article using a two-stage hybrid pipeline.
  *
  * Stage 1 — Binary Bias Classification (fast)
  *   Uses a sentiment model (distilbert-sst2) to approximate bias:
@@ -14,18 +16,37 @@ const MAX_TOKENS = 1024; // Max tokens supported by the model
  *
  * Stage 2 — Cognitive Bias Breakdown (optional, slower)
  *   If Stage 1 detects bias **and** useTextGen=true, GPT-2 produces structured JSON.
+ *
+ * Token-based truncation is applied to prevent memory or index errors.
+ *
+ * @param article - Object containing optional `content` string
+ * @param options - Optional settings
+ *   @property useTextGen - If true, perform full GPT-2 cognitive bias breakdown (default: true)
+ * @returns Array of detected cognitive biases
+ *
+ * @example
+ * const biases = await detectCognitiveBias({ content: "The government announced..." });
+ * console.log(biases); // e.g., [{ bias: "Appeal to Authority", snippet: "..." }, ...]
  */
 export async function detectCognitiveBias(
 	article: { content?: string },
 	options: { useTextGen?: boolean } = {},
 ): Promise<CognitiveBias[]> {
 	const { useTextGen = true } = options;
-	if (!article.content) return [];
+	const { content } = article ?? "";
+	if (!content || content.trim().length === 0) {
+		console.warn("Tokenizer skipped: empty input");
+		return [];
+	}
 
 	// ---------------------------------------------------------
-	// Truncate text to max tokens before sending to models
+	// Tokenize text and truncate for safe model input
 	// ---------------------------------------------------------
-	const truncatedText = article.content.split(/\s+/).slice(0, MAX_TOKENS).join(" ");
+	const tokenizer = await getTokenizer();
+	const allTokens = tokenizer.encode(content);
+
+	const truncatedTokens = allTokens.slice(0, MAX_TOKENS);
+	const truncatedText = tokenizer.decode(truncatedTokens);
 
 	const results: CognitiveBias[] = [];
 
@@ -39,13 +60,11 @@ export async function detectCognitiveBias(
 		const rawLabel = classification?.[0]?.label ?? "NEGATIVE";
 		const label = rawLabel.toUpperCase();
 
-		// Map POSITIVE → biased, NEGATIVE → neutral
+		// Map POSITIVE → biased, NEGATIVE / NEUTRAL → neutral
 		const isBiased = label === "POSITIVE";
 
-		// If the text is not biased, no need to perform deep analysis
-		if (!isBiased && !useTextGen) {
-			return [];
-		}
+		// If no bias detected and useTextGen is false, exit early
+		if (!isBiased && !useTextGen) return results;
 	} catch (err) {
 		console.warn("Binary bias classifier failed:", (err as Error).message);
 		if (!useTextGen) return results;
@@ -58,8 +77,10 @@ export async function detectCognitiveBias(
 		try {
 			const generator = await getPipeline("text-generation", "gpt2");
 
-			// Truncate text for GPT-2 prompt as well
-			const promptText = truncatedText.slice(0, 2000);
+			// Truncate tokens for GPT-2 prompt
+			const gpt2Tokens = allTokens.slice(0, MAX_GPT2_PROMPT_TOKENS);
+			const promptText = tokenizer.decode(gpt2Tokens);
+
 			const prompt = getCognitiveBiasPrompt(promptText);
 
 			const output = await generator(prompt, { max_new_tokens: 400 });
@@ -73,7 +94,7 @@ export async function detectCognitiveBias(
 			const raw = output[0].generated_text;
 			const generated = raw.replace(prompt, "");
 
-			// Extract JSON array
+			// Extract JSON array from generated text
 			const match = generated.match(/\[[\s\S]*?\]/);
 			if (match) {
 				try {

@@ -1,4 +1,5 @@
 // backend/src/lib/ai/index.ts
+
 import type { Article } from "@/types/article";
 import type { ArticleAnalyzed } from "@/types/article-analyzed";
 import { detectCognitiveBias } from "./cognitiveBias.server";
@@ -27,7 +28,9 @@ export async function analyzeArticle(article: Article): Promise<ArticleAnalyzed 
 	]);
 
 	return {
-		id: article.id,
+		...article,
+		id: crypto.randomUUID(),
+		originalId: article.id,
 		title: article.title ?? "Untitled",
 		url: article.url,
 		content,

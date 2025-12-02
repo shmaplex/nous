@@ -19,7 +19,7 @@ export const normalizeGdelt: NormalizerFn = (a: Article, source: Source): Articl
 		mobileUrl: a.mobileUrl ?? null,
 		sourceCountry: a.sourceCountry ?? null,
 		language: a.language ?? null,
-		publishedAt: a.publishedAt ? new Date(a.publishedAt).toISOString() : null,
+		publishedAt: a.publishedAt ?? null,
 
 		summary: a.summary ?? "",
 		content: a.content ?? "",

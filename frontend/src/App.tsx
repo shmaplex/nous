@@ -28,7 +28,7 @@ import WorkbenchView from "@/components/views/view-workbench";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { useNodeStatus } from "@/hooks/useNodeStatus";
 import { addDebugLog } from "@/lib/log";
-import type { Article, DebugStatus } from "@/types";
+import type { Article, ArticleAnalyzed, DebugStatus } from "@/types";
 import { createEmptyDebugStatus } from "@/types";
 import type { FilterOptions } from "@/types/filter";
 import type { ViewMode } from "@/types/view";
@@ -67,7 +67,7 @@ const App = () => {
 	/** -----------------------------
 	 * Node Status
 	 * ----------------------------- */
-	const status = useNodeStatus();
+	const { status, appLoaded } = useNodeStatus();
 
 	/** -----------------------------
 	 * Loading Overlay (shared across views)
@@ -141,7 +141,7 @@ const App = () => {
 	 *
 	 * @param article - Article clicked
 	 */
-	const handleOpenArticle = async (article: Article) => {
+	const handleOpenArticle = async (article: Article | ArticleAnalyzed) => {
 		// Immediately show article view with current data
 		setFullArticle(article);
 		setArticleLoading(true);
@@ -156,7 +156,7 @@ const App = () => {
 				const data = JSON.parse(res);
 
 				if (data.status === "complete") {
-					const fetchedArticle: Article = JSON.parse(data.body);
+					const fetchedArticle: Article | ArticleAnalyzed = JSON.parse(data.body);
 					setFullArticle(fetchedArticle); // update with processed content
 					setArticleLoading(false);
 					console.log("Article ready:", fetchedArticle);
@@ -203,8 +203,6 @@ const App = () => {
 		setFullArticle(null);
 	};
 
-	if (fullArticle) console.log("fullArticle", fullArticle);
-
 	/* -----------------------------
 	 * Render
 	 * ----------------------------- */
@@ -212,80 +210,85 @@ const App = () => {
 		<ThemeProvider>
 			<div className="min-h-screen flex flex-col bg-background text-foreground pb-12">
 				{/* Loading Overlay */}
-				<LoadingOverlay open={loading} status={loadingStatus} progress={progress} />
+				{!appLoaded ? (
+					<LoadingOverlay open={loading} status={loadingStatus} progress={progress} />
+				) : (
+					<>
+						{/* Header */}
+						<HeaderTop selectedLocation={location} onLocationChange={setLocationState} />
 
-				{/* Header */}
-				<HeaderTop selectedLocation={location} onLocationChange={setLocationState} />
+						{/* View Switcher */}
+						{!fullArticle && <ViewSwitcher mode={mode} onChange={setMode} />}
 
-				{/* View Switcher */}
-				{!fullArticle && <ViewSwitcher mode={mode} onChange={setMode} />}
+						{/* Main Content */}
 
-				{/* Main Content */}
-				<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6 w-full">
-					{fullArticle ? (
-						<div className="flex-1">
-							<ArticlesView
-								article={fullArticle}
-								location={location}
-								onBack={handleCloseFullArticle}
-								loading={articleLoading}
-							/>
-						</div>
-					) : (
-						<>
-							<div className="flex-1">
-								{mode === "workbench" ? (
-									<WorkbenchView
-										onAnalyzeArticle={handleAnalyzeArticle}
-										onTranslated={handleArticleTranslated}
-										onLoadingChange={handleViewLoading}
-										filter={workbenchFilter}
-										setFilter={setWorkbenchFilter}
-										onOpen={handleOpenArticle}
+						<div className="flex-1 flex flex-col lg:flex-row px-6 py-6 max-w-[1600px] mx-auto gap-6 w-full">
+							{fullArticle ? (
+								<div className="flex-1">
+									<ArticlesView
+										article={fullArticle as ArticleAnalyzed}
+										location={location}
+										onBack={handleCloseFullArticle}
+										loading={articleLoading}
 									/>
-								) : (
-									<ReadingView
-										onLoadingChange={handleViewLoading}
-										filter={readingFilter}
-										setFilter={setReadingFilter}
-									/>
-								)}
-							</div>
-
-							<div className="hidden lg:block w-80 shrink-0">
-								<div className="sticky top-18">
-									<InsightsPanel />
 								</div>
-							</div>
-						</>
-					)}
-				</div>
+							) : (
+								<>
+									<div className="flex-1">
+										{mode === "workbench" ? (
+											<WorkbenchView
+												onAnalyzeArticle={handleAnalyzeArticle}
+												onTranslated={handleArticleTranslated}
+												onLoadingChange={handleViewLoading}
+												filter={workbenchFilter}
+												setFilter={setWorkbenchFilter}
+												onOpen={handleOpenArticle}
+											/>
+										) : (
+											<ReadingView
+												onLoadingChange={handleViewLoading}
+												filter={readingFilter}
+												setFilter={setReadingFilter}
+											/>
+										)}
+									</div>
 
-				{/* Modals */}
-				<SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
-				<AddArticleModal
-					isOpen={addArticleOpen}
-					onClose={() => setAddArticleOpen(false)}
-					onSave={async () => console.log("Save article")}
-				/>
+									<div className="hidden lg:block w-80 shrink-0">
+										<div className="sticky top-18">
+											<InsightsPanel />
+										</div>
+									</div>
+								</>
+							)}
+						</div>
 
-				{/* Debug Panel */}
-				<DebugPanel
-					open={debugOpen}
-					onClose={() => setDebugOpen(false)}
-					defaultTab={debugTab}
-					status={status}
-					debugStatus={debugStatus}
-				/>
+						{/* Modals */}
+						<SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+						<AddArticleModal
+							isOpen={addArticleOpen}
+							onClose={() => setAddArticleOpen(false)}
+							onSave={async () => console.log("Save article")}
+						/>
 
-				{/* StatusBar */}
-				<StatusBar
-					status={status}
-					onOpenDebug={(tab) => {
-						setDebugTab(tab);
-						setDebugOpen(true);
-					}}
-				/>
+						{/* Debug Panel */}
+						<DebugPanel
+							open={debugOpen}
+							onClose={() => setDebugOpen(false)}
+							defaultTab={debugTab}
+							status={status}
+							debugStatus={debugStatus}
+						/>
+
+						{/* StatusBar */}
+						<StatusBar
+							status={status}
+							onOpenDebug={(tab) => {
+								setDebugTab(tab);
+								setDebugOpen(true);
+							}}
+						/>
+					</>
+				)}
 			</div>
 		</ThemeProvider>
 	);

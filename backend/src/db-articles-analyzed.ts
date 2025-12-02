@@ -1,4 +1,4 @@
-// frontend/src/p2p/db-articles-analyzed.ts
+// backend/src/db-articles-analyzed.ts
 /**
  * @file OrbitDB setup and DB operations for Nous P2P Node (Analyzed DB)
  * @description
@@ -16,7 +16,10 @@ import { loadDBPaths, saveDBPaths } from "./setup";
  */
 export interface ArticleAnalyzedDB {
 	articleAnalyzedDB: any; // OrbitDB instance
-	saveAnalyzedArticle: (doc: ArticleAnalyzed) => Promise<void>;
+	saveAnalyzedArticle: (
+		doc: ArticleAnalyzed,
+		skipExists?: boolean,
+	) => Promise<ArticleAnalyzed | null>;
 	deleteAnalyzedArticle: (id: string) => Promise<void>;
 	getAllAnalyzedArticles: () => Promise<ArticleAnalyzed[]>;
 	getAnalyzedArticle: (id: string) => Promise<ArticleAnalyzed | null>;
@@ -78,11 +81,15 @@ export async function setupArticleAnalyzedDB(
 	});
 
 	/** Save an analyzed article */
-	async function saveAnalyzedArticle(doc: ArticleAnalyzed) {
+	async function saveAnalyzedArticle(doc: ArticleAnalyzed, skipExists = false) {
+		if (skipExists) {
+			const exists = await db.get(doc.id);
+			if (exists) return null;
+		}
 		await db.put(doc);
-		const msg = `Saved analyzed article: ${doc.id}`;
-		log(msg);
-		await addDebugLog({ message: msg, level: "info" });
+		log(`Saved analyzed article: ${doc.id}`);
+		await addDebugLog({ message: `Saved analyzed article: ${doc.id}`, level: "info" });
+		return doc;
 	}
 
 	/** Delete an analyzed article by ID */

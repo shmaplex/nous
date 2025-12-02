@@ -1,96 +1,134 @@
-/**
- * @file useArticleLoader.ts
- * @description
- * Reusable loader for fetching + polling local OrbitDB article databases.
- * Each view (Workbench, Reading, etc.) can independently use this hook
- * to load its own required article set.
- */
-
-import { useEffect, useRef, useState } from "react";
-import { loadLocalArticles } from "@/lib/articles/local";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { loadAnalyzedArticles, loadFederatedArticles, loadLocalArticles } from "@/lib/articles";
 import { addDebugLog } from "@/lib/log";
 import { fetchArticlesBySources, getAvailableSources } from "@/lib/sources";
-import type { Article } from "@/types";
-import { useNodeStatus } from "./useNodeStatus";
+import {
+	type Article,
+	type ArticleAnalyzed,
+	type ArticleFederated,
+	createEmptyNodeStatus,
+	type Source,
+} from "@/types";
 
-const POLL_INTERVAL = 5000;
-const MAX_POLL_ATTEMPTS = 25;
+type ArticleTypeFilter = "all" | "local" | "analyzed" | "federated";
 
-export function useArticleLoader() {
-	const status = useNodeStatus();
+interface UseArticleLoaderOptions {
+	/** Filter which type of articles to load */
+	typeFilter?: ArticleTypeFilter;
+	/** Whether to fetch external sources before loading local articles */
+	fetchSources?: boolean;
+	/** Current node status */
+}
 
+interface UseArticleLoaderReturn {
+	articles: (Article | ArticleAnalyzed | ArticleFederated)[];
+	loading: boolean;
+	loadingStatus: string;
+	progress: number;
+	/** Function to manually reload all articles */
+	reload: () => Promise<void>;
+}
+
+/**
+ * React hook for loading local, analyzed, and federated articles.
+ *
+ * - Loads articles once on mount.
+ * - Optionally fetches external sources first.
+ * - Exposes `reload()` to manually refresh articles.
+ * - Tracks loading state, status messages, and progress.
+ *
+ * @param options Hook options
+ * @returns Object containing articles, loading state, progress, and reload function
+ */
+export function useArticleLoader(options: UseArticleLoaderOptions = {}): UseArticleLoaderReturn {
+	const { typeFilter = "all", fetchSources = true } = options;
+
+	const [articles, setArticles] = useState<(Article | ArticleAnalyzed | ArticleFederated)[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [loadingStatus, setLoadingStatus] = useState("Starting up…");
 	const [progress, setProgress] = useState(5);
-	const [articles, setArticles] = useState<Article[]>([]);
 
 	const fetchOnceRef = useRef(false);
 
-	useEffect(() => {
-		const run = async () => {
-			if (!status.running || !status.connected || !status.orbitConnected) {
-				setLoadingStatus("Waiting for P2P node and databases…");
-				setProgress(10);
-				return;
-			}
+	/**
+	 * Load all articles from local, analyzed, and federated sources.
+	 *
+	 * - Fetches external sources if enabled.
+	 * - Combines all loaded articles into a single array.
+	 * - Updates loading/progress state.
+	 */
+	const loadArticles = useCallback(async () => {
+		setLoading(true);
+		setLoadingStatus("Initializing article loader…");
+		setProgress(15);
 
-			if (fetchOnceRef.current) return;
-			fetchOnceRef.current = true;
-
-			await new Promise((r) => setTimeout(r, 1000));
-
+		// Fetch external sources first
+		if (fetchSources && (typeFilter === "all" || typeFilter === "local")) {
 			setLoadingStatus("Loading news sources…");
 			setProgress(20);
 
-			const sources = await getAvailableSources();
-
-			setLoadingStatus("Fetching articles from sources…");
-			setProgress(40);
-
 			try {
-				await fetchArticlesBySources(sources);
-			} catch (err) {
-				console.error("Fetch failed:", err);
-				setLoadingStatus("Failed to fetch external sources.");
-				setProgress(0);
-				return;
-			}
-
-			setLoadingStatus("Waiting for articles to populate…");
-			setProgress(60);
-
-			let attempts = 0;
-			let found: Article[] = [];
-
-			while (attempts < MAX_POLL_ATTEMPTS) {
-				const local = await loadLocalArticles();
-				if (Array.isArray(local) && local.length > 0) {
-					found = local;
-					break;
+				const sources: Source[] = await getAvailableSources();
+				if (sources.length > 0) {
+					setLoadingStatus("Fetching articles from sources…");
+					setProgress(40);
+					for (const src of sources) {
+						try {
+							await fetchArticlesBySources([src]);
+						} catch (err) {
+							console.error("Failed fetching source:", src, err);
+						}
+					}
 				}
-				attempts++;
-				await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+			} catch (err) {
+				console.error("Failed to get sources:", err);
 			}
+		}
 
-			if (found.length === 0) {
-				setLoadingStatus("No articles found. Try again?");
-				setProgress(100);
-				setLoading(false);
-				return;
+		setLoadingStatus("Loading local articles…");
+		setProgress(50);
+
+		let local: Article[] = [];
+		if (typeFilter === "all" || typeFilter === "local") {
+			try {
+				local = await loadLocalArticles();
+			} catch (err) {
+				console.error("Error loading local articles:", err);
 			}
+		}
 
-			setArticles(found);
-			setProgress(100);
-			setLoading(false);
+		let analyzed: ArticleAnalyzed[] = [];
+		if (typeFilter === "all" || typeFilter === "analyzed") {
+			try {
+				analyzed = await loadAnalyzedArticles();
+			} catch {}
+		}
 
-			await addDebugLog({
-				message: `Loaded ${found.length} local articles`,
-				level: "info",
-			});
-		};
+		let federated: ArticleFederated[] = [];
+		if (typeFilter === "all" || typeFilter === "federated") {
+			try {
+				federated = await loadFederatedArticles();
+			} catch {}
+		}
 
-		run();
-	}, [status]);
+		const combined = [...local, ...analyzed, ...federated];
+		setArticles(combined);
+		setProgress(100);
+		setLoading(false);
 
-	return { articles, loading, loadingStatus, progress };
+		await addDebugLog({
+			message: `Loaded ${combined.length} articles (local: ${local.length}, analyzed: ${analyzed.length}, federated: ${federated.length})`,
+			level: "info",
+		});
+	}, [typeFilter, fetchSources]);
+
+	// Load articles once on mount
+	useEffect(() => {
+		if (!fetchOnceRef.current) {
+			fetchOnceRef.current = true;
+			loadArticles();
+		}
+	}, [loadArticles]);
+
+	return { articles, loading, loadingStatus, progress, reload: loadArticles };
 }

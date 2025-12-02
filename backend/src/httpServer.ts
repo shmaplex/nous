@@ -15,14 +15,16 @@ import { registerStatusRoutes } from "./routes/route-status";
 // Base URL for reference (useful for logging or generating URLs)
 export const BASE_URL = "http://localhost";
 
-// Context object passed to each route handler
-export interface HttpServerContext {
+// src/p2p/httpServer.ts
+export interface BaseServerContext {
 	status: NodeStatus;
 	orbitdbConnected: boolean;
 	httpPort?: number;
 	helia: Helia;
-	[key: string]: any;
 }
+
+// Context object passed to each route handler
+export type HttpServerContext = BaseServerContext & { [key: string]: any };
 
 /**
  * Create an Express-based HTTP server for the P2P node.

@@ -1,5 +1,6 @@
 import type { ArticleAnalyzed } from "@/types/article-analyzed";
 import { getPipeline } from "./models.server";
+import { getTokenizer } from "./tokenizer.server";
 
 /**
  * Detect the political bias of an article using a lightweight
@@ -48,13 +49,23 @@ import { getPipeline } from "./models.server";
 export async function detectPoliticalBias(article: {
 	content?: string;
 }): Promise<ArticleAnalyzed["politicalBias"]> {
-	const text = article.content ?? "";
+	const { content: text } = article ?? "";
+	if (!text || text.trim().length === 0) {
+		console.warn("Tokenizer skipped: empty input");
+		return "";
+	}
 
 	// Load the shared pipeline (cached automatically)
 	const classifier = await getPipeline("text-classification", "distilbert-sst2");
 
+	const tokenizer = await getTokenizer();
+	const tokens = tokenizer.encode(text);
+
+	console.log(`Performing political bias analysis on ${tokens.length} tokens`);
+	// Limit to first N tokens
 	// Only analyze the first part of the article to reduce compute cost
-	const input = text.slice(0, 500);
+	const inputTokens = tokens.slice(0, 128); // adjust 128 as a safe limit for distilbert
+	const input = tokenizer.decode(inputTokens);
 
 	const result = await classifier(input);
 	const label = result[0]?.label?.toLowerCase() ?? "neutral";

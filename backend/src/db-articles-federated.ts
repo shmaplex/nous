@@ -1,71 +1,68 @@
 // frontend/src/p2p/db-articles-federated.ts
-/**
- * @file In-memory DB for Federated Articles
- * @description
- * Holds minimal pointers to articles shared or received via the federation (IPFS/OrbitDB).
- * Provides helper functions for saving, retrieving, and querying federated article pointers.
- */
-
+import { dagCbor } from "@helia/dag-cbor";
+import type { Helia } from "helia";
+import { CID } from "multiformats/cid";
 import { addDebugLog, log } from "@/lib/log.server";
-import type { FederatedArticlePointer } from "@/types";
+import type { ArticleFederated } from "@/types";
 
-/**
- * Interface for the Federated DB instance
- */
 export interface ArticleFederatedDB {
-	articleFederatedDB: FederatedArticlePointer[];
-	saveFederatedArticle: (ptr: FederatedArticlePointer) => Promise<void>;
-	getFederatedArticles: () => Promise<FederatedArticlePointer[]>;
-	queryFederatedArticles: (
-		fn: (ptr: FederatedArticlePointer) => boolean,
-	) => Promise<FederatedArticlePointer[]>;
+	articleFederatedDB: ArticleFederated[];
+	saveFederatedArticle: (ptr: ArticleFederated) => Promise<void>;
+	getFederatedArticles: () => Promise<ArticleFederated[]>;
+	queryFederatedArticles: (fn: (ptr: ArticleFederated) => boolean) => Promise<ArticleFederated[]>;
+	loadFederatedArticleContent?: (cid: string | CID) => Promise<any | null>;
 }
 
-// Singleton instance
+// Singleton
 let articleFederatedDBInstance: ArticleFederatedDB | null = null;
 
 /**
- * Sets up the federated articles DB.
- * Currently in-memory; safe to call multiple times.
- *
- * @returns Singleton instance with DB + helper functions
+ * Setup in-memory DB for federated articles with optional Helia instance
  */
-export async function setupArticleFederatedDB(): Promise<ArticleFederatedDB> {
+export async function setupArticleFederatedDB(helia?: Helia): Promise<ArticleFederatedDB> {
 	if (articleFederatedDBInstance) {
-		log("🟢 Federated Article DB already initialized, skipping setup");
+		log("🟢 Federated Article DB already initialized");
 		return articleFederatedDBInstance;
 	}
 
-	// Internal in-memory DB
-	const db: FederatedArticlePointer[] = [];
+	const db: ArticleFederated[] = [];
 
-	// Optional logging helper
-	async function logUpdate(entry: FederatedArticlePointer) {
+	async function logUpdate(entry: ArticleFederated) {
 		const msg = `🔄 Federated pointer updated: ${JSON.stringify(entry)}`;
 		log(msg);
 		await addDebugLog({ message: msg, level: "info" });
-
-		const countMsg = `📦 Total federated pointers: ${db.length}`;
-		log(countMsg);
-		await addDebugLog({ message: countMsg, level: "info" });
+		await addDebugLog({ message: `📦 Total federated pointers: ${db.length}`, level: "info" });
 	}
 
-	/** Save a federated article pointer */
-	async function saveFederatedArticle(ptr: FederatedArticlePointer) {
+	async function saveFederatedArticle(ptr: ArticleFederated) {
 		db.push(ptr);
 		await logUpdate(ptr);
 	}
 
-	/** Get all federated article pointers */
-	async function getFederatedArticles(): Promise<FederatedArticlePointer[]> {
+	async function getFederatedArticles(): Promise<ArticleFederated[]> {
 		return db;
 	}
 
-	/** Query federated pointers with a custom filter function */
 	async function queryFederatedArticles(
-		fn: (ptr: FederatedArticlePointer) => boolean,
-	): Promise<FederatedArticlePointer[]> {
+		fn: (ptr: ArticleFederated) => boolean,
+	): Promise<ArticleFederated[]> {
 		return db.filter(fn);
+	}
+
+	/** Helia fetch for full article content */
+	async function loadFederatedArticleContent(cid: string | CID): Promise<any | null> {
+		if (!helia) {
+			log("⚠️ Helia instance not initialized");
+			return null;
+		}
+		try {
+			const dag = dagCbor(helia);
+			const cidObj: CID = typeof cid === "string" ? CID.parse(cid) : cid;
+			return await dag.get(cidObj);
+		} catch (err) {
+			log(`Error fetching content for CID ${cid}: ${err}`);
+			return null;
+		}
 	}
 
 	articleFederatedDBInstance = {
@@ -73,9 +70,9 @@ export async function setupArticleFederatedDB(): Promise<ArticleFederatedDB> {
 		saveFederatedArticle,
 		getFederatedArticles,
 		queryFederatedArticles,
+		loadFederatedArticleContent,
 	};
 
 	log("✅ Federated Article DB setup complete");
-
 	return articleFederatedDBInstance;
 }

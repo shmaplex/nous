@@ -1,5 +1,6 @@
 import type { ArticleAnalyzed } from "@/types/article-analyzed";
 import { getPipeline } from "./models.server";
+import { getTokenizer } from "./tokenizer.server";
 
 /**
  * Perform sentiment analysis on an article using a lightweight,
@@ -15,7 +16,7 @@ import { getPipeline } from "./models.server";
  *   - `"neutral"` (if the model supports it or inferred fallback)
  *
  * ## Processing Details
- * 1. The article's first 500 characters are analyzed for speed and consistency.
+ * 1. The article's first 128 tokens are analyzed for speed and consistency.
  * 2. If no content is provided → returns `"neutral"`.
  * 3. Results are normalized to lowercase.
  *
@@ -47,18 +48,35 @@ import { getPipeline } from "./models.server";
 export async function analyzeSentiment(article: {
 	content?: string;
 }): Promise<ArticleAnalyzed["sentiment"]> {
-	const content = article.content ?? "";
-	if (!content) return "neutral";
+	const { content } = article ?? "";
+	if (!content || content.trim().length === 0) {
+		console.warn("Tokenizer skipped: empty input");
+		return "";
+	}
 
-	// Load (or reuse) a cached classifier pipeline using proper model key
+	// Load tokenizer
+	const tokenizer = await getTokenizer();
+
+	// Encode and truncate to first 128 tokens for efficiency
+	const tokens = tokenizer.encode(content);
+	if (tokens.length === 0) {
+		console.warn("Tokenizer produced empty token array. Using fallback.");
+		return "";
+	}
+
+	const truncatedTokens = tokens.slice(0, 128);
+	const inputText = tokenizer.decode(truncatedTokens);
+
+	// Load (or reuse) cached classifier pipeline
 	const classifier = await getPipeline("text-classification", "distilbert-sst2");
 
-	// Limit input for efficiency
-	const text = content.slice(0, 500);
-
-	const output = await classifier(text);
+	const output = await classifier(inputText);
 
 	const label = output?.[0]?.label?.toLowerCase() ?? "neutral";
+
+	console.log(
+		`Performing sentiment analysis on ${tokens.length} tokens (truncated to ${truncatedTokens.length})`,
+	);
 
 	return label as ArticleAnalyzed["sentiment"];
 }

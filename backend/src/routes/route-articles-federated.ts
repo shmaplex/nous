@@ -4,8 +4,19 @@
  */
 
 import type { Express, NextFunction, Request, Response } from "express";
-import type { FederatedArticlePointer } from "@/types";
+import type { ArticleFederatedDB } from "@/db-articles-federated";
+import type { BaseServerContext } from "@/httpServer";
+import type { ArticleFederated } from "@/types";
 import { handleError } from "./helpers";
+
+/**
+ * Combined handlers for federated article routes
+ * Extends the DB interface and adds route-specific helpers
+ */
+export type FederatedArticleHandlers = ArticleFederatedDB &
+	BaseServerContext & {
+		// TODO: Add extra props here
+	};
 
 /**
  * Simple in-memory throttle map to limit requests per IP
@@ -43,7 +54,7 @@ export const throttleMiddleware = (req: Request, res: Response, next: NextFuncti
 export const fetchFederatedArticlesHandler = async (
 	req: Request,
 	res: Response,
-	handlers?: { getFederatedArticles?: () => Promise<FederatedArticlePointer[]> },
+	handlers?: FederatedArticleHandlers,
 ) => {
 	const { getFederatedArticles } = handlers || {};
 	if (!getFederatedArticles) {
@@ -51,7 +62,7 @@ export const fetchFederatedArticlesHandler = async (
 	}
 
 	try {
-		const articles: FederatedArticlePointer[] = await getFederatedArticles();
+		const articles: ArticleFederated[] = await getFederatedArticles();
 		res.status(200).json(articles);
 	} catch (err) {
 		await handleError(
@@ -66,7 +77,7 @@ export const fetchFederatedArticlesHandler = async (
 /**
  * Helper: register federated article routes in an Express app
  */
-export function registerFederatedArticleRoutes(app: Express, handlers: any = {}) {
+export function registerFederatedArticleRoutes(app: Express, handlers: any) {
 	app.get("/articles/federated", throttleMiddleware, (req, res) =>
 		fetchFederatedArticlesHandler(req, res, handlers),
 	);

@@ -11,9 +11,10 @@
  * and future-friendly placeholders for new UX features.
  */
 
+import { RefreshCw } from "lucide-react";
 import type React from "react";
-import type { Article, ArticleAnalyzed, FederatedArticlePointer, ViewMode } from "@/types";
-
+import type { Article, ArticleAnalyzed, ArticleFederated, ViewMode } from "@/types";
+import { Button } from "../ui/button";
 import ArticleAnalyzedCard from "./article-card-analyzed";
 import ArticleFederatedCard from "./article-card-federated";
 import ArticleLocalCard from "./article-card-local";
@@ -26,11 +27,11 @@ export interface ArticlesGridProps {
 	 * A merged list of articles coming from:
 	 *  - Local DB (`Article`)
 	 *  - Analyzed DB (`ArticleAnalyzed`)
-	 *  - Federated DB (`FederatedArticlePointer`)
+	 *  - Federated DB (`ArticleFederated`)
 	 *
 	 * Rendering is determined automatically by structural keys.
 	 */
-	articles: (Article | ArticleAnalyzed | FederatedArticlePointer)[];
+	articles: (Article | ArticleAnalyzed | ArticleFederated)[];
 
 	/**
 	 * Mode controls behavior of the grid.
@@ -61,6 +62,16 @@ export interface ArticlesGridProps {
 	 * Receives the clicked article object.
 	 */
 	onOpen?: (article: Article) => void;
+
+	/**
+	 * Optional callback to reload the articles
+	 */
+	onReload?: () => void;
+
+	/**
+	 * Options boolean to show reloading status
+	 */
+	reloading?: boolean;
 }
 
 /**
@@ -79,6 +90,8 @@ const ArticlesGrid: React.FC<ArticlesGridProps> = ({
 	onAnalyze,
 	onTranslate,
 	onOpen,
+	onReload,
+	reloading,
 }) => {
 	/* ------------------------------
 	 * Empty State
@@ -98,7 +111,19 @@ const ArticlesGrid: React.FC<ArticlesGridProps> = ({
 	 * Render Grid
 	 * ------------------------------ */
 	return (
-		<div className="space-y-10">
+		<div className="space-y-0">
+			<div className="w-full flex justify-end pb-3">
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={onReload}
+					disabled={reloading}
+					className="hover:text-foreground! text-foreground/50"
+				>
+					<RefreshCw className={`w-4 h-4 ${reloading ? "animate-spin" : ""}`} />
+					Reload
+				</Button>
+			</div>
 			{/* Grid */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-8">
 				{articles.map((article) => {

@@ -1,8 +1,21 @@
 import type { Express, NextFunction, Request, Response } from "express";
+import type { ArticleAnalyzedDB } from "@/db-articles-analyzed";
+import type { ArticleLocalDB } from "@/db-articles-local";
+import type { BaseServerContext } from "@/httpServer";
+import { analyzeArticle } from "@/lib/ai";
 import { translateMultipleTitlesAI } from "@/lib/ai/translate.server";
 import { addDebugLog, log } from "@/lib/log.server";
-import type { ApiResponse, Article, Source } from "@/types";
+import type { ApiResponse, Article, ArticleAnalyzed, Source } from "@/types";
 import { handleError } from "./helpers";
+
+/**
+ * Combined handlers for local article routes.
+ * Extends the DB interface to optionally include Helia instance.
+ */
+export type LocalArticleHandlers = ArticleLocalDB &
+	BaseServerContext & {
+		saveAnalyzedArticle: ArticleAnalyzedDB["saveAnalyzedArticle"];
+	};
 
 /**
  * Simple in-memory throttle map to limit requests per IP
@@ -51,13 +64,10 @@ export const throttleMiddleware = (req: Request, res: Response, next: NextFuncti
 export const translateArticleHandler = async (
 	req: Request,
 	res: Response,
-	handlers: {
-		getLocalArticle?: (identifier: string) => Promise<Article | null>;
-		saveLocalArticle?: (article: Article, overwrite?: boolean) => Promise<void>;
-	},
+	handlers: LocalArticleHandlers,
 ): Promise<void> => {
 	// <- note we no longer return ApiResponse, we handle response inside
-	const { getLocalArticle, saveLocalArticle } = handlers;
+	const { helia, getLocalArticle, saveLocalArticle } = handlers;
 
 	if (!getLocalArticle || !saveLocalArticle) {
 		await handleError(res, "Required DB functions not provided", 500, "error");
@@ -92,7 +102,7 @@ export const translateArticleHandler = async (
 				}
 			}
 
-			await saveLocalArticle(article, overwrite);
+			await saveLocalArticle(article, helia, overwrite);
 			updatedArticles.push(article);
 		} catch (err) {
 			console.error(`Failed to translate article ${id}:`, err);
@@ -114,8 +124,12 @@ export const translateArticleHandler = async (
  *
  * Starts a background fetch of articles.
  */
-export const fetchLocalArticlesHandler = async (req: Request, res: Response, handlers: any) => {
-	const { addDebugLog, fetchAllLocalSources, addUniqueLocalArticles } = handlers;
+export const fetchLocalArticlesHandler = async (
+	req: Request,
+	res: Response,
+	handlers: LocalArticleHandlers,
+) => {
+	const { fetchAllLocalSources, addUniqueLocalArticles } = handlers;
 
 	if (!fetchAllLocalSources || !addUniqueLocalArticles) {
 		await handleError(res, "Required DB functions not provided", 500, "error");
@@ -135,8 +149,6 @@ export const fetchLocalArticlesHandler = async (req: Request, res: Response, han
 			if (errors && addDebugLog) {
 				log(`fetchAllSources errors: ${JSON.stringify(errors)}`, "error");
 				await addDebugLog({
-					_id: crypto.randomUUID(),
-					timestamp: new Date().toISOString(),
 					message: "fetchAllSources encountered errors",
 					level: "error",
 					meta: { errors },
@@ -145,8 +157,6 @@ export const fetchLocalArticlesHandler = async (req: Request, res: Response, han
 
 			if (addDebugLog) {
 				await addDebugLog({
-					_id: crypto.randomUUID(),
-					timestamp: new Date().toISOString(),
 					message: `Background fetch completed: ${addedCount} new articles`,
 					level: "info",
 					meta: { sources: sources.map((s) => s.name) ?? 0 },
@@ -158,8 +168,6 @@ export const fetchLocalArticlesHandler = async (req: Request, res: Response, han
 
 			if (addDebugLog) {
 				await addDebugLog({
-					_id: crypto.randomUUID(),
-					timestamp: new Date().toISOString(),
 					message: `Background fetch failed: ${message}`,
 					level: "error",
 				});
@@ -177,9 +185,7 @@ export const fetchLocalArticlesHandler = async (req: Request, res: Response, han
 // export const getAggregatedArticleHandler = async (
 // 	req: Request,
 // 	res: Response,
-// 	handlers: {
-// 		getAllLocalArticles?: () => Promise<Article[]>;
-// 	},
+// 	handlers: LocalArticleHandlers,
 // ) => {
 // 	const { getAllLocalArticles } = handlers;
 
@@ -228,8 +234,12 @@ export const fetchLocalArticlesHandler = async (req: Request, res: Response, han
  * GET /articles/local
  * Returns all articles from the local article DB, throttled per IP
  */
-export const getAllLocalArticlesHandler = async (req: Request, res: Response, handlers: any) => {
-	const { addDebugLog, getAllLocalArticles } = handlers;
+export const getAllLocalArticlesHandler = async (
+	req: Request,
+	res: Response,
+	handlers: LocalArticleHandlers,
+) => {
+	const { getAllLocalArticles } = handlers;
 
 	if (!getAllLocalArticles) {
 		await handleError(res, "getAllLocalArticles function not provided", 500, "error");
@@ -241,9 +251,7 @@ export const getAllLocalArticlesHandler = async (req: Request, res: Response, ha
 
 		if (addDebugLog) {
 			await addDebugLog({
-				_id: crypto.randomUUID(),
-				timestamp: new Date().toISOString(),
-				message: `Fetched ${allArticles.length} articles for ${req.ip}`,
+				message: `Fetched ${allArticles.length} articles for ${req.ip?.toString()}`,
 				level: "info",
 			});
 		}
@@ -259,8 +267,12 @@ export const getAllLocalArticlesHandler = async (req: Request, res: Response, ha
  * GET /articles/local/full
  * Fetch a single local article by ID, CID, or URL
  */
-export const getFullLocalArticleHandler = async (req: Request, res: Response, handlers: any) => {
-	const { getLocalArticle, getFullLocalArticle, analyzeArticle, helia } = handlers;
+export const getFullLocalArticleHandler = async (
+	req: Request,
+	res: Response,
+	handlers: LocalArticleHandlers,
+) => {
+	const { saveAnalyzedArticle, getLocalArticle, getFullLocalArticle, helia } = handlers;
 
 	if (!getLocalArticle) return handleError(res, "getLocalArticle not provided", 500, "error");
 	if (!getFullLocalArticle)
@@ -269,23 +281,32 @@ export const getFullLocalArticleHandler = async (req: Request, res: Response, ha
 
 	try {
 		const lookupKey = req.query.id || req.query.cid || req.query.url;
-		console.log("lookupKey", lookupKey);
 		if (!lookupKey) return handleError(res, "No article ID, CID, or URL provided", 400, "warn");
 
 		const article = await getLocalArticle(lookupKey as string);
-		console.log("found local article", article);
 		if (!article) return handleError(res, `Article not found for ${lookupKey}`, 404, "warn");
 
 		const fullArticle = await getFullLocalArticle(article, helia);
 
-		console.log("Found full article", fullArticle);
-
-		let analyzedArticle = fullArticle;
+		let analyzedArticle: ArticleAnalyzed | null = null;
 		if (!fullArticle.analyzed && analyzeArticle) {
 			analyzedArticle = await analyzeArticle(fullArticle);
 		}
 
 		console.log("analyzedArticle", analyzedArticle);
+
+		// assign new ID and reference to original
+		analyzedArticle = {
+			...analyzedArticle,
+			id: crypto.randomUUID(),
+			originalId: fullArticle.id,
+			url: fullArticle.url,
+			title: fullArticle.title,
+			analyzed: true,
+		};
+
+		await saveAnalyzedArticle(analyzedArticle);
+
 		res.json(analyzedArticle);
 	} catch (err) {
 		const message = (err as Error).message;
@@ -297,8 +318,12 @@ export const getFullLocalArticleHandler = async (req: Request, res: Response, ha
  * POST /articles/local/save
  * Save a single new source article, optionally overwriting existing
  */
-export const saveLocalArticleHandler = async (req: Request, res: Response, handlers: any) => {
-	const { saveLocalArticle } = handlers;
+export const saveLocalArticleHandler = async (
+	req: Request,
+	res: Response,
+	handlers: LocalArticleHandlers,
+) => {
+	const { helia, saveLocalArticle } = handlers;
 
 	if (!saveLocalArticle) return handleError(res, "saveLocalArticle not provided", 500, "error");
 	if (!req.body || !req.body.url || !req.body.title || !req.body.content) {
@@ -309,7 +334,7 @@ export const saveLocalArticleHandler = async (req: Request, res: Response, handl
 	const overwrite = req.query.overwrite === "true" || req.body.overwrite === true;
 
 	try {
-		await saveLocalArticle(req.body, overwrite);
+		await saveLocalArticle(req.body, helia, overwrite);
 		await addDebugLog({ message: `Saved article: ${req.body.url}`, level: "info" });
 		res.json({ success: true, url: req.body.url, overwritten: overwrite });
 	} catch (err) {
@@ -322,7 +347,11 @@ export const saveLocalArticleHandler = async (req: Request, res: Response, handl
  * POST /articles/local/refetch
  * Add multiple articles, skipping duplicates
  */
-export const refetchLocalArticlesHandler = async (req: Request, res: Response, handlers: any) => {
+export const refetchLocalArticlesHandler = async (
+	req: Request,
+	res: Response,
+	handlers: LocalArticleHandlers,
+) => {
 	const { addUniqueLocalArticles } = handlers;
 
 	if (!addUniqueLocalArticles)
@@ -344,7 +373,11 @@ export const refetchLocalArticlesHandler = async (req: Request, res: Response, h
  * DELETE /articles/local/delete/:url
  * Delete a source article by URL
  */
-export const deleteLocalArticleHandler = async (req: Request, res: Response, handlers: any) => {
+export const deleteLocalArticleHandler = async (
+	req: Request,
+	res: Response,
+	handlers: LocalArticleHandlers,
+) => {
 	const { deleteLocalArticle } = handlers;
 
 	if (!deleteLocalArticle) return handleError(res, "deleteLocalArticle not provided", 500, "error");
@@ -365,7 +398,7 @@ export const deleteLocalArticleHandler = async (req: Request, res: Response, han
 /**
  * Helper: register all local article routes in an Express app
  */
-export function registerLocalArticleRoutes(app: Express, handlers: any = {}) {
+export function registerLocalArticleRoutes(app: Express, handlers: any) {
 	app.post("/articles/local/fetch", (req, res) => fetchLocalArticlesHandler(req, res, handlers));
 	app.get("/articles/local", throttleMiddleware, (req, res) =>
 		getAllLocalArticlesHandler(req, res, handlers),

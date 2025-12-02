@@ -1,10 +1,10 @@
 // frontend/src/components/articles/article-card-federated.tsx
 import type React from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { FederatedArticlePointer } from "../../types";
+import type { ArticleFederated } from "../../types";
 
 interface Props {
-	article: FederatedArticlePointer;
+	article: ArticleFederated;
 }
 
 const ArticleCardFederated: React.FC<Props> = ({ article }) => {

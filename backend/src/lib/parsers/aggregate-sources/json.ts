@@ -24,8 +24,8 @@ export const jsonParser: ParserFn = (raw: { articles: any }, source: Source): Ar
 	if (!raw || !Array.isArray(raw.articles)) return [];
 
 	return raw.articles.map((a: any) => {
-		const summary = a.summary || a.description || "No summary";
-		const content = a.content || a.summary || "No content available";
+		const summary = a.summary || a.description || null;
+		const content = a.content || a.summary || null;
 		return {
 			id: crypto.randomUUID(),
 			title: a.title ?? "Untitled",

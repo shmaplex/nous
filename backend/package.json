@@ -4,7 +4,10 @@
   "version": "0.1.1",
   "type": "module",
   "scripts": {
-    "build": "../scripts/clean.sh backend && ../scripts/clean.sh orbit && npm run fetch-node && tsup",
+    "prebuild": "npm run clean && npm run fetch-node",
+    "build": "tsup",
+    "clean": "chmod +x ../scripts/clean.sh && sh ../scripts/clean.sh backend && sh ../scripts/clean.sh orbit",
+    "prefetch-models": "chmod +x ../scripts/prefetch-models.sh && sh ../scripts/prefetch-models.sh",
     "fetch-node": "chmod +x ../scripts/fetch-node.zsh && zsh ../scripts/fetch-node.zsh",
     "dev": "npx tsx watch --tsconfig tsconfig.server.json --watch-path ./server/src ./server/src/setup.ts"
   },

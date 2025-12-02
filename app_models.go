@@ -136,25 +136,6 @@ const (
 )
 
 // ----------------------
-// Federated Article Pointer
-// ----------------------
-
-// FederatedArticlePointer is a minimal representation of an article shared across nodes.
-// - CID: IPFS Content Identifier for fetching full content
-// - Timestamp: creation or last update of the pointer
-// - Hash: optional content hash for verification
-// - Analyzed: true if this article has been analyzed
-// - Source / Edition: optional metadata
-type FederatedArticlePointer struct {
-	CID       string  `json:"cid"`               // Content Identifier (IPFS)
-	Timestamp string  `json:"timestamp"`         // ISO timestamp of creation/update
-	Hash      *string `json:"hash,omitempty"`    // Optional content hash
-	Analyzed  bool    `json:"analyzed"`          // True if article was analyzed
-	Source    *string `json:"source,omitempty"`  // Optional source name
-	Edition   *string `json:"edition,omitempty"` // Optional edition/region
-}
-
-// ----------------------
 // Raw Article (Ingested)
 // ----------------------
 
@@ -238,6 +219,25 @@ type ArticleAnalyzed struct {
 	SubjectivityLevel *string  `json:"subjectivityLevel,omitempty"`
 	Trustworthiness   *float64 `json:"trustworthiness,omitempty"`
 	AnalysisTimestamp *string  `json:"analysisTimestamp,omitempty"`
+}
+
+// ----------------------
+// Federated Article
+// ----------------------
+
+// ArticleFederated is a minimal representation of an article shared across nodes.
+// - CID: IPFS Content Identifier for fetching full content
+// - Timestamp: creation or last update of the pointer
+// - Hash: optional content hash for verification
+// - Analyzed: true if this article has been analyzed
+// - Source / Edition: optional metadata
+type ArticleFederated struct {
+	CID       string  `json:"cid"`               // Content Identifier (IPFS)
+	Timestamp string  `json:"timestamp"`         // ISO timestamp of creation/update
+	Hash      *string `json:"hash,omitempty"`    // Optional content hash
+	Analyzed  bool    `json:"analyzed"`          // True if article was analyzed
+	Source    *string `json:"source,omitempty"`  // Optional source name
+	Edition   *string `json:"edition,omitempty"` // Optional edition/region
 }
 
 // ArticlesResponse represents the standard response from the P2P HTTP API

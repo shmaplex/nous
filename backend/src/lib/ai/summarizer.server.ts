@@ -1,4 +1,5 @@
 import { getPipeline } from "./models.server";
+import { getTokenizer } from "./tokenizer.server";
 
 /**
  * Generate an AI-powered summary using a local transformer model.
@@ -6,22 +7,48 @@ import { getPipeline } from "./models.server";
  * This uses Xenova's distilled BART model for abstractive summarization.
  * Runs fully locally (no API key, no remote server needed).
  *
+ * ## Processing Logic
+ * 1. Tokenize the input using GPT-2 tokenizer.
+ * 2. Truncate to 512 tokens to prevent model input overflow.
+ * 3. Decode truncated tokens back to text.
+ * 4. Pass to BART summarization model (`distilbart-cnn`).
+ *
+ * ## Returns
+ * A concise abstractive summary of the article.
+ *
  * @param content - Raw article content to summarize
  * @returns A concise abstractive summary
+ *
+ * @example
+ * const summary = await summarizeContentAI(article.content);
+ * console.log(summary); // "This article discusses..."
  */
 export async function summarizeContentAI(content: string): Promise<string> {
-	if (!content || content.trim().length === 0) return "";
+	if (!content || content.trim().length === 0) {
+		console.warn("Tokenizer skipped: empty input");
+		return "";
+	}
 
-	// Use proper model key
+	const tokenizer = await getTokenizer();
+	const tokens = tokenizer.encode(content);
+	if (tokens.length === 0) {
+		console.warn("Tokenizer produced empty token array. Using fallback.");
+		return content
+			.split(/(?<=[.!?])\s+/)
+			.slice(0, 3)
+			.join(" ");
+	}
+
+	const truncatedTokens = tokens.slice(0, 512);
+	const inputText = tokenizer.decode(truncatedTokens);
+
 	const summarizer = await getPipeline("summarization", "distilbart-cnn");
 
-	// Limit input length for performance
-	const safeInput = content.slice(0, 3000);
+	const output = await summarizer(inputText, { max_length: 130, min_length: 40 });
 
-	const output = await summarizer(safeInput, {
-		max_length: 130,
-		min_length: 40,
-	});
+	console.log(
+		`Summarizing article of ${tokens.length} tokens (truncated to ${truncatedTokens.length})`,
+	);
 
 	return output[0]?.summary_text ?? "";
 }
@@ -35,38 +62,46 @@ export async function summarizeContentAI(content: string): Promise<string> {
  *   - Model Key: `"distilbart-cnn"`
  *
  * ## Processing Logic
- * 1. Up to the first **2000 characters** of the article are extracted.
- * 2. Passed into a BART-based summarizer to condense the ideas.
- * 3. The result is re-framed linguistically as an *opposing viewpoint*.
+ * 1. Tokenize input using GPT-2 tokenizer.
+ * 2. Truncate to 512 tokens to prevent model overflow.
+ * 3. Decode tokens and pass to BART summarizer.
+ * 4. Prepend the summary with `"Opposing viewpoint: "`.
  *
  * ## Returns
- * A short string prefixed with:
- *   `"Opposing viewpoint: ..."`
- *
- * Example:
- * ```ts
- * Opposing viewpoint: While the article emphasizes regulatory necessity,
- * critics argue that such oversight could suppress innovation...
- * ```
- *
- * ## Intended Usage
- * This is *not* true political antithesis generation yet—it is a
- * summarization-based approximation. Later versions may:
- *   - Use instruction-tuned LLMs
- *   - Use contrastive summarization models
- *   - Incorporate rhetorical structure analysis
+ * A short string suggesting a counterpoint to the main article content.
  *
  * @param article - Object containing optional raw article text.
- * @returns A reframed summarization that suggests an opposing viewpoint.
+ * @returns A reframed summarization suggesting an opposing viewpoint.
+ *
+ * @example
+ * const antithesis = await generateAntithesis(article);
+ * console.log(antithesis);
+ * // "While the article emphasizes..."
  */
 export async function generateAntithesis(article: { content?: string }): Promise<string> {
-	const content = article.content?.slice(0, 2000) ?? "";
-	if (!content) return "";
+	const { content } = article ?? "";
+	if (!content || content.trim().length === 0) {
+		console.warn("Tokenizer skipped: empty input");
+		return "";
+	}
+
+	const tokenizer = await getTokenizer();
+	const tokens = tokenizer.encode(content);
+	if (tokens.length === 0) {
+		console.warn("Tokenizer produced empty token array. Using fallback.");
+		return "";
+	}
+	const truncatedTokens = tokens.slice(0, 512);
+	const inputText = tokenizer.decode(truncatedTokens);
 
 	const summarizer = await getPipeline("summarization", "distilbart-cnn");
+	const result = await summarizer(inputText, { max_length: 120 });
 
-	const result = await summarizer(content, { max_length: 120 });
-	return `Opposing viewpoint: ${result[0].summary_text}`;
+	console.log(
+		`Generating antithesis for ${tokens.length} tokens (truncated to ${truncatedTokens.length})`,
+	);
+
+	return result[0].summary_text;
 }
 
 /**
@@ -74,40 +109,61 @@ export async function generateAntithesis(article: { content?: string }): Promise
  *
  * Uses a summarization model to create a compressed representation of the
  * article’s emotional or conceptual tone, then reframes it as a
- * philosophical insight. This is an approximation until a dedicated model,
- * rhetorical classifier, or LLM-powered interpretive layer is added.
+ * philosophical insight.
  *
- * Model used:
- *   - Task: `"summarization"`
- *   - Model Key: `"distilbart-cnn"`
+ * This is an approximation until a dedicated model, rhetorical classifier,
+ * or LLM-powered interpretive layer is added.
  *
  * ## Processing Logic
- * 1. Analyze the first **2000 characters** of the article.
- * 2. Summarize into a condensed conceptual core (max 80 tokens).
- * 3. Prefix with `"Philosophical framing: "` to produce a reflective insight.
+ * 1. Tokenize input using GPT-2 tokenizer.
+ * 2. Truncate to 512 tokens.
+ * 3. Decode tokens and pass to BART summarizer.
+ * 4. Prefix output with `"Philosophical framing: "`.
  *
  * ## Returns
  * A short reflective or thematic interpretation, e.g.:
  * ```ts
- * Philosophical framing: The narrative reflects a broader tension
+ * The narrative reflects a broader tension
  * between technological progress and collective responsibility...
  * ```
  *
- * ## Future Enhancements
- * - Embedding-based theme extraction
- * - Symbolic/rhetorical device detection
- * - LLM-driven metaphysical/ethical framing
- *
  * @param article - Partial article containing optional raw content.
  * @returns A short interpretive/philosophical summary string.
+ *
+ * @example
+ * const insight = await generatePhilosophicalInsight(article);
+ * console.log(insight);
  */
 export async function generatePhilosophicalInsight(article: { content?: string }): Promise<string> {
-	const content = article.content?.slice(0, 2000) ?? "";
-	if (!content) return "";
+	const { content } = article ?? "";
+	if (!content || content.trim().length === 0) {
+		console.warn("Tokenizer skipped: empty input");
+		return "";
+	}
+
+	const TOKEN_LIMIT = 512;
+
+	const tokenizer = await getTokenizer();
+	const tokens = tokenizer.encode(content);
+	if (tokens.length === 0) {
+		console.warn("Tokenizer produced empty token array. Using fallback.");
+		return "";
+	}
+
+	const truncatedTokens = tokens.slice(0, TOKEN_LIMIT);
+	if (!truncatedTokens.length) {
+		console.warn("Tokenizer truncated to zero tokens, skipping summarization.");
+		return "";
+	}
+
+	const inputText = tokenizer.decode(truncatedTokens);
 
 	const summarizer = await getPipeline("summarization", "distilbart-cnn");
+	const result = await summarizer(inputText, { max_length: 80 });
 
-	const result = await summarizer(content, { max_length: 80 });
+	console.log(
+		`Generating philosophical insight for ${tokens.length} tokens (truncated to ${truncatedTokens.length})`,
+	);
 
-	return `Philosophical framing: ${result[0].summary_text}`;
+	return result[0].summary_text;
 }

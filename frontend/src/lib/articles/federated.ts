@@ -1,68 +1,79 @@
-// frontend/src/lib/articles/federated.ts
-import { dagCbor } from "@helia/dag-cbor";
-import type { Helia } from "helia";
-import { CID } from "multiformats/cid";
-import type { FederatedArticlePointer } from "@/types";
-import { log } from "../log";
-
-export interface FederatedDB {
-	federatedArticlesDB: any; // pass the OrbitDB store here
-	helia: Helia; // Helia IPFS instance
-}
+import { type ArticleFederated, ArticleFederatedSchema } from "@/types";
+import {
+	DeleteFederatedArticle,
+	FetchFederatedArticles,
+	SaveFederatedArticle,
+} from "../../../wailsjs/go/main/App";
 
 /**
- * Fetch all federated articles from OrbitDB
+ * Load all federated articles from the backend (Wails Go binding)
+ *
+ * @returns Array of validated ArticleFederated objects
  */
-export const fetchFederatedArticles = async (
-	db: FederatedDB,
-): Promise<FederatedArticlePointer[]> => {
-	if (!db.federatedArticlesDB) {
-		log("⚠️ Federated DB not initialized");
-		return [];
-	}
-
+export const loadFederatedArticles = async (): Promise<ArticleFederated[]> => {
 	try {
-		const all = await db.federatedArticlesDB.query(() => true);
-		return all as FederatedArticlePointer[];
+		const result = await FetchFederatedArticles();
+		if (!result) return [];
+
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(result);
+		} catch {
+			console.warn("FetchFederatedArticles returned invalid JSON:", result);
+			return [];
+		}
+
+		const validArticles = (Array.isArray(parsed) ? parsed : [])
+			.map((a: unknown) => {
+				try {
+					const article = ArticleFederatedSchema.parse(a);
+					return { ...article, cid: article.cid ?? crypto.randomUUID() };
+				} catch {
+					return null;
+				}
+			})
+			.filter(Boolean) as ArticleFederated[];
+
+		return validArticles;
 	} catch (err) {
-		log(`Error fetching federated articles: ${err}`);
+		console.error("Failed to load federated articles:", err);
 		return [];
 	}
 };
 
 /**
- * Fetch a single federated article by CID
+ * Save a single federated article to the backend via Wails
+ *
+ * @param article - Partial federated article object
+ * @returns true if successful
  */
-export const fetchFederatedArticleByCID = async (
-	db: FederatedDB,
-	cid: string,
-): Promise<FederatedArticlePointer | null> => {
-	const articles = await fetchFederatedArticles(db);
-	return articles.find((a) => a.cid === cid) ?? null;
+export const saveFederated = async (article: Partial<ArticleFederated>): Promise<boolean> => {
+	try {
+		const validArticle = ArticleFederatedSchema.parse({
+			...article,
+			cid: article.cid ?? crypto.randomUUID(),
+		});
+
+		await SaveFederatedArticle(validArticle);
+		return true;
+	} catch (err) {
+		console.error("Failed to save federated article:", err);
+		return false;
+	}
 };
 
 /**
- * Fetch full article content via IPFS DAG-CBOR
+ * Delete a federated article by CID via Wails
+ *
+ * @param cid - CID of the article to delete
+ * @returns true if successful
  */
-export const fetchFederatedArticleContent = async (
-	db: FederatedDB,
-	cid: string | CID, // allow either a string or a CID object
-): Promise<any> => {
-	if (!db.helia) {
-		log("⚠️ Helia IPFS instance not initialized");
-		return null;
-	}
-
+export const deleteFederated = async (cid: string): Promise<boolean> => {
 	try {
-		const dag = dagCbor(db.helia);
-
-		// convert string to CID if necessary
-		const cidObj: CID = typeof cid === "string" ? CID.parse(cid) : cid;
-
-		const result = await dag.get(cidObj);
-		return result;
+		await DeleteFederatedArticle(cid);
+		return true;
 	} catch (err) {
-		log(`Error fetching content for CID ${cid}: ${err}`);
-		return null;
+		console.error("Failed to delete federated article:", err);
+		return false;
 	}
 };
